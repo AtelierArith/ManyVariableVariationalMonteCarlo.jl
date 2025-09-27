@@ -16,6 +16,16 @@ using Random
 using StableRNGs
 
 """
+    _pbc_distance(i::Int, j::Int, n::Int)
+
+Compute the periodic (minimum image) distance on a 1D ring of length `n`.
+"""
+@inline function _pbc_distance(i::Int, j::Int, n::Int)
+    d = abs(i - j)
+    return min(d, n - d)
+end
+
+"""
     UpdateType
 
 Enumeration of different Monte Carlo update types.
@@ -116,12 +126,12 @@ function propose_single_electron_move(
     ele_idx_selected = rand(rng, 1:length(ele_idx))
     current_site = ele_idx[ele_idx_selected]
 
-    # Find candidate sites within hopping distance
+    # Find candidate sites within hopping distance (with periodic boundary conditions)
     n_candidates = 0
     for site = 1:update.n_site
         if site != current_site && ele_cfg[site] == 0
-            # Check hopping distance (simplified for 1D)
-            if abs(site - current_site) <= update.max_hop_distance
+            # Check hopping distance on 1D ring (PBC)
+            if _pbc_distance(site, current_site, update.n_site) <= update.max_hop_distance
                 n_candidates += 1
                 update.candidate_sites[n_candidates] = site
             end
@@ -221,14 +231,14 @@ function propose_two_electron_move(
 
     current_sites = [ele_idx[ele_indices[1]], ele_idx[ele_indices[2]]]
 
-    # Find candidate sites for both electrons
+    # Find candidate sites for both electrons (with periodic boundary conditions)
     n_candidates = 0
     for site1 = 1:update.n_site
         for site2 = 1:update.n_site
             if site1 != site2 && ele_cfg[site1] == 0 && ele_cfg[site2] == 0
-                # Check hopping distances
-                if abs(site1 - current_sites[1]) <= update.max_hop_distance &&
-                   abs(site2 - current_sites[2]) <= update.max_hop_distance
+                # Check hopping distances on 1D ring (PBC)
+                if _pbc_distance(site1, current_sites[1], update.n_site) <= update.max_hop_distance &&
+                   _pbc_distance(site2, current_sites[2], update.n_site) <= update.max_hop_distance
                     n_candidates += 1
                     update.candidate_pairs[n_candidates] = (site1, site2)
                 end
@@ -326,14 +336,14 @@ function propose_exchange_hopping(
 
     current_sites = [ele_idx[ele_indices[1]], ele_idx[ele_indices[2]]]
 
-    # Find candidate exchange sites
+    # Find candidate exchange sites (with periodic boundary conditions)
     n_candidates = 0
     for site1 = 1:update.n_site
         for site2 = 1:update.n_site
             if site1 != site2 && ele_cfg[site1] == 0 && ele_cfg[site2] == 0
-                # Check hopping distances
-                if abs(site1 - current_sites[1]) <= update.max_hop_distance &&
-                   abs(site2 - current_sites[2]) <= update.max_hop_distance
+                # Check hopping distances on 1D ring (PBC)
+                if _pbc_distance(site1, current_sites[1], update.n_site) <= update.max_hop_distance &&
+                   _pbc_distance(site2, current_sites[2], update.n_site) <= update.max_hop_distance
                     n_candidates += 1
                     update.candidate_exchanges[n_candidates] = (site1, site2)
                 end

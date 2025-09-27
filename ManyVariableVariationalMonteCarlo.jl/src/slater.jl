@@ -79,6 +79,31 @@ mutable struct SlaterDeterminant{T<:Union{Float64,ComplexF64}}
             pivot_indices,
         )
     end
+
+    # Convenience constructor to build from an existing SlaterMatrix
+    function SlaterDeterminant{T}(
+        slater_matrix::SlaterMatrix{T},
+    ) where {T<:Union{Float64,ComplexF64}}
+        n_elec = slater_matrix.n_elec
+        n_orb = slater_matrix.n_orb
+        inverse_matrix = zeros(T, n_elec, n_elec)
+        orbital_indices = zeros(Int, n_elec)
+        orbital_signs = ones(Int, n_elec)
+        workspace = Vector{T}(undef, max(n_elec, n_orb))
+        pivot_indices = zeros(Int, n_elec)
+
+        new{T}(
+            slater_matrix,
+            inverse_matrix,
+            orbital_indices,
+            orbital_signs,
+            0,
+            -1,
+            -1,
+            workspace,
+            pivot_indices,
+        )
+    end
 end
 
 """
@@ -689,6 +714,19 @@ function compute_determinant!(slater::FrozenSpinSlaterDeterminant{T}) where {T}
 end
 
 """
+    compute_inverse!(slater::FrozenSpinSlaterDeterminant{T})
+
+Compute inverse of frozen-spin Slater matrix by delegating to base implementation.
+"""
+function compute_inverse!(slater::FrozenSpinSlaterDeterminant{T}) where {T}
+    # Use a temporary base SlaterDeterminant sharing the same SlaterMatrix
+    base = SlaterDeterminant{T}(slater.slater_matrix)
+    compute_inverse!(base)
+    # Copy computed inverse into frozen-spin container
+    slater.inverse_matrix .= base.inverse_matrix
+end
+
+"""
     update_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int, new_value::T)
 
 Update frozen-spin Slater determinant after single electron move.
@@ -719,6 +757,41 @@ function _is_move_allowed(
 end
 
 # Backflow corrections
+
+"""
+    is_valid(slater::FrozenSpinSlaterDeterminant{T})
+
+Check if frozen-spin Slater determinant is in valid state.
+"""
+function is_valid(slater::FrozenSpinSlaterDeterminant{T}) where {T}
+    return slater.slater_matrix.is_valid
+end
+
+"""
+    update_slater!(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int, new_value::T)
+
+Delegate single-electron update to base SlaterDeterminant while sharing state.
+"""
+function update_slater!(
+    slater::FrozenSpinSlaterDeterminant{T},
+    row::Int,
+    col::Int,
+    new_value::T,
+) where {T}
+    # Build a base SlaterDeterminant that shares the same SlaterMatrix and inverse
+    base = SlaterDeterminant{T}(slater.slater_matrix)
+    base.inverse_matrix .= slater.inverse_matrix
+
+    ratio = update_slater!(base, row, col, new_value)
+
+    # Propagate updated inverse and tracking info back
+    slater.inverse_matrix .= base.inverse_matrix
+    slater.update_count = base.update_count
+    slater.last_update_row = base.last_update_row
+    slater.last_update_col = base.last_update_col
+
+    return ratio
+end
 
 """
     BackflowCorrection{T}

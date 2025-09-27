@@ -289,6 +289,7 @@
         # Check that probabilities are approximately correct
         @test single_count > 0
         @test two_count > 0
-        @test_broken exchange_count > 0
+        # Exchange hopping should occur occasionally with PBC-aware updates
+        @test exchange_count > 0
     end
 end # @testitem "updates"
