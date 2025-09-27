@@ -65,6 +65,23 @@ struct SimulationConfig
     nsite_sub::Int
     model::Symbol
     lattice::Symbol
+    # Physical parameters
+    t::Float64
+    u::Float64
+    nelec::Int
+    sz_total::Int
+    # VMC parameters
+    nvmc_sample::Int
+    nsr_opt_itr_step::Int
+    nsr_opt_itr_smp::Int
+    dsr_opt_red_cut::Float64
+    dsr_opt_sta_del::Float64
+    dsr_opt_step_dt::Float64
+    # Lanczos parameters
+    nlanczos_mode::Int
+    nsp_gauss_leg::Int
+    # Calculation mode
+    nvmc_cal_mode::Int
 end
 
 """

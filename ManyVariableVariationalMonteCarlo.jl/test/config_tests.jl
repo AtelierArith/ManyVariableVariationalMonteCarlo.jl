@@ -1,4 +1,5 @@
 @testitem "StdFace.def parsing" begin
+    using Test
     using ManyVariableVariationalMonteCarlo
     repo_root = normpath(joinpath(@__DIR__, "..", ".."))
     package_root = normpath(joinpath(@__DIR__, ".."))
@@ -14,8 +15,8 @@
     @test cfg.model == :FermionHubbard
     @test cfg.lattice == :Tetragonal
 end
-
 @testitem "Green function loader" begin
+    using Test
     using ManyVariableVariationalMonteCarlo
     using Base: Set
     repo_root = normpath(joinpath(@__DIR__, "..", ".."))
@@ -26,8 +27,8 @@ end
     unique_indices = Set(entry.bra for entry in table)
     @test !isempty(unique_indices)
 end
-
 @testitem "Parameter initialisation replicates C heuristics" begin
+    using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     layout = ParameterLayout(3, 2, 4, 2)
@@ -46,4 +47,28 @@ end
         expected_rbm[i] = 0.01 * (rand(rng_replay) - 0.5) / 4
     end
     @test params.rbm == expected_rbm
+end
+@testitem "Definition parsers" begin
+    using Test
+    using ManyVariableVariationalMonteCarlo
+    root = normpath(joinpath(@__DIR__, "..", "..", "mVMC", "test", "python", "data", "UHF_InterAll_Exchange"))
+    namelist = load_namelist(joinpath(root, "namelist_all.def"))
+    @test length(namelist) == 6
+    @test namelist[1].key == :ModPara
+    @test namelist[1].path == "modpara.def"
+    @test namelist[end].key == :TwoBodyG
+    transfers = read_transfer_table(joinpath(root, "trans.def"))
+    @test length(transfers) == 16
+    first_transfer = transfers[1]
+    @test first_transfer.amplitude ≈ 1.0 + 0im
+    coulomb = read_coulomb_intra(joinpath(root, "coulombintra.def"))
+    @test length(coulomb) == 4
+    @test coulomb[1].value ≈ 4.0
+    inter = read_interall_table(joinpath(root, "interall.def"))
+    @test length(inter) == 20
+    @test inter[1].indices == (0, 0, 0, 0, 0, 1, 0, 1)
+    green = read_greenone_indices(joinpath(root, "greenone.def"))
+    @test length(green) == 8
+    @test green[1].bra == (0, 0)
+    @test green[1].ket == (0, 0)
 end
