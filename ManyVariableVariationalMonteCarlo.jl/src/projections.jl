@@ -33,7 +33,7 @@ end
 
 Represents a quantum number projection operator.
 """
-mutable struct ProjectionOperator{T <: Union{Float64, ComplexF64}}
+mutable struct ProjectionOperator{T<:Union{Float64,ComplexF64}}
     projection_type::ProjectionType
     target_value::T
     weight::T
@@ -47,13 +47,26 @@ mutable struct ProjectionOperator{T <: Union{Float64, ComplexF64}}
     discrete_values::Vector{T}
     discrete_weights::Vector{T}
 
-    function ProjectionOperator{T}(proj_type::ProjectionType, target::T, weight::T = one(T)) where T
+    function ProjectionOperator{T}(
+        proj_type::ProjectionType,
+        target::T,
+        weight::T = one(T),
+    ) where {T}
         integration_points = T[]
         integration_weights = T[]
         discrete_values = T[]
         discrete_weights = T[]
 
-        new{T}(proj_type, target, weight, true, integration_points, integration_weights, discrete_values, discrete_weights)
+        new{T}(
+            proj_type,
+            target,
+            weight,
+            true,
+            integration_points,
+            integration_weights,
+            discrete_values,
+            discrete_weights,
+        )
     end
 end
 
@@ -62,7 +75,7 @@ end
 
 Main structure for quantum number projections.
 """
-mutable struct QuantumProjection{T <: Union{Float64, ComplexF64}}
+mutable struct QuantumProjection{T<:Union{Float64,ComplexF64}}
     # Projection operators
     spin_projections::Vector{ProjectionOperator{T}}
     momentum_projections::Vector{ProjectionOperator{T}}
@@ -82,7 +95,7 @@ mutable struct QuantumProjection{T <: Union{Float64, ComplexF64}}
     total_projections::Int
     projection_time::Float64
 
-    function QuantumProjection{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where T
+    function QuantumProjection{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where {T}
         spin_projections = ProjectionOperator{T}[]
         momentum_projections = ProjectionOperator{T}[]
         particle_number_projections = ProjectionOperator{T}[]
@@ -91,8 +104,19 @@ mutable struct QuantumProjection{T <: Union{Float64, ComplexF64}}
         projection_buffer = Vector{T}(undef, max(n_site, n_elec))
         integration_workspace = Vector{T}(undef, 1000)  # For Gauss-Legendre quadrature
 
-        new{T}(spin_projections, momentum_projections, particle_number_projections, parity_projections,
-               n_site, n_elec, n_spin, projection_buffer, integration_workspace, 0, 0.0)
+        new{T}(
+            spin_projections,
+            momentum_projections,
+            particle_number_projections,
+            parity_projections,
+            n_site,
+            n_elec,
+            n_spin,
+            projection_buffer,
+            integration_workspace,
+            0,
+            0.0,
+        )
     end
 end
 
@@ -101,7 +125,11 @@ end
 
 Add a spin projection operator targeting total spin z-component.
 """
-function add_spin_projection!(qp::QuantumProjection{T}, target_sz::T, weight::T = one(T)) where T
+function add_spin_projection!(
+    qp::QuantumProjection{T},
+    target_sz::T,
+    weight::T = one(T),
+) where {T}
     proj = ProjectionOperator{T}(SPIN_PROJECTION, target_sz, weight)
     push!(qp.spin_projections, proj)
     return proj
@@ -112,7 +140,11 @@ end
 
 Add a momentum projection operator targeting specific momentum.
 """
-function add_momentum_projection!(qp::QuantumProjection{T}, target_k::Vector{T}, weight::T = one(T)) where T
+function add_momentum_projection!(
+    qp::QuantumProjection{T},
+    target_k::Vector{T},
+    weight::T = one(T),
+) where {T}
     proj = ProjectionOperator{T}(MOMENTUM_PROJECTION, target_k[1], weight)  # Simplified for 1D
     push!(qp.momentum_projections, proj)
     return proj
@@ -123,7 +155,11 @@ end
 
 Add a particle number projection operator.
 """
-function add_particle_number_projection!(qp::QuantumProjection{T}, target_n::Int, weight::T = one(T)) where T
+function add_particle_number_projection!(
+    qp::QuantumProjection{T},
+    target_n::Int,
+    weight::T = one(T),
+) where {T}
     proj = ProjectionOperator{T}(PARTICLE_NUMBER_PROJECTION, T(target_n), weight)
     push!(qp.particle_number_projections, proj)
     return proj
@@ -134,7 +170,11 @@ end
 
 Add a parity projection operator.
 """
-function add_parity_projection!(qp::QuantumProjection{T}, target_parity::Int, weight::T = one(T)) where T
+function add_parity_projection!(
+    qp::QuantumProjection{T},
+    target_parity::Int,
+    weight::T = one(T),
+) where {T}
     proj = ProjectionOperator{T}(PARITY_PROJECTION, T(target_parity), weight)
     push!(qp.parity_projections, proj)
     return proj
@@ -146,8 +186,12 @@ end
 
 Calculate the projection ratio for given electron configuration.
 """
-function calculate_projection_ratio(qp::QuantumProjection{T}, ele_idx::Vector{Int},
-                                   ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function calculate_projection_ratio(
+    qp::QuantumProjection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     ratio = one(T)
 
@@ -168,7 +212,8 @@ function calculate_projection_ratio(qp::QuantumProjection{T}, ele_idx::Vector{In
     # Particle number projection
     for proj in qp.particle_number_projections
         if proj.is_active
-            ratio *= _calculate_particle_number_projection_ratio(proj, ele_idx, ele_cfg, ele_num)
+            ratio *=
+                _calculate_particle_number_projection_ratio(proj, ele_idx, ele_cfg, ele_num)
         end
     end
 
@@ -189,14 +234,18 @@ end
 
 Calculate spin projection ratio.
 """
-function _calculate_spin_projection_ratio(proj::ProjectionOperator{T}, ele_idx::Vector{Int},
-                                         ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function _calculate_spin_projection_ratio(
+    proj::ProjectionOperator{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     # Calculate current total spin z-component
     current_sz = _calculate_total_sz(ele_idx, ele_cfg, ele_num)
 
     # For discrete projections, return weight if target matches, 0 otherwise
-    if isapprox(current_sz, proj.target_value, atol=1e-10)
+    if isapprox(current_sz, proj.target_value, atol = 1e-10)
         return proj.weight
     else
         return zero(T)
@@ -209,14 +258,18 @@ end
 
 Calculate momentum projection ratio.
 """
-function _calculate_momentum_projection_ratio(proj::ProjectionOperator{T}, ele_idx::Vector{Int},
-                                             ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function _calculate_momentum_projection_ratio(
+    proj::ProjectionOperator{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     # Calculate current total momentum
     current_k = _calculate_total_momentum(ele_idx, ele_cfg, ele_num)
 
     # For discrete projections, return weight if target matches, 0 otherwise
-    if isapprox(current_k, proj.target_value, atol=1e-10)
+    if isapprox(current_k, proj.target_value, atol = 1e-10)
         return proj.weight
     else
         return zero(T)
@@ -229,8 +282,12 @@ end
 
 Calculate particle number projection ratio.
 """
-function _calculate_particle_number_projection_ratio(proj::ProjectionOperator{T}, ele_idx::Vector{Int},
-                                                    ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function _calculate_particle_number_projection_ratio(
+    proj::ProjectionOperator{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     # Calculate current particle number
     current_n = sum(ele_num)
@@ -249,8 +306,12 @@ end
 
 Calculate parity projection ratio.
 """
-function _calculate_parity_projection_ratio(proj::ProjectionOperator{T}, ele_idx::Vector{Int},
-                                           ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function _calculate_parity_projection_ratio(
+    proj::ProjectionOperator{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     # Calculate current parity
     current_parity = _calculate_parity(ele_idx, ele_cfg, ele_num)
@@ -265,14 +326,22 @@ end
 
 # Helper functions for quantum number calculations
 
-function _calculate_total_sz(ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int})
+function _calculate_total_sz(
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+)
     # Simplified calculation of total spin z-component
     # In a real implementation, this would depend on the specific spin configuration
     n_elec = length(ele_idx)
     return (n_elec % 2 == 0) ? 0.0 : 0.5
 end
 
-function _calculate_total_momentum(ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int})
+function _calculate_total_momentum(
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+)
     # Simplified calculation of total momentum
     # In a real implementation, this would depend on the lattice structure and electron positions
     return 0.0
@@ -289,7 +358,7 @@ end
 
 Generate Gauss-Legendre quadrature points and weights for integration over [a, b].
 """
-function gauss_legendre_quadrature(n::Int, a::T, b::T) where T <: Union{Float64, ComplexF64}
+function gauss_legendre_quadrature(n::Int, a::T, b::T) where {T<:Union{Float64,ComplexF64}}
     if n <= 0
         throw(ArgumentError("Number of points must be positive"))
     end
@@ -301,7 +370,7 @@ function gauss_legendre_quadrature(n::Int, a::T, b::T) where T <: Union{Float64,
     points = T[]
     weights = T[]
 
-    for i in 1:n
+    for i = 1:n
         # Linear transformation: x ∈ [-1, 1] → t ∈ [a, b]
         t = (b - a) / 2 * x[i] + (a + b) / 2
         push!(points, T(t))
@@ -325,12 +394,12 @@ function _gauss_legendre_roots_weights(n::Int)
     end
 
     # Initial guess for roots (Chebyshev points)
-    x = [cos(π * (2*i - 1) / (2*n)) for i in 1:n]
+    x = [cos(π * (2 * i - 1) / (2 * n)) for i = 1:n]
 
     # Newton's method to find Legendre polynomial roots
-    for iter in 1:20
+    for iter = 1:20
         converged = true
-        for i in 1:n
+        for i = 1:n
             p, dp = _legendre_polynomial_and_derivative(n, x[i])
             if abs(p) > 1e-12
                 x_new = x[i] - p / dp
@@ -347,7 +416,7 @@ function _gauss_legendre_roots_weights(n::Int)
 
     # Calculate weights
     w = zeros(n)
-    for i in 1:n
+    for i = 1:n
         _, dp = _legendre_polynomial_and_derivative(n, x[i])
         w[i] = 2.0 / ((1 - x[i]^2) * dp^2)
     end
@@ -373,9 +442,9 @@ function _legendre_polynomial_and_derivative(n::Int, x::Float64)
     dp_prev = 0.0
     dp_curr = 1.0
 
-    for k in 1:n-1
-        p_next = ((2*k + 1) * x * p_curr - k * p_prev) / (k + 1)
-        dp_next = ((2*k + 1) * (p_curr + x * dp_curr) - k * dp_prev) / (k + 1)
+    for k = 1:n-1
+        p_next = ((2 * k + 1) * x * p_curr - k * p_prev) / (k + 1)
+        dp_next = ((2 * k + 1) * (p_curr + x * dp_curr) - k * dp_prev) / (k + 1)
 
         p_prev = p_curr
         p_curr = p_next
@@ -392,8 +461,12 @@ end
 
 Setup continuous projection using Gauss-Legendre quadrature.
 """
-function setup_continuous_projection!(proj::ProjectionOperator{T}, n_points::Int,
-                                     a::T, b::T) where T <: Union{Float64, ComplexF64}
+function setup_continuous_projection!(
+    proj::ProjectionOperator{T},
+    n_points::Int,
+    a::T,
+    b::T,
+) where {T<:Union{Float64,ComplexF64}}
 
     points, weights = gauss_legendre_quadrature(n_points, a, b)
 
@@ -409,11 +482,19 @@ end
 
 Calculate projection ratio for continuous projections using numerical integration.
 """
-function calculate_continuous_projection_ratio(proj::ProjectionOperator{T}, ele_idx::Vector{Int},
-                                              ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function calculate_continuous_projection_ratio(
+    proj::ProjectionOperator{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     if isempty(proj.integration_points)
-        throw(ArgumentError("Continuous projection not set up. Call setup_continuous_projection! first."))
+        throw(
+            ArgumentError(
+                "Continuous projection not set up. Call setup_continuous_projection! first.",
+            ),
+        )
     end
 
     integral = zero(T)
@@ -433,8 +514,13 @@ end
 
 Calculate the integrand for continuous projection at a given point.
 """
-function _calculate_projection_integrand(proj::ProjectionOperator{T}, point::T, ele_idx::Vector{Int},
-                                        ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function _calculate_projection_integrand(
+    proj::ProjectionOperator{T},
+    point::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
 
     if proj.projection_type == MOMENTUM_PROJECTION
         # For momentum projection, the integrand is exp(i * k * point)
@@ -451,7 +537,9 @@ end
 Benchmark quantum projection calculations.
 """
 function benchmark_projections(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int = 1000)
-    println("Benchmarking quantum projections (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...")
+    println(
+        "Benchmarking quantum projections (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...",
+    )
 
     # Create projection calculator
     qp = QuantumProjection{ComplexF64}(n_site, n_elec)
@@ -469,7 +557,7 @@ function benchmark_projections(n_site::Int = 10, n_elec::Int = 5, n_iterations::
 
     # Benchmark projection calculations
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             calculate_projection_ratio(qp, ele_idx, ele_cfg, ele_num)
         end
     end
@@ -477,7 +565,7 @@ function benchmark_projections(n_site::Int = 10, n_elec::Int = 5, n_iterations::
 
     # Benchmark Gauss-Legendre quadrature
     @time begin
-        for _ in 1:n_iterations÷10
+        for _ = 1:n_iterations÷10
             gauss_legendre_quadrature(10, -1.0, 1.0)
         end
     end
@@ -494,13 +582,17 @@ end
 
 Represents a symmetry operation for quantum projections.
 """
-mutable struct SymmetryOperation{T <: Union{Float64, ComplexF64}}
+mutable struct SymmetryOperation{T<:Union{Float64,ComplexF64}}
     operation_type::String
     transformation_matrix::Matrix{T}
     phase_factor::T
     is_active::Bool
 
-    function SymmetryOperation{T}(op_type::String, matrix::Matrix{T}, phase::T = one(T)) where T
+    function SymmetryOperation{T}(
+        op_type::String,
+        matrix::Matrix{T},
+        phase::T = one(T),
+    ) where {T}
         new{T}(op_type, matrix, phase, true)
     end
 end
@@ -510,7 +602,7 @@ end
 
 Point group projection with symmetry operations.
 """
-mutable struct PointGroupProjection{T <: Union{Float64, ComplexF64}}
+mutable struct PointGroupProjection{T<:Union{Float64,ComplexF64}}
     # Symmetry operations
     symmetry_operations::Vector{SymmetryOperation{T}}
 
@@ -522,7 +614,7 @@ mutable struct PointGroupProjection{T <: Union{Float64, ComplexF64}}
     symmetry_buffer::Vector{T}
     transformation_buffer::Matrix{T}
 
-    function PointGroupProjection{T}(n_site::Int, n_elec::Int) where T
+    function PointGroupProjection{T}(n_site::Int, n_elec::Int) where {T}
         symmetry_operations = SymmetryOperation{T}[]
         symmetry_buffer = Vector{T}(undef, n_site)
         transformation_buffer = Matrix{T}(undef, n_site, n_site)
@@ -537,8 +629,12 @@ end
 
 Add a symmetry operation to the point group projection.
 """
-function add_symmetry_operation!(pgp::PointGroupProjection{T}, op_type::String,
-                                matrix::Matrix{T}, phase::T = one(T)) where T
+function add_symmetry_operation!(
+    pgp::PointGroupProjection{T},
+    op_type::String,
+    matrix::Matrix{T},
+    phase::T = one(T),
+) where {T}
     if size(matrix) != (pgp.n_site, pgp.n_site)
         throw(ArgumentError("Matrix size mismatch"))
     end
@@ -554,8 +650,12 @@ end
 
 Calculate point group projection ratio.
 """
-function calculate_point_group_ratio(pgp::PointGroupProjection{T}, ele_idx::Vector{Int},
-                                    ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function calculate_point_group_ratio(
+    pgp::PointGroupProjection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     total_ratio = zero(T)
 
     for op in pgp.symmetry_operations
@@ -574,8 +674,12 @@ function calculate_point_group_ratio(pgp::PointGroupProjection{T}, ele_idx::Vect
     return total_ratio
 end
 
-function _calculate_symmetry_operation_ratio(op::SymmetryOperation{T}, ele_idx::Vector{Int},
-                                            ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_symmetry_operation_ratio(
+    op::SymmetryOperation{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     # Apply symmetry transformation to electron configuration
     transformed_cfg = _apply_symmetry_transformation(op, ele_cfg)
 
@@ -585,12 +689,15 @@ function _calculate_symmetry_operation_ratio(op::SymmetryOperation{T}, ele_idx::
     return overlap
 end
 
-function _apply_symmetry_transformation(op::SymmetryOperation{T}, ele_cfg::Vector{Int}) where T
+function _apply_symmetry_transformation(
+    op::SymmetryOperation{T},
+    ele_cfg::Vector{Int},
+) where {T}
     n_site = length(ele_cfg)
     transformed_cfg = zeros(Int, n_site)
 
-    for i in 1:n_site
-        for j in 1:n_site
+    for i = 1:n_site
+        for j = 1:n_site
             if abs(op.transformation_matrix[i, j]) > 1e-10
                 transformed_cfg[i] += ele_cfg[j]
             end
@@ -607,7 +714,7 @@ function _calculate_configuration_overlap(cfg1::Vector{Int}, cfg2::Vector{Int})
 
     # Simple overlap calculation
     overlap = 1.0
-    for i in 1:length(cfg1)
+    for i = 1:length(cfg1)
         if cfg1[i] != cfg2[i]
             overlap = 0.0
             break
@@ -624,7 +731,7 @@ end
 
 Time reversal projection for quantum systems.
 """
-mutable struct TimeReversalProjection{T <: Union{Float64, ComplexF64}}
+mutable struct TimeReversalProjection{T<:Union{Float64,ComplexF64}}
     # Time reversal parameters
     time_reversal_phase::T
     is_active::Bool
@@ -633,7 +740,11 @@ mutable struct TimeReversalProjection{T <: Union{Float64, ComplexF64}}
     n_site::Int
     n_elec::Int
 
-    function TimeReversalProjection{T}(n_site::Int, n_elec::Int, phase::T = one(T)) where T
+    function TimeReversalProjection{T}(
+        n_site::Int,
+        n_elec::Int,
+        phase::T = one(T),
+    ) where {T}
         new{T}(phase, true, n_site, n_elec)
     end
 end
@@ -644,8 +755,12 @@ end
 
 Calculate time reversal projection ratio.
 """
-function calculate_time_reversal_ratio(trp::TimeReversalProjection{T}, ele_idx::Vector{Int},
-                                      ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function calculate_time_reversal_ratio(
+    trp::TimeReversalProjection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     if !trp.is_active
         return one(T)
     end
@@ -664,7 +779,7 @@ end
 
 Particle-hole projection for quantum systems.
 """
-mutable struct ParticleHoleProjection{T <: Union{Float64, ComplexF64}}
+mutable struct ParticleHoleProjection{T<:Union{Float64,ComplexF64}}
     # Particle-hole parameters
     particle_hole_phase::T
     is_active::Bool
@@ -673,7 +788,11 @@ mutable struct ParticleHoleProjection{T <: Union{Float64, ComplexF64}}
     n_site::Int
     n_elec::Int
 
-    function ParticleHoleProjection{T}(n_site::Int, n_elec::Int, phase::T = one(T)) where T
+    function ParticleHoleProjection{T}(
+        n_site::Int,
+        n_elec::Int,
+        phase::T = one(T),
+    ) where {T}
         new{T}(phase, true, n_site, n_elec)
     end
 end
@@ -684,8 +803,12 @@ end
 
 Calculate particle-hole projection ratio.
 """
-function calculate_particle_hole_ratio(php::ParticleHoleProjection{T}, ele_idx::Vector{Int},
-                                      ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function calculate_particle_hole_ratio(
+    php::ParticleHoleProjection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     if !php.is_active
         return one(T)
     end
@@ -705,7 +828,7 @@ end
 
 Advanced quantum projection with all projection types and symmetry operations.
 """
-mutable struct AdvancedQuantumProjection{T <: Union{Float64, ComplexF64}}
+mutable struct AdvancedQuantumProjection{T<:Union{Float64,ComplexF64}}
     # Basic projections
     spin_projections::Vector{ProjectionOperator{T}}
     momentum_projections::Vector{ProjectionOperator{T}}
@@ -730,7 +853,11 @@ mutable struct AdvancedQuantumProjection{T <: Union{Float64, ComplexF64}}
     total_projections::Int
     projection_time::Float64
 
-    function AdvancedQuantumProjection{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where T
+    function AdvancedQuantumProjection{T}(
+        n_site::Int,
+        n_elec::Int,
+        n_spin::Int = 2,
+    ) where {T}
         spin_projections = ProjectionOperator{T}[]
         momentum_projections = ProjectionOperator{T}[]
         particle_number_projections = ProjectionOperator{T}[]
@@ -743,9 +870,22 @@ mutable struct AdvancedQuantumProjection{T <: Union{Float64, ComplexF64}}
         projection_buffer = Vector{T}(undef, max(n_site, n_elec))
         integration_workspace = Vector{T}(undef, 1000)
 
-        new{T}(spin_projections, momentum_projections, particle_number_projections, parity_projections,
-               point_group_projection, time_reversal_projection, particle_hole_projection,
-               n_site, n_elec, n_spin, projection_buffer, integration_workspace, 0, 0.0)
+        new{T}(
+            spin_projections,
+            momentum_projections,
+            particle_number_projections,
+            parity_projections,
+            point_group_projection,
+            time_reversal_projection,
+            particle_hole_projection,
+            n_site,
+            n_elec,
+            n_spin,
+            projection_buffer,
+            integration_workspace,
+            0,
+            0.0,
+        )
     end
 end
 
@@ -755,8 +895,12 @@ end
 
 Calculate advanced projection ratio including all projection types.
 """
-function calculate_advanced_projection_ratio(aqp::AdvancedQuantumProjection{T}, ele_idx::Vector{Int},
-                                           ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function calculate_advanced_projection_ratio(
+    aqp::AdvancedQuantumProjection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     ratio = one(T)
 
     # Basic projections
@@ -774,7 +918,8 @@ function calculate_advanced_projection_ratio(aqp::AdvancedQuantumProjection{T}, 
 
     for proj in aqp.particle_number_projections
         if proj.is_active
-            ratio *= _calculate_particle_number_projection_ratio(proj, ele_idx, ele_cfg, ele_num)
+            ratio *=
+                _calculate_particle_number_projection_ratio(proj, ele_idx, ele_cfg, ele_num)
         end
     end
 
@@ -785,9 +930,20 @@ function calculate_advanced_projection_ratio(aqp::AdvancedQuantumProjection{T}, 
     end
 
     # Advanced projections
-    ratio *= calculate_point_group_ratio(aqp.point_group_projection, ele_idx, ele_cfg, ele_num)
-    ratio *= calculate_time_reversal_ratio(aqp.time_reversal_projection, ele_idx, ele_cfg, ele_num)
-    ratio *= calculate_particle_hole_ratio(aqp.particle_hole_projection, ele_idx, ele_cfg, ele_num)
+    ratio *=
+        calculate_point_group_ratio(aqp.point_group_projection, ele_idx, ele_cfg, ele_num)
+    ratio *= calculate_time_reversal_ratio(
+        aqp.time_reversal_projection,
+        ele_idx,
+        ele_cfg,
+        ele_num,
+    )
+    ratio *= calculate_particle_hole_ratio(
+        aqp.particle_hole_projection,
+        ele_idx,
+        ele_cfg,
+        ele_num,
+    )
 
     aqp.total_projections += 1
     return ratio
@@ -798,7 +954,7 @@ end
 
 Setup cubic symmetry operations for the point group projection.
 """
-function setup_cubic_symmetry!(aqp::AdvancedQuantumProjection{T}) where T
+function setup_cubic_symmetry!(aqp::AdvancedQuantumProjection{T}) where {T}
     n_site = aqp.n_site
 
     # Identity operation
@@ -823,7 +979,12 @@ function setup_cubic_symmetry!(aqp::AdvancedQuantumProjection{T}) where T
         reflection_matrix[2, 4] = one(T)
         reflection_matrix[3, 3] = one(T)
         reflection_matrix[4, 2] = one(T)
-        add_symmetry_operation!(aqp.point_group_projection, "Reflection_x", reflection_matrix, one(T))
+        add_symmetry_operation!(
+            aqp.point_group_projection,
+            "Reflection_x",
+            reflection_matrix,
+            one(T),
+        )
     end
 end
 
@@ -832,8 +993,14 @@ end
 
 Benchmark advanced quantum projection calculations.
 """
-function benchmark_advanced_projections(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int = 1000)
-    println("Benchmarking advanced quantum projections (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...")
+function benchmark_advanced_projections(
+    n_site::Int = 10,
+    n_elec::Int = 5,
+    n_iterations::Int = 1000,
+)
+    println(
+        "Benchmarking advanced quantum projections (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...",
+    )
 
     # Create advanced projection calculator
     aqp = AdvancedQuantumProjection{ComplexF64}(n_site, n_elec)
@@ -854,7 +1021,7 @@ function benchmark_advanced_projections(n_site::Int = 10, n_elec::Int = 5, n_ite
 
     # Benchmark advanced projection calculations
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             calculate_advanced_projection_ratio(aqp, ele_idx, ele_cfg, ele_num)
         end
     end
@@ -862,8 +1029,13 @@ function benchmark_advanced_projections(n_site::Int = 10, n_elec::Int = 5, n_ite
 
     # Benchmark point group projections
     @time begin
-        for _ in 1:n_iterations
-            calculate_point_group_ratio(aqp.point_group_projection, ele_idx, ele_cfg, ele_num)
+        for _ = 1:n_iterations
+            calculate_point_group_ratio(
+                aqp.point_group_projection,
+                ele_idx,
+                ele_cfg,
+                ele_num,
+            )
         end
     end
     println("  Point group projection calculation rate")

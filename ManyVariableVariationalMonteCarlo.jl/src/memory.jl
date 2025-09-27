@@ -18,7 +18,7 @@ mutable struct Workspace{T}
     size::Int
     position::Int
 
-    function Workspace{T}(initial_size::Int = 1024) where T
+    function Workspace{T}(initial_size::Int = 1024) where {T}
         new{T}(Vector{T}(undef, initial_size), initial_size, 0)
     end
 end
@@ -35,9 +35,9 @@ struct WorkspaceManager
     lock::ReentrantLock
 
     function WorkspaceManager(n_threads::Int = Threads.nthreads())
-        int_ws = [Workspace{Int}() for _ in 1:n_threads]
-        double_ws = [Workspace{Float64}() for _ in 1:n_threads]
-        complex_ws = [Workspace{ComplexF64}() for _ in 1:n_threads]
+        int_ws = [Workspace{Int}() for _ = 1:n_threads]
+        double_ws = [Workspace{Float64}() for _ = 1:n_threads]
+        complex_ws = [Workspace{ComplexF64}() for _ = 1:n_threads]
         new(int_ws, double_ws, complex_ws, ReentrantLock())
     end
 end
@@ -50,7 +50,7 @@ const GLOBAL_WORKSPACE = WorkspaceManager()
 Allocate workspace memory of specified size, expanding if necessary.
 Returns a view into the workspace data.
 """
-function allocate_workspace!(ws::Workspace{T}, size::Int) where T
+function allocate_workspace!(ws::Workspace{T}, size::Int) where {T}
     if ws.position + size > ws.size
         # Expand workspace by factor of 2 or required size, whichever is larger
         new_size = max(ws.size * 2, ws.position + size)
@@ -60,7 +60,7 @@ function allocate_workspace!(ws::Workspace{T}, size::Int) where T
 
     start_pos = ws.position + 1
     ws.position += size
-    return view(ws.data, start_pos:(start_pos + size - 1))
+    return view(ws.data, start_pos:(start_pos+size-1))
 end
 
 """
@@ -148,17 +148,39 @@ struct MemoryLayout
     nrbm_hidden::Int
     nrbm_visible::Int
 
-    function MemoryLayout(; nsite::Int, ne::Int,
-                         ntransfer::Int = 0, ncoulomb_intra::Int = 0,
-                         ncoulomb_inter::Int = 0, nhund_coupling::Int = 0,
-                         npair_hopping::Int = 0, nexchange_coupling::Int = 0,
-                         ngutzwiller::Int = nsite, njastrow::Int = nsite,
-                         ndoublon_holon_2site::Int = 0, ndoublon_holon_4site::Int = 0,
-                         nrbm_hidden::Int = 0, nrbm_visible::Int = 0)
-        new(nsite, ne, 2*ne, ntransfer, ncoulomb_intra, ncoulomb_inter,
-            nhund_coupling, npair_hopping, nexchange_coupling,
-            ngutzwiller, njastrow, ndoublon_holon_2site, ndoublon_holon_4site,
-            nrbm_hidden, nrbm_visible)
+    function MemoryLayout(;
+        nsite::Int,
+        ne::Int,
+        ntransfer::Int = 0,
+        ncoulomb_intra::Int = 0,
+        ncoulomb_inter::Int = 0,
+        nhund_coupling::Int = 0,
+        npair_hopping::Int = 0,
+        nexchange_coupling::Int = 0,
+        ngutzwiller::Int = nsite,
+        njastrow::Int = nsite,
+        ndoublon_holon_2site::Int = 0,
+        ndoublon_holon_4site::Int = 0,
+        nrbm_hidden::Int = 0,
+        nrbm_visible::Int = 0,
+    )
+        new(
+            nsite,
+            ne,
+            2 * ne,
+            ntransfer,
+            ncoulomb_intra,
+            ncoulomb_inter,
+            nhund_coupling,
+            npair_hopping,
+            nexchange_coupling,
+            ngutzwiller,
+            njastrow,
+            ndoublon_holon_2site,
+            ndoublon_holon_4site,
+            nrbm_hidden,
+            nrbm_visible,
+        )
     end
 end
 
@@ -198,10 +220,12 @@ function allocate_global_arrays(layout::MemoryLayout)
     jastrow_indices = Matrix{Int}(undef, layout.njastrow, layout.nsite)
     jastrow_params = Matrix{ComplexF64}(undef, layout.njastrow, layout.nsite)
 
-    doublon_holon_2site_indices = Matrix{Int}(undef, layout.ndoublon_holon_2site, 2*layout.nsite)
+    doublon_holon_2site_indices =
+        Matrix{Int}(undef, layout.ndoublon_holon_2site, 2 * layout.nsite)
     doublon_holon_2site_params = Vector{ComplexF64}(undef, layout.ndoublon_holon_2site)
 
-    doublon_holon_4site_indices = Matrix{Int}(undef, layout.ndoublon_holon_4site, 4*layout.nsite)
+    doublon_holon_4site_indices =
+        Matrix{Int}(undef, layout.ndoublon_holon_4site, 4 * layout.nsite)
     doublon_holon_4site_params = Vector{ComplexF64}(undef, layout.ndoublon_holon_4site)
 
     # RBM arrays
@@ -233,7 +257,7 @@ function allocate_global_arrays(layout::MemoryLayout)
         doublon_holon_4site_params = doublon_holon_4site_params,
         rbm_hidden_weights = rbm_hidden_weights,
         rbm_visible_bias = rbm_visible_bias,
-        rbm_hidden_bias = rbm_hidden_bias
+        rbm_hidden_bias = rbm_hidden_bias,
     )
 end
 
@@ -264,8 +288,10 @@ function memory_summary(layout::MemoryLayout)
     # Variational parameter arrays
     total_bytes += layout.ngutzwiller * (int_bytes + complex_bytes)
     total_bytes += layout.njastrow * layout.nsite * (int_bytes + complex_bytes)
-    total_bytes += layout.ndoublon_holon_2site * (2 * layout.nsite * int_bytes + complex_bytes)
-    total_bytes += layout.ndoublon_holon_4site * (4 * layout.nsite * int_bytes + complex_bytes)
+    total_bytes +=
+        layout.ndoublon_holon_2site * (2 * layout.nsite * int_bytes + complex_bytes)
+    total_bytes +=
+        layout.ndoublon_holon_4site * (4 * layout.nsite * int_bytes + complex_bytes)
 
     # RBM arrays
     total_bytes += layout.nrbm_hidden * layout.nrbm_visible * complex_bytes  # weights

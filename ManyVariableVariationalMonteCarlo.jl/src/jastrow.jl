@@ -33,16 +33,19 @@ end
 
 Represents a single Jastrow parameter with metadata.
 """
-mutable struct JastrowParameter{T <: Union{Float64, ComplexF64}}
+mutable struct JastrowParameter{T<:Union{Float64,ComplexF64}}
     value::T
     is_active::Bool
     parameter_type::JastrowType
     site_indices::Vector{Int}
     spin_indices::Vector{Int}
 
-    function JastrowParameter{T}(value::T, param_type::JastrowType,
-                                site_indices::Vector{Int} = Int[],
-                                spin_indices::Vector{Int} = Int[]) where T
+    function JastrowParameter{T}(
+        value::T,
+        param_type::JastrowType,
+        site_indices::Vector{Int} = Int[],
+        spin_indices::Vector{Int} = Int[],
+    ) where {T}
         new{T}(value, true, param_type, site_indices, spin_indices)
     end
 end
@@ -52,7 +55,7 @@ end
 
 Main structure for Jastrow correlation factors.
 """
-mutable struct JastrowFactor{T <: Union{Float64, ComplexF64}}
+mutable struct JastrowFactor{T<:Union{Float64,ComplexF64}}
     # Parameters
     gutzwiller_params::Vector{JastrowParameter{T}}
     density_density_params::Vector{JastrowParameter{T}}
@@ -73,7 +76,7 @@ mutable struct JastrowFactor{T <: Union{Float64, ComplexF64}}
     total_evaluations::Int
     evaluation_time::Float64
 
-    function JastrowFactor{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where T
+    function JastrowFactor{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where {T}
         gutzwiller_params = JastrowParameter{T}[]
         density_density_params = JastrowParameter{T}[]
         spin_spin_params = JastrowParameter{T}[]
@@ -83,8 +86,20 @@ mutable struct JastrowFactor{T <: Union{Float64, ComplexF64}}
         update_buffer = Vector{T}(undef, n_site)
         gradient_buffer = Vector{T}(undef, n_site * n_site)
 
-        new{T}(gutzwiller_params, density_density_params, spin_spin_params, three_body_params,
-               n_site, n_elec, n_spin, correlation_buffer, update_buffer, gradient_buffer, 0, 0.0)
+        new{T}(
+            gutzwiller_params,
+            density_density_params,
+            spin_spin_params,
+            three_body_params,
+            n_site,
+            n_elec,
+            n_spin,
+            correlation_buffer,
+            update_buffer,
+            gradient_buffer,
+            0,
+            0.0,
+        )
     end
 end
 
@@ -93,7 +108,7 @@ end
 
 Add a Gutzwiller parameter for a specific site.
 """
-function add_gutzwiller_parameter!(jf::JastrowFactor{T}, site::Int, value::T) where T
+function add_gutzwiller_parameter!(jf::JastrowFactor{T}, site::Int, value::T) where {T}
     if site < 1 || site > jf.n_site
         throw(ArgumentError("Site index out of range"))
     end
@@ -108,7 +123,12 @@ end
 
 Add a density-density correlation parameter between two sites.
 """
-function add_density_density_parameter!(jf::JastrowFactor{T}, site1::Int, site2::Int, value::T) where T
+function add_density_density_parameter!(
+    jf::JastrowFactor{T},
+    site1::Int,
+    site2::Int,
+    value::T,
+) where {T}
     if site1 < 1 || site1 > jf.n_site || site2 < 1 || site2 > jf.n_site
         throw(ArgumentError("Site index out of range"))
     end
@@ -123,7 +143,14 @@ end
 
 Add a spin-spin correlation parameter between two sites and spins.
 """
-function add_spin_spin_parameter!(jf::JastrowFactor{T}, site1::Int, site2::Int, spin1::Int, spin2::Int, value::T) where T
+function add_spin_spin_parameter!(
+    jf::JastrowFactor{T},
+    site1::Int,
+    site2::Int,
+    spin1::Int,
+    spin2::Int,
+    value::T,
+) where {T}
     if site1 < 1 || site1 > jf.n_site || site2 < 1 || site2 > jf.n_site
         throw(ArgumentError("Site index out of range"))
     end
@@ -141,7 +168,13 @@ end
 
 Add a three-body correlation parameter between three sites.
 """
-function add_three_body_parameter!(jf::JastrowFactor{T}, site1::Int, site2::Int, site3::Int, value::T) where T
+function add_three_body_parameter!(
+    jf::JastrowFactor{T},
+    site1::Int,
+    site2::Int,
+    site3::Int,
+    value::T,
+) where {T}
     if any(site < 1 || site > jf.n_site for site in [site1, site2, site3])
         throw(ArgumentError("Site index out of range"))
     end
@@ -156,7 +189,12 @@ end
 
 Calculate the total Jastrow factor for given electron configuration.
 """
-function jastrow_factor(jf::JastrowFactor{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function jastrow_factor(
+    jf::JastrowFactor{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     jastrow_value = one(T)
 
     # Gutzwiller factors
@@ -169,7 +207,8 @@ function jastrow_factor(jf::JastrowFactor{T}, ele_idx::Vector{Int}, ele_cfg::Vec
     # Density-density correlations
     for param in jf.density_density_params
         if param.is_active
-            jastrow_value *= _calculate_density_density_factor(param, ele_idx, ele_cfg, ele_num)
+            jastrow_value *=
+                _calculate_density_density_factor(param, ele_idx, ele_cfg, ele_num)
         end
     end
 
@@ -196,34 +235,43 @@ end
 
 Calculate the log of the total Jastrow factor.
 """
-function log_jastrow_factor(jf::JastrowFactor{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function log_jastrow_factor(
+    jf::JastrowFactor{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     log_jastrow_value = zero(T)
 
     # Gutzwiller factors
     for param in jf.gutzwiller_params
         if param.is_active
-            log_jastrow_value += _calculate_log_gutzwiller_factor(param, ele_idx, ele_cfg, ele_num)
+            log_jastrow_value +=
+                _calculate_log_gutzwiller_factor(param, ele_idx, ele_cfg, ele_num)
         end
     end
 
     # Density-density correlations
     for param in jf.density_density_params
         if param.is_active
-            log_jastrow_value += _calculate_log_density_density_factor(param, ele_idx, ele_cfg, ele_num)
+            log_jastrow_value +=
+                _calculate_log_density_density_factor(param, ele_idx, ele_cfg, ele_num)
         end
     end
 
     # Spin-spin correlations
     for param in jf.spin_spin_params
         if param.is_active
-            log_jastrow_value += _calculate_log_spin_spin_factor(param, ele_idx, ele_cfg, ele_num)
+            log_jastrow_value +=
+                _calculate_log_spin_spin_factor(param, ele_idx, ele_cfg, ele_num)
         end
     end
 
     # Three-body correlations
     for param in jf.three_body_params
         if param.is_active
-            log_jastrow_value += _calculate_log_three_body_factor(param, ele_idx, ele_cfg, ele_num)
+            log_jastrow_value +=
+                _calculate_log_three_body_factor(param, ele_idx, ele_cfg, ele_num)
         end
     end
 
@@ -237,8 +285,15 @@ end
 
 Calculate the ratio of Jastrow factors for two configurations (for Metropolis sampling).
 """
-function jastrow_ratio(jf::JastrowFactor{T}, ele_idx_old::Vector{Int}, ele_cfg_old::Vector{Int}, ele_num_old::Vector{Int},
-                       ele_idx_new::Vector{Int}, ele_cfg_new::Vector{Int}, ele_num_new::Vector{Int}) where T
+function jastrow_ratio(
+    jf::JastrowFactor{T},
+    ele_idx_old::Vector{Int},
+    ele_cfg_old::Vector{Int},
+    ele_num_old::Vector{Int},
+    ele_idx_new::Vector{Int},
+    ele_cfg_new::Vector{Int},
+    ele_num_new::Vector{Int},
+) where {T}
 
     # Calculate log factors
     log_old = log_jastrow_factor(jf, ele_idx_old, ele_cfg_old, ele_num_old)
@@ -250,7 +305,12 @@ end
 
 # Helper functions for individual Jastrow factor types
 
-function _calculate_gutzwiller_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_gutzwiller_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     site = param.site_indices[1]
     if ele_cfg[site] > 0
         return exp(param.value * ele_num[site])
@@ -259,7 +319,12 @@ function _calculate_gutzwiller_factor(param::JastrowParameter{T}, ele_idx::Vecto
     end
 end
 
-function _calculate_log_gutzwiller_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_log_gutzwiller_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     site = param.site_indices[1]
     if ele_cfg[site] > 0
         return param.value * ele_num[site]
@@ -268,7 +333,12 @@ function _calculate_log_gutzwiller_factor(param::JastrowParameter{T}, ele_idx::V
     end
 end
 
-function _calculate_density_density_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_density_density_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     site1, site2 = param.site_indices[1], param.site_indices[2]
 
     if ele_cfg[site1] > 0 && ele_cfg[site2] > 0
@@ -278,7 +348,12 @@ function _calculate_density_density_factor(param::JastrowParameter{T}, ele_idx::
     end
 end
 
-function _calculate_log_density_density_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_log_density_density_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     site1, site2 = param.site_indices[1], param.site_indices[2]
 
     if ele_cfg[site1] > 0 && ele_cfg[site2] > 0
@@ -288,7 +363,12 @@ function _calculate_log_density_density_factor(param::JastrowParameter{T}, ele_i
     end
 end
 
-function _calculate_spin_spin_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_spin_spin_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     site1, site2 = param.site_indices[1], param.site_indices[2]
     spin1, spin2 = param.spin_indices[1], param.spin_indices[2]
 
@@ -302,7 +382,12 @@ function _calculate_spin_spin_factor(param::JastrowParameter{T}, ele_idx::Vector
     end
 end
 
-function _calculate_log_spin_spin_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function _calculate_log_spin_spin_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     site1, site2 = param.site_indices[1], param.site_indices[2]
     spin1, spin2 = param.spin_indices[1], param.spin_indices[2]
 
@@ -314,8 +399,14 @@ function _calculate_log_spin_spin_factor(param::JastrowParameter{T}, ele_idx::Ve
     end
 end
 
-function _calculate_three_body_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
-    site1, site2, site3 = param.site_indices[1], param.site_indices[2], param.site_indices[3]
+function _calculate_three_body_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
+    site1, site2, site3 =
+        param.site_indices[1], param.site_indices[2], param.site_indices[3]
 
     if ele_cfg[site1] > 0 && ele_cfg[site2] > 0 && ele_cfg[site3] > 0
         return exp(param.value * ele_num[site1] * ele_num[site2] * ele_num[site3])
@@ -324,8 +415,14 @@ function _calculate_three_body_factor(param::JastrowParameter{T}, ele_idx::Vecto
     end
 end
 
-function _calculate_log_three_body_factor(param::JastrowParameter{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
-    site1, site2, site3 = param.site_indices[1], param.site_indices[2], param.site_indices[3]
+function _calculate_log_three_body_factor(
+    param::JastrowParameter{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
+    site1, site2, site3 =
+        param.site_indices[1], param.site_indices[2], param.site_indices[3]
 
     if ele_cfg[site1] > 0 && ele_cfg[site2] > 0 && ele_cfg[site3] > 0
         return param.value * ele_num[site1] * ele_num[site2] * ele_num[site3]
@@ -339,7 +436,12 @@ end
 
 Calculate the gradient of the log Jastrow factor with respect to all parameters.
 """
-function jastrow_gradient(jf::JastrowFactor{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int}) where T
+function jastrow_gradient(
+    jf::JastrowFactor{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+) where {T}
     gradient = Vector{T}()
 
     # Gutzwiller gradients
@@ -383,7 +485,8 @@ function jastrow_gradient(jf::JastrowFactor{T}, ele_idx::Vector{Int}, ele_cfg::V
     # Three-body gradients
     for param in jf.three_body_params
         if param.is_active
-            site1, site2, site3 = param.site_indices[1], param.site_indices[2], param.site_indices[3]
+            site1, site2, site3 =
+                param.site_indices[1], param.site_indices[2], param.site_indices[3]
             if ele_cfg[site1] > 0 && ele_cfg[site2] > 0 && ele_cfg[site3] > 0
                 push!(gradient, ele_num[site1] * ele_num[site2] * ele_num[site3])
             else
@@ -400,7 +503,11 @@ end
 
 Update Jastrow parameters using gradient descent.
 """
-function update_jastrow_parameters!(jf::JastrowFactor{T}, gradient::Vector{T}; learning_rate::Float64 = 0.01) where T
+function update_jastrow_parameters!(
+    jf::JastrowFactor{T},
+    gradient::Vector{T};
+    learning_rate::Float64 = 0.01,
+) where {T}
     idx = 1
 
     # Update Gutzwiller parameters
@@ -441,7 +548,7 @@ end
 
 Extract all Jastrow parameters as a flat vector.
 """
-function get_jastrow_parameters(jf::JastrowFactor{T}) where T
+function get_jastrow_parameters(jf::JastrowFactor{T}) where {T}
     params = Vector{T}()
 
     for param in jf.gutzwiller_params
@@ -476,7 +583,7 @@ end
 
 Set Jastrow parameters from a flat vector.
 """
-function set_jastrow_parameters!(jf::JastrowFactor{T}, params::Vector{T}) where T
+function set_jastrow_parameters!(jf::JastrowFactor{T}, params::Vector{T}) where {T}
     idx = 1
 
     for param in jf.gutzwiller_params
@@ -513,7 +620,7 @@ end
 
 Get total number of active Jastrow parameters.
 """
-function jastrow_parameter_count(jf::JastrowFactor{T}) where T
+function jastrow_parameter_count(jf::JastrowFactor{T}) where {T}
     count = 0
 
     count += sum(param.is_active for param in jf.gutzwiller_params)
@@ -529,7 +636,7 @@ end
 
 Reset Jastrow factor to initial state.
 """
-function reset_jastrow!(jf::JastrowFactor{T}) where T
+function reset_jastrow!(jf::JastrowFactor{T}) where {T}
     for param in jf.gutzwiller_params
         param.value = zero(T)
     end
@@ -556,18 +663,20 @@ end
 Benchmark Jastrow factor calculations.
 """
 function benchmark_jastrow(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int = 1000)
-    println("Benchmarking Jastrow factors (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...")
+    println(
+        "Benchmarking Jastrow factors (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...",
+    )
 
     # Create Jastrow factor
     jf = JastrowFactor{ComplexF64}(n_site, n_elec)
 
     # Add some parameters
-    for i in 1:n_site
+    for i = 1:n_site
         add_gutzwiller_parameter!(jf, i, ComplexF64(0.1))
     end
 
-    for i in 1:n_site-1
-        add_density_density_parameter!(jf, i, i+1, ComplexF64(0.05))
+    for i = 1:n_site-1
+        add_density_density_parameter!(jf, i, i + 1, ComplexF64(0.05))
     end
 
     # Initialize electron configuration
@@ -578,7 +687,7 @@ function benchmark_jastrow(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int 
 
     # Benchmark Jastrow factor calculation
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             jastrow_factor(jf, ele_idx, ele_cfg, ele_num)
         end
     end
@@ -586,7 +695,7 @@ function benchmark_jastrow(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int 
 
     # Benchmark gradient calculation
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             jastrow_gradient(jf, ele_idx, ele_cfg, ele_num)
         end
     end

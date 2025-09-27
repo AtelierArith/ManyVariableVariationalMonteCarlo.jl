@@ -38,7 +38,7 @@ Typed lookup helper that attempts to convert the stored value to `T`.
 When `default` is provided it will be returned when `key` is absent;
 otherwise a `KeyError` is thrown.
 """
-function facevalue(def::FaceDefinition, key::Symbol, ::Type{T}; default=nothing) where {T}
+function facevalue(def::FaceDefinition, key::Symbol, ::Type{T}; default = nothing) where {T}
     if !haskey(def, key)
         default === nothing && throw(KeyError(key))
         return default
@@ -95,7 +95,8 @@ struct ParameterLayout
     nopttrans::Int
 end
 
-Base.length(layout::ParameterLayout) = layout.nproj + layout.nrbm + layout.nslater + layout.nopttrans
+Base.length(layout::ParameterLayout) =
+    layout.nproj + layout.nrbm + layout.nslater + layout.nopttrans
 
 """
 Control flags that affect how the variational parameter buffers are
@@ -116,7 +117,7 @@ struct ParameterMask
     opttrans::BitVector
 end
 
-ParameterMask(layout::ParameterLayout; default::Bool=false) = ParameterMask(
+ParameterMask(layout::ParameterLayout; default::Bool = false) = ParameterMask(
     BitVector(fill(default, layout.nproj)),
     BitVector(fill(default, layout.nrbm)),
     BitVector(fill(default, layout.nslater)),
@@ -129,7 +130,12 @@ ParameterMask(layout::ParameterLayout; default::Bool=false) = ParameterMask(
 Allocate variational parameter buffers with the supplied element type `T`
 (defaulting to `ComplexF64`).
 """
-mutable struct ParameterSet{Vp<:AbstractVector{<:Number}, Vr<:AbstractVector{<:Number}, Vs<:AbstractVector{<:Number}, Vo<:AbstractVector{<:Number}}
+mutable struct ParameterSet{
+    Vp<:AbstractVector{<:Number},
+    Vr<:AbstractVector{<:Number},
+    Vs<:AbstractVector{<:Number},
+    Vo<:AbstractVector{<:Number},
+}
     proj::Vp
     rbm::Vr
     slater::Vs
@@ -138,18 +144,28 @@ end
 
 function ParameterSet(layout::ParameterLayout; T::Type = ComplexF64)
     zero_vec(n) = Vector{T}(undef, n)
-    return ParameterSet(zero_vec(layout.nproj),
-                        zero_vec(layout.nrbm),
-                        zero_vec(layout.nslater),
-                        zero_vec(layout.nopttrans))
+    return ParameterSet(
+        zero_vec(layout.nproj),
+        zero_vec(layout.nrbm),
+        zero_vec(layout.nslater),
+        zero_vec(layout.nopttrans),
+    )
 end
 
 function Base.copy(params::ParameterSet)
-    return ParameterSet(copy(params.proj), copy(params.rbm), copy(params.slater), copy(params.opttrans))
+    return ParameterSet(
+        copy(params.proj),
+        copy(params.rbm),
+        copy(params.slater),
+        copy(params.opttrans),
+    )
 end
 
 function Base.show(io::IO, params::ParameterSet)
-    print(io, "ParameterSet(proj=$(length(params.proj)), rbm=$(length(params.rbm)), slater=$(length(params.slater)), opttrans=$(length(params.opttrans)))")
+    print(
+        io,
+        "ParameterSet(proj=$(length(params.proj)), rbm=$(length(params.rbm)), slater=$(length(params.slater)), opttrans=$(length(params.opttrans)))",
+    )
 end
 
 """

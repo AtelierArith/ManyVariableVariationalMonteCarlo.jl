@@ -3,7 +3,7 @@ const _COMMENT_PATTERN = r"//"
 function _strip_comment(line::AbstractString)
     idx = findfirst(_COMMENT_PATTERN, line)
     isnothing(idx) && return line
-    return first(split(line, _COMMENT_PATTERN; limit=2))
+    return first(split(line, _COMMENT_PATTERN; limit = 2))
 end
 
 function _parse_face_value(raw::AbstractString)
@@ -47,7 +47,7 @@ function _try_parse_complex(value::AbstractString)
                 end
             end
         elseif occursin('-', value) && !startswith(value, '-')
-            parts = rsplit(value, '-', limit=2)
+            parts = rsplit(value, '-', limit = 2)
             if length(parts) == 2
                 real_part = tryparse(Float64, strip(parts[1]))
                 imag_part = tryparse(Float64, "-" * strip(parts[2]))
@@ -82,30 +82,48 @@ end
 
 struct VMCDefinitionFiles
     namelist::String
-    modpara::Union{String, Nothing}
-    locspn::Union{String, Nothing}
-    trans::Union{String, Nothing}
-    coulombintra::Union{String, Nothing}
-    coulombinter::Union{String, Nothing}
-    hund::Union{String, Nothing}
-    pairhop::Union{String, Nothing}
-    exchange::Union{String, Nothing}
-    gutzwiller::Union{String, Nothing}
-    jastrow::Union{String, Nothing}
-    doublon2::Union{String, Nothing}
-    doublon4::Union{String, Nothing}
-    orbital::Union{String, Nothing}
-    transopt::Union{String, Nothing}
-    onebodyg::Union{String, Nothing}
-    twobodyg::Union{String, Nothing}
-    rbm::Union{String, Nothing}
-    initial::Union{String, Nothing}
+    modpara::Union{String,Nothing}
+    locspn::Union{String,Nothing}
+    trans::Union{String,Nothing}
+    coulombintra::Union{String,Nothing}
+    coulombinter::Union{String,Nothing}
+    hund::Union{String,Nothing}
+    pairhop::Union{String,Nothing}
+    exchange::Union{String,Nothing}
+    gutzwiller::Union{String,Nothing}
+    jastrow::Union{String,Nothing}
+    doublon2::Union{String,Nothing}
+    doublon4::Union{String,Nothing}
+    orbital::Union{String,Nothing}
+    transopt::Union{String,Nothing}
+    onebodyg::Union{String,Nothing}
+    twobodyg::Union{String,Nothing}
+    rbm::Union{String,Nothing}
+    initial::Union{String,Nothing}
 end
 
 function VMCDefinitionFiles(namelist::String)
-    VMCDefinitionFiles(namelist, nothing, nothing, nothing, nothing, nothing,
-                      nothing, nothing, nothing, nothing, nothing, nothing,
-                      nothing, nothing, nothing, nothing, nothing, nothing, nothing)
+    VMCDefinitionFiles(
+        namelist,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+    )
 end
 
 function load_face_definition(path::AbstractString)
@@ -114,7 +132,7 @@ function load_face_definition(path::AbstractString)
         line = strip(_strip_comment(raw_line))
         isempty(line) && continue
         if occursin('=', line)
-            key_str, value_str = split(line, '='; limit=2)
+            key_str, value_str = split(line, '='; limit = 2)
             key = Symbol(strip(key_str))
             value = _parse_face_value(value_str)
             push!(entries, key => value)
@@ -147,7 +165,7 @@ function read_namelist_file(path::AbstractString)
         haskey(face, :OneBodyG) ? string(face[:OneBodyG]) : nothing,
         haskey(face, :TwoBodyG) ? string(face[:TwoBodyG]) : nothing,
         haskey(face, :RBM) ? string(face[:RBM]) : nothing,
-        haskey(face, :Initial) ? string(face[:Initial]) : nothing
+        haskey(face, :Initial) ? string(face[:Initial]) : nothing,
     )
 
     return def_files, face
@@ -216,13 +234,64 @@ end
 
 function VMCParameters()
     VMCParameters(
-        "output", "para", 0, 0, 0, 0, 0, 1,
-        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-        100, 10, 1, 1e-8, 1e-2, 1e-2, 100, 1e-6,
-        100, 1, 1000, 0, 1, 123456789, 1, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0
+        "output",
+        "para",
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        100,
+        10,
+        1,
+        1e-8,
+        1e-2,
+        1e-2,
+        100,
+        1e-6,
+        100,
+        1,
+        1000,
+        0,
+        1,
+        123456789,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
     )
 end
 
@@ -233,7 +302,7 @@ function read_modpara_file(path::AbstractString)
         isempty(stripped) && continue
 
         if occursin('=', stripped)
-            key, value = split(stripped, '=', limit=2)
+            key, value = split(stripped, '=', limit = 2)
             key = strip(key)
             value = strip(value)
 
@@ -243,7 +312,11 @@ function read_modpara_file(path::AbstractString)
     return params
 end
 
-function _update_vmc_parameter(params::VMCParameters, key::AbstractString, value::AbstractString)
+function _update_vmc_parameter(
+    params::VMCParameters,
+    key::AbstractString,
+    value::AbstractString,
+)
     parsed_value = _parse_face_value(value)
 
     # Create new VMCParameters with updated field
@@ -301,43 +374,61 @@ function _update_vmc_parameter(params::VMCParameters, key::AbstractString, value
 end
 
 function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
-    width = facevalue(face, :W, Int; default=1)
-    length = facevalue(face, :L, Int; default=1)
-    width_sub = facevalue(face, :Wsub, Int; default=1)
-    length_sub = facevalue(face, :Lsub, Int; default=1)
+    width = facevalue(face, :W, Int; default = 1)
+    length = facevalue(face, :L, Int; default = 1)
+    width_sub = facevalue(face, :Wsub, Int; default = 1)
+    length_sub = facevalue(face, :Lsub, Int; default = 1)
     nsublat = max(width_sub * length_sub, 1)
     nsites = width * length
     nsite_sub = max(div(nsites, nsublat), 1)
 
-    model_sym = Symbol(facevalue(face, :model, String; default="UnknownModel"))
-    lattice_sym = Symbol(facevalue(face, :lattice, String; default="UnknownLattice"))
+    model_sym = Symbol(facevalue(face, :model, String; default = "UnknownModel"))
+    lattice_sym = Symbol(facevalue(face, :lattice, String; default = "UnknownLattice"))
 
-    t = facevalue(face, :t, Float64; default=1.0)
-    u = facevalue(face, :U, Float64; default=0.0)
-    nelec = facevalue(face, :nelec, Int; default=0)
-    sz_total = facevalue(face, Symbol("2Sz"), Int; default=0)
+    t = facevalue(face, :t, Float64; default = 1.0)
+    u = facevalue(face, :U, Float64; default = 0.0)
+    nelec = facevalue(face, :nelec, Int; default = 0)
+    sz_total = facevalue(face, Symbol("2Sz"), Int; default = 0)
 
-    nvmc_sample = facevalue(face, :NVMCSample, Int; default=1000)
-    nsr_opt_itr_step = facevalue(face, :NSROptItrStep, Int; default=100)
-    nsr_opt_itr_smp = facevalue(face, :NSROptItrSmp, Int; default=10)
-    dsr_opt_red_cut = facevalue(face, :DSROptRedCut, Float64; default=1e-8)
-    dsr_opt_sta_del = facevalue(face, :DSROptStaDel, Float64; default=1e-2)
-    dsr_opt_step_dt = facevalue(face, :DSROptStepDt, Float64; default=1e-2)
+    nvmc_sample = facevalue(face, :NVMCSample, Int; default = 1000)
+    nsr_opt_itr_step = facevalue(face, :NSROptItrStep, Int; default = 100)
+    nsr_opt_itr_smp = facevalue(face, :NSROptItrSmp, Int; default = 10)
+    dsr_opt_red_cut = facevalue(face, :DSROptRedCut, Float64; default = 1e-8)
+    dsr_opt_sta_del = facevalue(face, :DSROptStaDel, Float64; default = 1e-2)
+    dsr_opt_step_dt = facevalue(face, :DSROptStepDt, Float64; default = 1e-2)
 
-    nlanczos_mode = facevalue(face, :NLanczosMode, Int; default=0)
-    nsp_gauss_leg = facevalue(face, :NSPGaussLeg, Int; default=1)
-    nvmc_cal_mode = facevalue(face, :NVMCCalMode, Int; default=0)
+    nlanczos_mode = facevalue(face, :NLanczosMode, Int; default = 0)
+    nsp_gauss_leg = facevalue(face, :NSPGaussLeg, Int; default = 1)
+    nvmc_cal_mode = facevalue(face, :NVMCCalMode, Int; default = 0)
 
-    return SimulationConfig(face, String(root), nsublat, nsites, nsite_sub, model_sym, lattice_sym,
-                           t, u, nelec, sz_total, nvmc_sample, nsr_opt_itr_step, nsr_opt_itr_smp,
-                           dsr_opt_red_cut, dsr_opt_sta_del, dsr_opt_step_dt, nlanczos_mode,
-                           nsp_gauss_leg, nvmc_cal_mode)
+    return SimulationConfig(
+        face,
+        String(root),
+        nsublat,
+        nsites,
+        nsite_sub,
+        model_sym,
+        lattice_sym,
+        t,
+        u,
+        nelec,
+        sz_total,
+        nvmc_sample,
+        nsr_opt_itr_step,
+        nsr_opt_itr_smp,
+        dsr_opt_red_cut,
+        dsr_opt_sta_del,
+        dsr_opt_step_dt,
+        nlanczos_mode,
+        nsp_gauss_leg,
+        nvmc_cal_mode,
+    )
 end
 
 function load_face_definition(dir::AbstractString, filename::AbstractString)
     path = joinpath(dir, filename)
     face = load_face_definition(path)
-    return face, SimulationConfig(face; root=dirname(path))
+    return face, SimulationConfig(face; root = dirname(path))
 end
 
 function read_transfer_file(path::AbstractString, nsite::Int)
@@ -347,7 +438,7 @@ function read_transfer_file(path::AbstractString, nsite::Int)
         readline(fp)
         n_transfer = parse(Int, split(readline(fp))[2])
 
-        for _ in 1:n_transfer
+        for _ = 1:n_transfer
             line = readline(fp)
             parts = split(line)
             if length(parts) >= 5
@@ -379,7 +470,7 @@ function read_coulomb_intra_file(path::AbstractString, nsite::Int)
         readline(fp)
         n_coulomb = parse(Int, split(readline(fp))[2])
 
-        for _ in 1:n_coulomb
+        for _ = 1:n_coulomb
             line = readline(fp)
             parts = split(line)
             if length(parts) >= 2
@@ -400,7 +491,7 @@ function read_locspn_file(path::AbstractString, nsite::Int)
         readline(fp)
         n_locspn = parse(Int, split(readline(fp))[2])
 
-        for _ in 1:n_locspn
+        for _ = 1:n_locspn
             line = readline(fp)
             parts = split(line)
             if length(parts) >= 2
@@ -424,7 +515,7 @@ function read_gutzwiller_file(path::AbstractString, nsite::Int)
         n_gutz = parse(Int, split(readline(fp))[2])
         complex_flag = parse(Int, split(readline(fp))[2])
 
-        for _ in 1:n_gutz
+        for _ = 1:n_gutz
             line = readline(fp)
             parts = split(line)
             if length(parts) >= 3
@@ -458,8 +549,8 @@ function load_vmc_configuration(namelist_path::AbstractString)
         VMCParameters()
     end
 
-    nsite = facevalue(face, :Nsite, Int; default=params.nsite)
-    ne = facevalue(face, :Ne, Int; default=params.ne)
+    nsite = facevalue(face, :Nsite, Int; default = params.nsite)
+    ne = facevalue(face, :Ne, Int; default = params.ne)
 
     fields = [getfield(params, field) for field in fieldnames(VMCParameters)]
     fields[9] = nsite

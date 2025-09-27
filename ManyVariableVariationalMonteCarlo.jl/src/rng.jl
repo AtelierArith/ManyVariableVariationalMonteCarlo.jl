@@ -52,11 +52,11 @@ Ensures different streams are statistically independent.
 """
 function generate_stream_seeds(master_seed::UInt32, n_streams::Int)
     master_rng = StableRNG(master_seed)
-    return [rand(master_rng, UInt32) for _ in 1:n_streams]
+    return [rand(master_rng, UInt32) for _ = 1:n_streams]
 end
 
 # Global RNG manager
-const GLOBAL_RNG_MANAGER = Ref{Union{ParallelRngManager, Nothing}}(nothing)
+const GLOBAL_RNG_MANAGER = Ref{Union{ParallelRngManager,Nothing}}(nothing)
 
 """
     initialize_rng!(seed::UInt32 = rand(UInt32), n_streams::Int = Threads.nthreads())
@@ -168,7 +168,11 @@ Restore RNG state from checkpoint.
 """
 function restore_rng_state!(state::RngState)
     if !isa(state, RngState)
-        throw(ArgumentError("Invalid RNG state type: expected RngState, got $(typeof(state))"))
+        throw(
+            ArgumentError(
+                "Invalid RNG state type: expected RngState, got $(typeof(state))",
+            ),
+        )
     end
 
     # Recreate manager with same configuration
@@ -218,7 +222,7 @@ function benchmark_rng(n_samples::Int = 10^6)
 
     # Benchmark uniform random numbers
     @time begin
-        for _ in 1:n_samples
+        for _ = 1:n_samples
             vmcrand()
         end
     end
@@ -226,7 +230,7 @@ function benchmark_rng(n_samples::Int = 10^6)
 
     # Benchmark random integers
     @time begin
-        for _ in 1:n_samples
+        for _ = 1:n_samples
             vmcrand_int(100)
         end
     end
@@ -234,7 +238,7 @@ function benchmark_rng(n_samples::Int = 10^6)
 
     # Benchmark boolean decisions
     @time begin
-        for _ in 1:n_samples
+        for _ = 1:n_samples
             vmcrand_bool(0.5)
         end
     end
@@ -242,7 +246,7 @@ function benchmark_rng(n_samples::Int = 10^6)
 
     # Benchmark normal variates
     @time begin
-        for _ in 1:n_samples
+        for _ = 1:n_samples
             vmcrandn()
         end
     end
@@ -262,22 +266,22 @@ function test_rng_quality(n_samples::Int = 10^5)
     println("Testing RNG quality ($n_samples samples)...")
 
     # Test uniform distribution
-    samples = [vmcrand() for _ in 1:n_samples]
+    samples = [vmcrand() for _ = 1:n_samples]
     mean_val = sum(samples) / n_samples
     println("  Uniform mean: $mean_val (expected: 0.5)")
 
     # Test normal distribution
-    normal_samples = [vmcrandn() for _ in 1:n_samples]
+    normal_samples = [vmcrandn() for _ = 1:n_samples]
     normal_mean = sum(normal_samples) / n_samples
     normal_var = sum(x^2 for x in normal_samples) / n_samples - normal_mean^2
     println("  Normal mean: $normal_mean (expected: 0.0)")
     println("  Normal variance: $normal_var (expected: 1.0)")
 
     # Test integer distribution
-    int_samples = [vmcrand_int(10) for _ in 1:n_samples]
+    int_samples = [vmcrand_int(10) for _ = 1:n_samples]
     int_counts = zeros(Int, 10)
     for sample in int_samples
-        int_counts[sample + 1] += 1
+        int_counts[sample+1] += 1
     end
     expected_count = n_samples / 10
     max_deviation = maximum(abs(count - expected_count) for count in int_counts)

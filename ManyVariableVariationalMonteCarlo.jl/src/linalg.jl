@@ -42,7 +42,10 @@ Uses optimized LAPACK-based implementation when available.
 - `ArgumentError` if matrix is not square or not antisymmetric
 - `PfaffianLimitError` if Pfaffian value is below numerical threshold
 """
-function pfaffian(A::Matrix{T}; check_antisymmetric::Bool = true) where T <: Union{Float64, ComplexF64}
+function pfaffian(
+    A::Matrix{T};
+    check_antisymmetric::Bool = true,
+) where {T<:Union{Float64,ComplexF64}}
     n = size(A, 1)
     if n != size(A, 2)
         throw(ArgumentError("Matrix must be square"))
@@ -64,7 +67,7 @@ end
 Internal Pfaffian computation for antisymmetric matrix.
 Modifies input matrix A.
 """
-function _pfaffian_skew(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+function _pfaffian_skew(A::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
     n = size(A, 1)
 
     if n == 0
@@ -73,7 +76,7 @@ function _pfaffian_skew(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
         return A[1, 2]
     elseif n == 4
         # Direct formula for 4x4 matrix
-        return A[1,2]*A[3,4] - A[1,3]*A[2,4] + A[1,4]*A[2,3]
+        return A[1, 2] * A[3, 4] - A[1, 3] * A[2, 4] + A[1, 4] * A[2, 3]
     end
 
     # For larger matrices, use LU decomposition
@@ -105,14 +108,14 @@ function _pfaffian_skew(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
     sign_pf = 1
 
     # Account for row permutations
-    for i in 1:n
+    for i = 1:n
         if ipiv[i] != i
             sign_pf *= -1
         end
     end
 
     # Compute product of diagonal elements (with appropriate signs)
-    for i in 1:2:n-1
+    for i = 1:2:n-1
         pf *= A[i, i+1]
     end
 
@@ -132,16 +135,16 @@ end
 Verify the relation Pf(A)^2 = det(A) for antisymmetric matrix A.
 Returns (pfaffian_value, determinant_value, relation_satisfied).
 """
-function pfaffian_det_relation(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+function pfaffian_det_relation(A::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
     if !is_antisymmetric(A)
         throw(ArgumentError("Matrix must be antisymmetric"))
     end
 
-    pf_val = pfaffian(A; check_antisymmetric=false)
+    pf_val = pfaffian(A; check_antisymmetric = false)
     det_val = det(A)
 
     # Check if Pf(A)^2 = det(A) within numerical precision
-    relation_satisfied = isapprox(pf_val^2, det_val, rtol=1e-10)
+    relation_satisfied = isapprox(pf_val^2, det_val, rtol = 1e-10)
 
     return pf_val, det_val, relation_satisfied
 end
@@ -152,8 +155,8 @@ end
 Compute Pfaffian of skew-symmetric matrix A (A^T = -A).
 This is an alias for pfaffian with antisymmetric check disabled.
 """
-function pfaffian_skew_symmetric(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
-    return pfaffian(A; check_antisymmetric=false)
+function pfaffian_skew_symmetric(A::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
+    return pfaffian(A; check_antisymmetric = false)
 end
 
 """
@@ -161,14 +164,14 @@ end
 
 Check if matrix A is antisymmetric within tolerance.
 """
-function is_antisymmetric(A::Matrix{T}, tol::Float64 = 1e-12) where T
+function is_antisymmetric(A::Matrix{T}, tol::Float64 = 1e-12) where {T}
     n = size(A, 1)
     if n != size(A, 2)
         return false
     end
 
-    for i in 1:n
-        for j in 1:n
+    for i = 1:n
+        for j = 1:n
             if abs(A[i, j] + A[j, i]) > tol
                 return false
             end
@@ -183,12 +186,12 @@ end
 Compute both Pfaffian and inverse of antisymmetric matrix A.
 More efficient than computing separately.
 """
-function pfaffian_and_inverse(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+function pfaffian_and_inverse(A::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
     n = size(A, 1)
     A_copy = copy(A)
 
     # Compute Pfaffian (disable antisymmetric check for internal use)
-    pf = pfaffian(A_copy; check_antisymmetric=false)
+    pf = pfaffian(A_copy; check_antisymmetric = false)
 
     # Compute inverse using LAPACK
     ipiv = Vector{Int}(undef, n)
@@ -218,7 +221,7 @@ end
 Efficient container for repeated matrix calculations with workspace reuse.
 Stores matrices and intermediate results for VMC updates.
 """
-mutable struct MatrixCalculation{T <: Union{Float64, ComplexF64}}
+mutable struct MatrixCalculation{T<:Union{Float64,ComplexF64}}
     n::Int
     matrix::Matrix{T}
     inverse::Matrix{T}
@@ -226,10 +229,10 @@ mutable struct MatrixCalculation{T <: Union{Float64, ComplexF64}}
     workspace::Vector{T}
     int_workspace::Vector{Int}
 
-    function MatrixCalculation{T}(n::Int) where T
+    function MatrixCalculation{T}(n::Int) where {T}
         matrix = Matrix{T}(undef, n, n)
         inverse = Matrix{T}(undef, n, n)
-        workspace = Vector{T}(undef, max(n*n, 1024))
+        workspace = Vector{T}(undef, max(n * n, 1024))
         int_workspace = Vector{Int}(undef, n)
         new{T}(n, matrix, inverse, zero(T), workspace, int_workspace)
     end
@@ -240,7 +243,7 @@ end
 
 Update matrix and recompute Pfaffian and inverse.
 """
-function update_matrix!(calc::MatrixCalculation{T}, new_matrix::Matrix{T}) where T
+function update_matrix!(calc::MatrixCalculation{T}, new_matrix::Matrix{T}) where {T}
     copyto!(calc.matrix, new_matrix)
     calc.pfaffian_value, calc.inverse = pfaffian_and_inverse(calc.matrix)
     return calc.pfaffian_value
@@ -252,7 +255,11 @@ end
 Perform Sherman-Morrison rank-1 update of inverse matrix.
 Updates inverse when matrix changes by A_new = A + u*v'.
 """
-function sherman_morrison_update!(calc::MatrixCalculation{T}, u::Vector{T}, v::Vector{T}) where T
+function sherman_morrison_update!(
+    calc::MatrixCalculation{T},
+    u::Vector{T},
+    v::Vector{T},
+) where {T}
     # A^{-1} - (A^{-1}*u*v'*A^{-1}) / (1 + v'*A^{-1}*u)
 
     # Compute A^{-1} * u
@@ -284,7 +291,7 @@ end
 Perform Woodbury matrix identity update for rank-k updates.
 Updates inverse when matrix changes by A_new = A + U*V'.
 """
-function woodbury_update!(calc::MatrixCalculation{T}, U::Matrix{T}, V::Matrix{T}) where T
+function woodbury_update!(calc::MatrixCalculation{T}, U::Matrix{T}, V::Matrix{T}) where {T}
     k = size(U, 2)
     if k != size(V, 2)
         throw(ArgumentError("U and V must have same number of columns"))
@@ -318,7 +325,11 @@ end
 Compute ratio of determinants when replacing one row of the matrix.
 Useful for acceptance ratios in Monte Carlo updates.
 """
-function matrix_ratio(calc::MatrixCalculation{T}, new_row::Int, new_col::Vector{T}) where T
+function matrix_ratio(
+    calc::MatrixCalculation{T},
+    new_row::Int,
+    new_col::Vector{T},
+) where {T}
     # Ratio = det(A_new) / det(A_old)
     # When row i is replaced, ratio = new_col' * A^{-1}[:, i]
 
@@ -330,7 +341,7 @@ end
 
 Determine optimal workspace size for LAPACK operations.
 """
-function optimal_lwork(::Type{T}, n::Int) where T
+function optimal_lwork(::Type{T}, n::Int) where {T}
     # Query LAPACK for optimal workspace size
     A_dummy = Matrix{T}(undef, 1, 1)
     ipiv_dummy = Vector{Int}(undef, 1)
@@ -352,10 +363,10 @@ end
 Thread-local storage for matrix calculations to avoid allocations.
 """
 struct ThreadLocalMatrixCalculations{T}
-    calculations::Vector{Union{MatrixCalculation{T}, Nothing}}
+    calculations::Vector{Union{MatrixCalculation{T},Nothing}}
 
-    function ThreadLocalMatrixCalculations{T}() where T
-        new{T}([nothing for _ in 1:Threads.nthreads()])
+    function ThreadLocalMatrixCalculations{T}() where {T}
+        new{T}([nothing for _ = 1:Threads.nthreads()])
     end
 end
 
@@ -367,7 +378,11 @@ const THREAD_LOCAL_COMPLEX_CALC = ThreadLocalMatrixCalculations{ComplexF64}()
 
 Get thread-local matrix calculation object, creating if necessary.
 """
-function get_matrix_calculation(::Type{T}, n::Int, thread_id::Int = Threads.threadid()) where T
+function get_matrix_calculation(
+    ::Type{T},
+    n::Int,
+    thread_id::Int = Threads.threadid(),
+) where {T}
     if T <: Float64
         storage = THREAD_LOCAL_REAL_CALC
     else
@@ -394,12 +409,12 @@ Clear all thread-local matrix calculations.
 """
 function clear_matrix_calculations!()
     # Clear real calculations
-    for i in 1:length(THREAD_LOCAL_REAL_CALC.calculations)
+    for i = 1:length(THREAD_LOCAL_REAL_CALC.calculations)
         THREAD_LOCAL_REAL_CALC.calculations[i] = nothing
     end
 
     # Clear complex calculations
-    for i in 1:length(THREAD_LOCAL_COMPLEX_CALC.calculations)
+    for i = 1:length(THREAD_LOCAL_COMPLEX_CALC.calculations)
         THREAD_LOCAL_COMPLEX_CALC.calculations[i] = nothing
     end
 end
@@ -410,8 +425,13 @@ end
 
 Optimized matrix-matrix multiplication using BLAS.
 """
-function optimized_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
-                        α::T = one(T), β::T = zero(T)) where T <: Union{Float64, ComplexF64}
+function optimized_gemm!(
+    C::Matrix{T},
+    A::Matrix{T},
+    B::Matrix{T},
+    α::T = one(T),
+    β::T = zero(T),
+) where {T<:Union{Float64,ComplexF64}}
     m, k = size(A)
     k2, n = size(B)
 
@@ -439,8 +459,13 @@ end
 
 Optimized matrix-vector multiplication using BLAS.
 """
-function optimized_gemv!(y::Vector{T}, A::Matrix{T}, x::Vector{T},
-                        α::T = one(T), β::T = zero(T)) where T <: Union{Float64, ComplexF64}
+function optimized_gemv!(
+    y::Vector{T},
+    A::Matrix{T},
+    x::Vector{T},
+    α::T = one(T),
+    β::T = zero(T),
+) where {T<:Union{Float64,ComplexF64}}
     m, n = size(A)
 
     if length(x) != n
@@ -467,8 +492,12 @@ end
 
 Optimized rank-1 update using BLAS.
 """
-function optimized_ger!(A::Matrix{T}, x::Vector{T}, y::Vector{T},
-                       α::T = one(T)) where T <: Union{Float64, ComplexF64}
+function optimized_ger!(
+    A::Matrix{T},
+    x::Vector{T},
+    y::Vector{T},
+    α::T = one(T),
+) where {T<:Union{Float64,ComplexF64}}
     m, n = size(A)
 
     if length(x) != m
@@ -494,7 +523,11 @@ end
 
 Optimized vector addition using BLAS.
 """
-function optimized_axpy!(y::Vector{T}, x::Vector{T}, α::T = one(T)) where T <: Union{Float64, ComplexF64}
+function optimized_axpy!(
+    y::Vector{T},
+    x::Vector{T},
+    α::T = one(T),
+) where {T<:Union{Float64,ComplexF64}}
     if length(x) != length(y)
         throw(DimensionMismatch("Vector lengths must match"))
     end
@@ -514,7 +547,7 @@ end
 
 Optimized vector scaling using BLAS.
 """
-function optimized_scal!(x::Vector{T}, α::T) where T <: Union{Float64, ComplexF64}
+function optimized_scal!(x::Vector{T}, α::T) where {T<:Union{Float64,ComplexF64}}
     # Use BLAS SCAL
     if T <: Float64
         BLAS.scal!(α, x)
@@ -530,7 +563,7 @@ end
 
 Optimized dot product using BLAS.
 """
-function optimized_dot(x::Vector{T}, y::Vector{T}) where T <: Union{Float64, ComplexF64}
+function optimized_dot(x::Vector{T}, y::Vector{T}) where {T<:Union{Float64,ComplexF64}}
     if length(x) != length(y)
         throw(DimensionMismatch("Vector lengths must match"))
     end
@@ -548,7 +581,7 @@ end
 
 Optimized vector norm using BLAS.
 """
-function optimized_nrm2(x::Vector{T}) where T <: Union{Float64, ComplexF64}
+function optimized_nrm2(x::Vector{T}) where {T<:Union{Float64,ComplexF64}}
     # Use BLAS NRM2
     if T <: Float64
         return BLAS.nrm2(x)
@@ -562,7 +595,7 @@ end
 
 Optimized LU factorization using LAPACK.
 """
-function optimized_getrf!(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+function optimized_getrf!(A::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
     m, n = size(A)
     ipiv = Vector{Int}(undef, min(m, n))
 
@@ -580,7 +613,10 @@ end
 
 Optimized matrix inversion using LAPACK.
 """
-function optimized_getri!(A::Matrix{T}, ipiv::Vector{Int}) where T <: Union{Float64, ComplexF64}
+function optimized_getri!(
+    A::Matrix{T},
+    ipiv::Vector{Int},
+) where {T<:Union{Float64,ComplexF64}}
     n = size(A, 1)
 
     if n != size(A, 2)
@@ -601,7 +637,7 @@ end
 
 Optimized positive definite system solve using LAPACK.
 """
-function optimized_posv!(A::Matrix{T}, B::Matrix{T}) where T <: Union{Float64, ComplexF64}
+function optimized_posv!(A::Matrix{T}, B::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
     n = size(A, 1)
 
     if n != size(A, 2)
@@ -621,7 +657,7 @@ end
 
 Thread-safe wrapper for matrix operations with workspace management.
 """
-mutable struct ThreadSafeMatrixOperations{T <: Union{Float64, ComplexF64}}
+mutable struct ThreadSafeMatrixOperations{T<:Union{Float64,ComplexF64}}
     # Thread-local workspaces
     gemm_workspace::Vector{Matrix{T}}
     gemv_workspace::Vector{Vector{T}}
@@ -630,17 +666,24 @@ mutable struct ThreadSafeMatrixOperations{T <: Union{Float64, ComplexF64}}
 
     # Performance counters
     total_operations::Int
-    operation_times::Dict{String, Float64}
+    operation_times::Dict{String,Float64}
 
-    function ThreadSafeMatrixOperations{T}(max_threads::Int = Threads.nthreads()) where T
-        gemm_workspace = [Matrix{T}(undef, 0, 0) for _ in 1:max_threads]
-        gemv_workspace = [Vector{T}(undef, 0) for _ in 1:max_threads]
-        getrf_workspace = [Vector{Int}(undef, 0) for _ in 1:max_threads]
-        getri_workspace = [Vector{T}(undef, 0) for _ in 1:max_threads]
+    function ThreadSafeMatrixOperations{T}(max_threads::Int = Threads.nthreads()) where {T}
+        gemm_workspace = [Matrix{T}(undef, 0, 0) for _ = 1:max_threads]
+        gemv_workspace = [Vector{T}(undef, 0) for _ = 1:max_threads]
+        getrf_workspace = [Vector{Int}(undef, 0) for _ = 1:max_threads]
+        getri_workspace = [Vector{T}(undef, 0) for _ = 1:max_threads]
 
-        operation_times = Dict{String, Float64}()
+        operation_times = Dict{String,Float64}()
 
-        new{T}(gemm_workspace, gemv_workspace, getrf_workspace, getri_workspace, 0, operation_times)
+        new{T}(
+            gemm_workspace,
+            gemv_workspace,
+            getrf_workspace,
+            getri_workspace,
+            0,
+            operation_times,
+        )
     end
 end
 
@@ -652,7 +695,7 @@ const GLOBAL_MATRIX_OPS_COMPLEX = ThreadSafeMatrixOperations{ComplexF64}()
 
 Get thread-safe matrix operations for type T.
 """
-function get_thread_safe_ops(::Type{T}) where T <: Union{Float64, ComplexF64}
+function get_thread_safe_ops(::Type{T}) where {T<:Union{Float64,ComplexF64}}
     if T <: Float64
         return GLOBAL_MATRIX_OPS_REAL
     else
@@ -666,8 +709,13 @@ end
 
 Thread-safe matrix-matrix multiplication.
 """
-function thread_safe_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
-                          α::T = one(T), β::T = zero(T)) where T <: Union{Float64, ComplexF64}
+function thread_safe_gemm!(
+    C::Matrix{T},
+    A::Matrix{T},
+    B::Matrix{T},
+    α::T = one(T),
+    β::T = zero(T),
+) where {T<:Union{Float64,ComplexF64}}
     ops = get_thread_safe_ops(T)
     thread_id = Threads.threadid()
 
@@ -684,7 +732,8 @@ function thread_safe_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
 
     # Update statistics
     ops.total_operations += 1
-    ops.operation_times["gemm"] = get(ops.operation_times, "gemm", 0.0) + (end_time - start_time)
+    ops.operation_times["gemm"] =
+        get(ops.operation_times, "gemm", 0.0) + (end_time - start_time)
 
     return C
 end
@@ -701,8 +750,8 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     A = randn(ComplexF64, n, n)
     A = A - transpose(A)  # Make antisymmetric
     # Add small off-diagonal elements to improve conditioning while maintaining antisymmetry
-    for i in 1:n
-        for j in i+1:n
+    for i = 1:n
+        for j = i+1:n
             A[i, j] += 1e-2 * (1 + 0.1im)
             A[j, i] -= 1e-2 * (1 + 0.1im)
         end
@@ -710,7 +759,7 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
 
     # Benchmark Pfaffian calculation
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             pfaffian(A)
         end
     end
@@ -718,7 +767,7 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
 
     # Benchmark matrix inversion
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             inv(A)
         end
     end
@@ -726,7 +775,7 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
 
     # Benchmark combined Pfaffian and inverse
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             pfaffian_and_inverse(A)
         end
     end
@@ -739,7 +788,7 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     v = randn(ComplexF64, n)
 
     @time begin
-        for _ in 1:n_iterations÷10  # Fewer iterations since this modifies state
+        for _ = 1:n_iterations÷10  # Fewer iterations since this modifies state
             try
                 sherman_morrison_update!(calc, u, v)
                 update_matrix!(calc, A)  # Reset for next iteration
@@ -757,21 +806,21 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     y = zeros(ComplexF64, n)
 
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             optimized_gemm!(C, A, B)
         end
     end
     println("  Optimized GEMM rate")
 
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             optimized_gemv!(y, A, x)
         end
     end
     println("  Optimized GEMV rate")
 
     @time begin
-        for _ in 1:n_iterations
+        for _ = 1:n_iterations
             optimized_dot(x, y)
         end
     end

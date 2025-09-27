@@ -19,7 +19,7 @@ using LinearAlgebra.LAPACK
 
 Represents a Slater determinant matrix with associated metadata.
 """
-mutable struct SlaterMatrix{T <: Union{Float64, ComplexF64}}
+mutable struct SlaterMatrix{T<:Union{Float64,ComplexF64}}
     matrix::Matrix{T}
     n_elec::Int
     n_orb::Int
@@ -28,7 +28,7 @@ mutable struct SlaterMatrix{T <: Union{Float64, ComplexF64}}
     is_valid::Bool
 end
 
-function SlaterMatrix{T}(n_elec::Int, n_orb::Int) where T <: Union{Float64, ComplexF64}
+function SlaterMatrix{T}(n_elec::Int, n_orb::Int) where {T<:Union{Float64,ComplexF64}}
     matrix = zeros(T, n_elec, n_orb)
     return SlaterMatrix{T}(matrix, n_elec, n_orb, zero(T), 0.0, false)
 end
@@ -38,7 +38,7 @@ end
 
 Main Slater determinant structure containing all necessary components.
 """
-mutable struct SlaterDeterminant{T <: Union{Float64, ComplexF64}}
+mutable struct SlaterDeterminant{T<:Union{Float64,ComplexF64}}
     # Core matrices
     slater_matrix::SlaterMatrix{T}
     inverse_matrix::Matrix{T}
@@ -56,7 +56,10 @@ mutable struct SlaterDeterminant{T <: Union{Float64, ComplexF64}}
     workspace::Vector{T}
     pivot_indices::Vector{Int}
 
-    function SlaterDeterminant{T}(n_elec::Int, n_orb::Int) where T <: Union{Float64, ComplexF64}
+    function SlaterDeterminant{T}(
+        n_elec::Int,
+        n_orb::Int,
+    ) where {T<:Union{Float64,ComplexF64}}
         slater_matrix = SlaterMatrix{T}(n_elec, n_orb)
         inverse_matrix = zeros(T, n_elec, n_elec)
         orbital_indices = zeros(Int, n_elec)
@@ -64,8 +67,17 @@ mutable struct SlaterDeterminant{T <: Union{Float64, ComplexF64}}
         workspace = Vector{T}(undef, max(n_elec, n_orb))
         pivot_indices = zeros(Int, n_elec)
 
-        new{T}(slater_matrix, inverse_matrix, orbital_indices, orbital_signs,
-               0, -1, -1, workspace, pivot_indices)
+        new{T}(
+            slater_matrix,
+            inverse_matrix,
+            orbital_indices,
+            orbital_signs,
+            0,
+            -1,
+            -1,
+            workspace,
+            pivot_indices,
+        )
     end
 end
 
@@ -74,7 +86,10 @@ end
 
 Initialize Slater determinant from orbital matrix.
 """
-function initialize_slater!(slater::SlaterDeterminant{T}, orbital_matrix::Matrix{T}) where T
+function initialize_slater!(
+    slater::SlaterDeterminant{T},
+    orbital_matrix::Matrix{T},
+) where {T}
     n_elec = slater.slater_matrix.n_elec
     n_orb = slater.slater_matrix.n_orb
 
@@ -86,7 +101,7 @@ function initialize_slater!(slater::SlaterDeterminant{T}, orbital_matrix::Matrix
     compute_inverse!(slater)
 
     # Initialize orbital indices
-    for i in 1:n_elec
+    for i = 1:n_elec
         slater.orbital_indices[i] = i
         slater.orbital_signs[i] = 1
     end
@@ -100,7 +115,7 @@ end
 
 Compute determinant of Slater matrix using LU decomposition.
 """
-function compute_determinant!(slater::SlaterDeterminant{T}) where T
+function compute_determinant!(slater::SlaterDeterminant{T}) where {T}
     n = slater.slater_matrix.n_elec
     A = slater.slater_matrix.matrix
 
@@ -117,14 +132,14 @@ function compute_determinant!(slater::SlaterDeterminant{T}) where T
     det_sign = 1
     det_value = one(T)
 
-    for i in 1:n
+    for i = 1:n
         det_value *= lu_result.L[i, i]
         if lu_result.p[i] != i
             det_sign *= -1
         end
     end
 
-    for i in 1:n
+    for i = 1:n
         det_value *= lu_result.U[i, i]
     end
 
@@ -137,7 +152,7 @@ end
 
 Compute inverse of Slater matrix using LU decomposition.
 """
-function compute_inverse!(slater::SlaterDeterminant{T}) where T
+function compute_inverse!(slater::SlaterDeterminant{T}) where {T}
     n = slater.slater_matrix.n_elec
     A = slater.slater_matrix.matrix
 
@@ -151,16 +166,16 @@ function compute_inverse!(slater::SlaterDeterminant{T}) where T
     lu_result = lu!(A_copy)
 
     # Solve for inverse using forward/backward substitution
-    for j in 1:n
+    for j = 1:n
         # Solve A * x = e_j where e_j is j-th unit vector
         x = zeros(T, n)
         x[j] = one(T)
 
         # Forward substitution: L * y = x
         y = zeros(T, n)
-        for i in 1:n
+        for i = 1:n
             y[i] = x[i]
-            for k in 1:(i-1)
+            for k = 1:(i-1)
                 y[i] -= lu_result.L[i, k] * y[k]
             end
             y[i] /= lu_result.L[i, i]
@@ -168,16 +183,16 @@ function compute_inverse!(slater::SlaterDeterminant{T}) where T
 
         # Backward substitution: U * z = y
         z = zeros(T, n)
-        for i in n:-1:1
+        for i = n:-1:1
             z[i] = y[i]
-            for k in (i+1):n
+            for k = (i+1):n
                 z[i] -= lu_result.U[i, k] * z[k]
             end
             z[i] /= lu_result.U[i, i]
         end
 
         # Apply permutation
-        for i in 1:n
+        for i = 1:n
             slater.inverse_matrix[lu_result.p[i], j] = z[i]
         end
     end
@@ -189,7 +204,12 @@ end
 Update Slater determinant after single electron move.
 Returns the ratio of new to old determinant.
 """
-function update_slater!(slater::SlaterDeterminant{T}, row::Int, col::Int, new_value::T) where T
+function update_slater!(
+    slater::SlaterDeterminant{T},
+    row::Int,
+    col::Int,
+    new_value::T,
+) where {T}
     old_value = slater.slater_matrix.matrix[row, col]
 
     # Compute ratio using Sherman-Morrison formula
@@ -218,7 +238,13 @@ end
 
 Compute determinant ratio for single electron move using Sherman-Morrison formula.
 """
-function compute_update_ratio(slater::SlaterDeterminant{T}, row::Int, col::Int, new_value::T, old_value::T) where T
+function compute_update_ratio(
+    slater::SlaterDeterminant{T},
+    row::Int,
+    col::Int,
+    new_value::T,
+    old_value::T,
+) where {T}
     n = slater.slater_matrix.n_elec
 
     # Find which orbital index corresponds to this column
@@ -248,7 +274,13 @@ end
 
 Update inverse matrix using Sherman-Morrison formula.
 """
-function update_inverse!(slater::SlaterDeterminant{T}, row::Int, col::Int, new_value::T, old_value::T) where T
+function update_inverse!(
+    slater::SlaterDeterminant{T},
+    row::Int,
+    col::Int,
+    new_value::T,
+    old_value::T,
+) where {T}
     n = slater.slater_matrix.n_elec
 
     # Find which orbital index corresponds to this column
@@ -269,7 +301,7 @@ function update_inverse!(slater::SlaterDeterminant{T}, row::Int, col::Int, new_v
 
     # Compute v^T * A^{-1}
     vT_Ainv = zeros(T, n)
-    for i in 1:n
+    for i = 1:n
         vT_Ainv[i] = dot(v, view(slater.inverse_matrix, :, i))
     end
 
@@ -278,8 +310,8 @@ function update_inverse!(slater::SlaterDeterminant{T}, row::Int, col::Int, new_v
     denominator = 1 + vT_Au
 
     # Update inverse matrix
-    for i in 1:n
-        for j in 1:n
+    for i = 1:n
+        for j = 1:n
             slater.inverse_matrix[i, j] -= (Au[i] * vT_Ainv[j]) / denominator
         end
     end
@@ -292,22 +324,47 @@ end
 Update Slater determinant after two electron move.
 Returns the ratio of new to old determinant.
 """
-function two_electron_update!(slater::SlaterDeterminant{T}, row1::Int, col1::Int, new_value1::T,
-                              row2::Int, col2::Int, new_value2::T) where T
+function two_electron_update!(
+    slater::SlaterDeterminant{T},
+    row1::Int,
+    col1::Int,
+    new_value1::T,
+    row2::Int,
+    col2::Int,
+    new_value2::T,
+) where {T}
     old_value1 = slater.slater_matrix.matrix[row1, col1]
     old_value2 = slater.slater_matrix.matrix[row2, col2]
 
     # Compute ratio using Woodbury formula for rank-2 update
-    ratio = compute_two_electron_ratio(slater, row1, col1, new_value1, old_value1,
-                                       row2, col2, new_value2, old_value2)
+    ratio = compute_two_electron_ratio(
+        slater,
+        row1,
+        col1,
+        new_value1,
+        old_value1,
+        row2,
+        col2,
+        new_value2,
+        old_value2,
+    )
 
     # Update matrix elements
     slater.slater_matrix.matrix[row1, col1] = new_value1
     slater.slater_matrix.matrix[row2, col2] = new_value2
 
     # Update inverse using Woodbury formula
-    update_inverse_two_electron!(slater, row1, col1, new_value1, old_value1,
-                                 row2, col2, new_value2, old_value2)
+    update_inverse_two_electron!(
+        slater,
+        row1,
+        col1,
+        new_value1,
+        old_value1,
+        row2,
+        col2,
+        new_value2,
+        old_value2,
+    )
 
     # Update determinant
     slater.slater_matrix.det_value *= ratio
@@ -327,8 +384,17 @@ end
 
 Compute determinant ratio for two electron move using Woodbury formula.
 """
-function compute_two_electron_ratio(slater::SlaterDeterminant{T}, row1::Int, col1::Int, new_value1::T, old_value1::T,
-                                   row2::Int, col2::Int, new_value2::T, old_value2::T) where T
+function compute_two_electron_ratio(
+    slater::SlaterDeterminant{T},
+    row1::Int,
+    col1::Int,
+    new_value1::T,
+    old_value1::T,
+    row2::Int,
+    col2::Int,
+    new_value2::T,
+    old_value2::T,
+) where {T}
     n = slater.slater_matrix.n_elec
 
     # Find orbital indices
@@ -370,8 +436,17 @@ end
 
 Update inverse matrix using Woodbury formula for rank-2 update.
 """
-function update_inverse_two_electron!(slater::SlaterDeterminant{T}, row1::Int, col1::Int, new_value1::T, old_value1::T,
-                                     row2::Int, col2::Int, new_value2::T, old_value2::T) where T
+function update_inverse_two_electron!(
+    slater::SlaterDeterminant{T},
+    row1::Int,
+    col1::Int,
+    new_value1::T,
+    old_value1::T,
+    row2::Int,
+    col2::Int,
+    new_value2::T,
+    old_value2::T,
+) where {T}
     n = slater.slater_matrix.n_elec
 
     # Find orbital indices
@@ -420,7 +495,7 @@ end
 
 Get current determinant value.
 """
-function get_determinant_value(slater::SlaterDeterminant{T}) where T
+function get_determinant_value(slater::SlaterDeterminant{T}) where {T}
     return slater.slater_matrix.det_value
 end
 
@@ -429,7 +504,7 @@ end
 
 Get current log determinant value.
 """
-function get_log_determinant_value(slater::SlaterDeterminant{T}) where T
+function get_log_determinant_value(slater::SlaterDeterminant{T}) where {T}
     return slater.slater_matrix.log_det_value
 end
 
@@ -438,7 +513,7 @@ end
 
 Check if Slater determinant is in valid state.
 """
-function is_valid(slater::SlaterDeterminant{T}) where T
+function is_valid(slater::SlaterDeterminant{T}) where {T}
     return slater.slater_matrix.is_valid
 end
 
@@ -447,7 +522,7 @@ end
 
 Reset Slater determinant to initial state.
 """
-function reset_slater!(slater::SlaterDeterminant{T}) where T
+function reset_slater!(slater::SlaterDeterminant{T}) where {T}
     fill!(slater.slater_matrix.matrix, zero(T))
     fill!(slater.inverse_matrix, zero(T))
     slater.slater_matrix.det_value = zero(T)
@@ -465,7 +540,7 @@ end
 
 Slater determinant with frozen spin configuration.
 """
-mutable struct FrozenSpinSlaterDeterminant{T <: Union{Float64, ComplexF64}}
+mutable struct FrozenSpinSlaterDeterminant{T<:Union{Float64,ComplexF64}}
     # Core matrices
     slater_matrix::SlaterMatrix{T}
     inverse_matrix::Matrix{T}
@@ -488,7 +563,11 @@ mutable struct FrozenSpinSlaterDeterminant{T <: Union{Float64, ComplexF64}}
     workspace::Vector{T}
     pivot_indices::Vector{Int}
 
-    function FrozenSpinSlaterDeterminant{T}(n_elec::Int, n_orb::Int, frozen_spins::Vector{Int}) where T
+    function FrozenSpinSlaterDeterminant{T}(
+        n_elec::Int,
+        n_orb::Int,
+        frozen_spins::Vector{Int},
+    ) where {T}
         slater_matrix = SlaterMatrix{T}(n_elec, n_orb)
         inverse_matrix = zeros(T, n_elec, n_elec)
         orbital_indices = zeros(Int, n_elec)
@@ -500,7 +579,7 @@ mutable struct FrozenSpinSlaterDeterminant{T <: Union{Float64, ComplexF64}}
         spin_up_indices = Int[]
         spin_down_indices = Int[]
 
-        for i in 1:length(frozen_spins)
+        for i = 1:length(frozen_spins)
             if frozen_spins[i] == 1  # Spin up
                 push!(spin_up_indices, i)
             else  # Spin down
@@ -508,8 +587,20 @@ mutable struct FrozenSpinSlaterDeterminant{T <: Union{Float64, ComplexF64}}
             end
         end
 
-        new{T}(slater_matrix, inverse_matrix, frozen_spins, spin_up_indices, spin_down_indices,
-               orbital_indices, orbital_signs, 0, -1, -1, workspace, pivot_indices)
+        new{T}(
+            slater_matrix,
+            inverse_matrix,
+            frozen_spins,
+            spin_up_indices,
+            spin_down_indices,
+            orbital_indices,
+            orbital_signs,
+            0,
+            -1,
+            -1,
+            workspace,
+            pivot_indices,
+        )
     end
 end
 
@@ -518,7 +609,10 @@ end
 
 Initialize frozen-spin Slater determinant from orbital matrix.
 """
-function initialize_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, orbital_matrix::Matrix{T}) where T
+function initialize_frozen_spin_slater!(
+    slater::FrozenSpinSlaterDeterminant{T},
+    orbital_matrix::Matrix{T},
+) where {T}
     n_elec = slater.slater_matrix.n_elec
     n_orb = slater.slater_matrix.n_orb
 
@@ -530,7 +624,7 @@ function initialize_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, 
     compute_inverse!(slater)
 
     # Initialize orbital indices
-    for i in 1:n_elec
+    for i = 1:n_elec
         slater.orbital_indices[i] = i
         slater.orbital_signs[i] = 1
     end
@@ -544,7 +638,12 @@ end
 
 Update frozen-spin Slater determinant after single electron move.
 """
-function update_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int, new_value::T) where T
+function update_frozen_spin_slater!(
+    slater::FrozenSpinSlaterDeterminant{T},
+    row::Int,
+    col::Int,
+    new_value::T,
+) where {T}
     # Check if the move is allowed (respects frozen spin configuration)
     if !_is_move_allowed(slater, row, col)
         return zero(T)  # Move not allowed
@@ -554,7 +653,11 @@ function update_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, row:
     return update_slater!(slater, row, col, new_value)
 end
 
-function _is_move_allowed(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int) where T
+function _is_move_allowed(
+    slater::FrozenSpinSlaterDeterminant{T},
+    row::Int,
+    col::Int,
+) where {T}
     # In a real implementation, this would check if the move respects the frozen spin configuration
     # For now, we allow all moves
     return true
@@ -567,7 +670,7 @@ end
 
 Represents backflow corrections to the Slater determinant.
 """
-mutable struct BackflowCorrection{T <: Union{Float64, ComplexF64}}
+mutable struct BackflowCorrection{T<:Union{Float64,ComplexF64}}
     # Backflow parameters
     backflow_weights::Matrix{T}  # n_site × n_site
     backflow_bias::Vector{T}     # n_site
@@ -580,13 +683,20 @@ mutable struct BackflowCorrection{T <: Union{Float64, ComplexF64}}
     backflow_buffer::Vector{T}
     gradient_buffer::Vector{T}
 
-    function BackflowCorrection{T}(n_site::Int, n_elec::Int) where T
+    function BackflowCorrection{T}(n_site::Int, n_elec::Int) where {T}
         backflow_weights = zeros(T, n_site, n_site)
         backflow_bias = zeros(T, n_site)
         backflow_buffer = Vector{T}(undef, n_site)
         gradient_buffer = Vector{T}(undef, n_site * n_site)
 
-        new{T}(backflow_weights, backflow_bias, n_site, n_elec, backflow_buffer, gradient_buffer)
+        new{T}(
+            backflow_weights,
+            backflow_bias,
+            n_site,
+            n_elec,
+            backflow_buffer,
+            gradient_buffer,
+        )
     end
 end
 
@@ -595,17 +705,22 @@ end
 
 Apply backflow correction to electron positions.
 """
-function apply_backflow_correction!(backflow::BackflowCorrection{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}) where T
+function apply_backflow_correction!(
+    backflow::BackflowCorrection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+) where {T}
     # Calculate backflow corrections for each electron
-    for i in 1:length(ele_idx)
+    for i = 1:length(ele_idx)
         site = ele_idx[i]
         correction = zero(T)
 
         # Sum over all other electrons
-        for j in 1:length(ele_idx)
+        for j = 1:length(ele_idx)
             if i != j
                 other_site = ele_idx[j]
-                correction += backflow.backflow_weights[site, other_site] * ele_cfg[other_site]
+                correction +=
+                    backflow.backflow_weights[site, other_site] * ele_cfg[other_site]
             end
         end
 
@@ -623,8 +738,13 @@ end
 
 Calculate backflow-corrected orbital value.
 """
-function backflow_corrected_orbital(backflow::BackflowCorrection{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
-                                   orbital_index::Int, site::Int) where T
+function backflow_corrected_orbital(
+    backflow::BackflowCorrection{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    orbital_index::Int,
+    site::Int,
+) where {T}
     # Apply backflow correction
     apply_backflow_correction!(backflow, ele_idx, ele_cfg)
 
@@ -647,7 +767,7 @@ end
 
 Slater determinant with backflow corrections.
 """
-mutable struct BackflowSlaterDeterminant{T <: Union{Float64, ComplexF64}}
+mutable struct BackflowSlaterDeterminant{T<:Union{Float64,ComplexF64}}
     # Core Slater determinant
     slater::SlaterDeterminant{T}
 
@@ -659,7 +779,7 @@ mutable struct BackflowSlaterDeterminant{T <: Union{Float64, ComplexF64}}
     last_update_row::Int
     last_update_col::Int
 
-    function BackflowSlaterDeterminant{T}(n_elec::Int, n_orb::Int, n_site::Int) where T
+    function BackflowSlaterDeterminant{T}(n_elec::Int, n_orb::Int, n_site::Int) where {T}
         slater = SlaterDeterminant{T}(n_elec, n_orb)
         backflow = BackflowCorrection{T}(n_site, n_elec)
 
@@ -672,7 +792,10 @@ end
 
 Initialize backflow Slater determinant from orbital matrix.
 """
-function initialize_backflow_slater!(slater::BackflowSlaterDeterminant{T}, orbital_matrix::Matrix{T}) where T
+function initialize_backflow_slater!(
+    slater::BackflowSlaterDeterminant{T},
+    orbital_matrix::Matrix{T},
+) where {T}
     initialize_slater!(slater.slater, orbital_matrix)
     slater.update_count = 0
 end
@@ -683,10 +806,17 @@ end
 
 Update backflow Slater determinant after single electron move.
 """
-function update_backflow_slater!(slater::BackflowSlaterDeterminant{T}, row::Int, col::Int, new_value::T,
-                                ele_idx::Vector{Int}, ele_cfg::Vector{Int}) where T
+function update_backflow_slater!(
+    slater::BackflowSlaterDeterminant{T},
+    row::Int,
+    col::Int,
+    new_value::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+) where {T}
     # Calculate backflow-corrected orbital value
-    corrected_value = backflow_corrected_orbital(slater.backflow, ele_idx, ele_cfg, col, row)
+    corrected_value =
+        backflow_corrected_orbital(slater.backflow, ele_idx, ele_cfg, col, row)
 
     # Update the underlying Slater determinant
     ratio = update_slater!(slater.slater, row, col, corrected_value)
@@ -704,7 +834,7 @@ end
 
 Get current determinant value with backflow corrections.
 """
-function get_backflow_determinant_value(slater::BackflowSlaterDeterminant{T}) where T
+function get_backflow_determinant_value(slater::BackflowSlaterDeterminant{T}) where {T}
     return get_determinant_value(slater.slater)
 end
 
@@ -713,7 +843,7 @@ end
 
 Get current log determinant value with backflow corrections.
 """
-function get_backflow_log_determinant_value(slater::BackflowSlaterDeterminant{T}) where T
+function get_backflow_log_determinant_value(slater::BackflowSlaterDeterminant{T}) where {T}
     return get_log_determinant_value(slater.slater)
 end
 
@@ -722,7 +852,7 @@ end
 
 Check if backflow Slater determinant is in valid state.
 """
-function is_backflow_valid(slater::BackflowSlaterDeterminant{T}) where T
+function is_backflow_valid(slater::BackflowSlaterDeterminant{T}) where {T}
     return is_valid(slater.slater)
 end
 
@@ -731,7 +861,7 @@ end
 
 Reset backflow Slater determinant to initial state.
 """
-function reset_backflow_slater!(slater::BackflowSlaterDeterminant{T}) where T
+function reset_backflow_slater!(slater::BackflowSlaterDeterminant{T}) where {T}
     reset_slater!(slater.slater)
     slater.update_count = 0
     slater.last_update_row = -1

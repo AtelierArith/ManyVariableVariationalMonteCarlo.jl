@@ -19,14 +19,14 @@ using LinearAlgebra.LAPACK
 
 Cache for Green function calculations to avoid redundant computations.
 """
-mutable struct GreenFunctionCache{T <: Union{Float64, ComplexF64}}
+mutable struct GreenFunctionCache{T<:Union{Float64,ComplexF64}}
     # 1-body Green functions
     cis_ajs::Vector{T}
-    cis_ajs_indices::Vector{NTuple{4, Int}}  # (ri, s, rj, t)
+    cis_ajs_indices::Vector{NTuple{4,Int}}  # (ri, s, rj, t)
 
     # 2-body Green functions
     cis_ajs_ckt_alt::Vector{T}
-    cis_ajs_ckt_alt_indices::Vector{NTuple{6, Int}}  # (ri, s, rj, t, rk, u)
+    cis_ajs_ckt_alt_indices::Vector{NTuple{6,Int}}  # (ri, s, rj, t, rk, u)
 
     # Large-scale Green functions
     ls_local_q::Vector{T}
@@ -38,18 +38,32 @@ mutable struct GreenFunctionCache{T <: Union{Float64, ComplexF64}}
     cache_hits::Int
     cache_misses::Int
 
-    function GreenFunctionCache{T}(n_cis_ajs::Int, n_cis_ajs_ckt_alt::Int, n_ls_q::Int) where T
+    function GreenFunctionCache{T}(
+        n_cis_ajs::Int,
+        n_cis_ajs_ckt_alt::Int,
+        n_ls_q::Int,
+    ) where {T}
         cis_ajs = zeros(T, n_cis_ajs)
-        cis_ajs_indices = Vector{NTuple{4, Int}}(undef, n_cis_ajs)
+        cis_ajs_indices = Vector{NTuple{4,Int}}(undef, n_cis_ajs)
 
         cis_ajs_ckt_alt = zeros(T, n_cis_ajs_ckt_alt)
-        cis_ajs_ckt_alt_indices = Vector{NTuple{6, Int}}(undef, n_cis_ajs_ckt_alt)
+        cis_ajs_ckt_alt_indices = Vector{NTuple{6,Int}}(undef, n_cis_ajs_ckt_alt)
 
         ls_local_q = zeros(T, n_ls_q)
         ls_local_cis_ajs = zeros(T, n_cis_ajs)
 
-        new{T}(cis_ajs, cis_ajs_indices, cis_ajs_ckt_alt, cis_ajs_ckt_alt_indices,
-               ls_local_q, ls_local_cis_ajs, false, 0, 0, 0)
+        new{T}(
+            cis_ajs,
+            cis_ajs_indices,
+            cis_ajs_ckt_alt,
+            cis_ajs_ckt_alt_indices,
+            ls_local_q,
+            ls_local_cis_ajs,
+            false,
+            0,
+            0,
+            0,
+        )
     end
 end
 
@@ -58,7 +72,7 @@ end
 
 Main structure for local Green function calculations.
 """
-mutable struct LocalGreenFunction{T <: Union{Float64, ComplexF64}}
+mutable struct LocalGreenFunction{T<:Union{Float64,ComplexF64}}
     # System parameters
     n_site::Int
     n_elec::Int
@@ -78,7 +92,7 @@ mutable struct LocalGreenFunction{T <: Union{Float64, ComplexF64}}
     calculation_time::Float64
     total_calculations::Int
 
-    function LocalGreenFunction{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where T
+    function LocalGreenFunction{T}(n_site::Int, n_elec::Int, n_spin::Int = 2) where {T}
         n_cis_ajs = n_site * n_site * n_spin
         n_cis_ajs_ckt_alt = n_cis_ajs * n_site * n_spin
         n_ls_q = n_site * n_site * n_spin
@@ -91,7 +105,19 @@ mutable struct LocalGreenFunction{T <: Union{Float64, ComplexF64}}
         ele_num = zeros(Int, n_site * n_spin)
         proj_cnt = zeros(Int, n_site)
 
-        new{T}(n_site, n_elec, n_spin, cache, buffer, ele_idx, ele_cfg, ele_num, proj_cnt, 0.0, 0)
+        new{T}(
+            n_site,
+            n_elec,
+            n_spin,
+            cache,
+            buffer,
+            ele_idx,
+            ele_cfg,
+            ele_num,
+            proj_cnt,
+            0.0,
+            0,
+        )
     end
 end
 
@@ -104,10 +130,18 @@ end
 Calculate 1-body Green function <CisAjs>.
 Returns the Green function value.
 """
-function green_function_1body!(gf::LocalGreenFunction{T}, ri::Int, rj::Int, s::Int,
-                               ip::T, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
-                               ele_num::Vector{Int}, proj_cnt::Vector{Int},
-                               rbm_cnt::Vector{T} = T[]) where T <: Union{Float64, ComplexF64}
+function green_function_1body!(
+    gf::LocalGreenFunction{T},
+    ri::Int,
+    rj::Int,
+    s::Int,
+    ip::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    proj_cnt::Vector{Int},
+    rbm_cnt::Vector{T} = T[],
+) where {T<:Union{Float64,ComplexF64}}
 
     # Check cache first
     cache_key = (ri, s, rj, s)
@@ -122,7 +156,18 @@ function green_function_1body!(gf::LocalGreenFunction{T}, ri::Int, rj::Int, s::I
     gf.cache.cache_misses += 1
 
     # Direct calculation
-    z = _calculate_green_1body_direct(gf, ri, rj, s, ip, ele_idx, ele_cfg, ele_num, proj_cnt, rbm_cnt)
+    z = _calculate_green_1body_direct(
+        gf,
+        ri,
+        rj,
+        s,
+        ip,
+        ele_idx,
+        ele_cfg,
+        ele_num,
+        proj_cnt,
+        rbm_cnt,
+    )
 
     # Update cache
     if !gf.cache.is_valid
@@ -141,10 +186,18 @@ end
 
 Direct calculation of 1-body Green function without caching.
 """
-function _calculate_green_1body_direct(gf::LocalGreenFunction{T}, ri::Int, rj::Int, s::Int,
-                                      ip::T, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
-                                      ele_num::Vector{Int}, proj_cnt::Vector{Int},
-                                      rbm_cnt::Vector{T}) where T <: Union{Float64, ComplexF64}
+function _calculate_green_1body_direct(
+    gf::LocalGreenFunction{T},
+    ri::Int,
+    rj::Int,
+    s::Int,
+    ip::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    proj_cnt::Vector{Int},
+    rbm_cnt::Vector{T},
+) where {T<:Union{Float64,ComplexF64}}
 
     n_site = gf.n_site
     n_elec = gf.n_elec
@@ -218,10 +271,21 @@ end
 
 Calculate 2-body Green function <CisAjsCktAlt>.
 """
-function green_function_2body!(gf::LocalGreenFunction{T}, ri::Int, rj::Int, rk::Int, rl::Int,
-                               s::Int, t::Int, ip::T, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
-                               ele_num::Vector{Int}, proj_cnt::Vector{Int},
-                               rbm_cnt::Vector{T} = T[]) where T <: Union{Float64, ComplexF64}
+function green_function_2body!(
+    gf::LocalGreenFunction{T},
+    ri::Int,
+    rj::Int,
+    rk::Int,
+    rl::Int,
+    s::Int,
+    t::Int,
+    ip::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    proj_cnt::Vector{Int},
+    rbm_cnt::Vector{T} = T[],
+) where {T<:Union{Float64,ComplexF64}}
 
     # Check cache first
     cache_key = (ri, s, rj, s, rk, t)
@@ -236,7 +300,21 @@ function green_function_2body!(gf::LocalGreenFunction{T}, ri::Int, rj::Int, rk::
     gf.cache.cache_misses += 1
 
     # Direct calculation
-    z = _calculate_green_2body_direct(gf, ri, rj, rk, rl, s, t, ip, ele_idx, ele_cfg, ele_num, proj_cnt, rbm_cnt)
+    z = _calculate_green_2body_direct(
+        gf,
+        ri,
+        rj,
+        rk,
+        rl,
+        s,
+        t,
+        ip,
+        ele_idx,
+        ele_cfg,
+        ele_num,
+        proj_cnt,
+        rbm_cnt,
+    )
 
     return z
 end
@@ -249,10 +327,21 @@ end
 
 Direct calculation of 2-body Green function.
 """
-function _calculate_green_2body_direct(gf::LocalGreenFunction{T}, ri::Int, rj::Int, rk::Int, rl::Int,
-                                      s::Int, t::Int, ip::T, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
-                                      ele_num::Vector{Int}, proj_cnt::Vector{Int},
-                                      rbm_cnt::Vector{T}) where T <: Union{Float64, ComplexF64}
+function _calculate_green_2body_direct(
+    gf::LocalGreenFunction{T},
+    ri::Int,
+    rj::Int,
+    rk::Int,
+    rl::Int,
+    s::Int,
+    t::Int,
+    ip::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    proj_cnt::Vector{Int},
+    rbm_cnt::Vector{T},
+) where {T<:Union{Float64,ComplexF64}}
 
     n_site = gf.n_site
     n_elec = gf.n_elec
@@ -336,20 +425,37 @@ end
 
 Calculate large-scale Green functions for Lanczos method.
 """
-function large_scale_green_function!(gf::LocalGreenFunction{T}, w::T, ip::T,
-                                    ele_idx::Vector{Int}, ele_cfg::Vector{Int},
-                                    ele_num::Vector{Int}, proj_cnt::Vector{Int},
-                                    rbm_cnt::Vector{T} = T[]) where T <: Union{Float64, ComplexF64}
+function large_scale_green_function!(
+    gf::LocalGreenFunction{T},
+    w::T,
+    ip::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    proj_cnt::Vector{Int},
+    rbm_cnt::Vector{T} = T[],
+) where {T<:Union{Float64,ComplexF64}}
 
     n_site = gf.n_site
     n_spin = gf.n_spin
 
     # Calculate 1-body Green functions
-    for s in 1:n_spin
-        for ri in 1:n_site
-            for rj in 1:n_site
+    for s = 1:n_spin
+        for ri = 1:n_site
+            for rj = 1:n_site
                 idx = (s - 1) * n_site * n_site + (ri - 1) * n_site + rj
-                gf.cache.ls_local_cis_ajs[idx] = green_function_1body!(gf, ri, rj, s, ip, ele_idx, ele_cfg, ele_num, proj_cnt, rbm_cnt)
+                gf.cache.ls_local_cis_ajs[idx] = green_function_1body!(
+                    gf,
+                    ri,
+                    rj,
+                    s,
+                    ip,
+                    ele_idx,
+                    ele_cfg,
+                    ele_num,
+                    proj_cnt,
+                    rbm_cnt,
+                )
             end
         end
     end
@@ -367,17 +473,23 @@ end
 
 Calculate large-scale Q matrix for Lanczos method.
 """
-function _calculate_ls_q_matrix!(gf::LocalGreenFunction{T}, w::T, ele_idx::Vector{Int},
-                                ele_cfg::Vector{Int}, ele_num::Vector{Int}, proj_cnt::Vector{Int},
-                                rbm_cnt::Vector{T}) where T <: Union{Float64, ComplexF64}
+function _calculate_ls_q_matrix!(
+    gf::LocalGreenFunction{T},
+    w::T,
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    proj_cnt::Vector{Int},
+    rbm_cnt::Vector{T},
+) where {T<:Union{Float64,ComplexF64}}
 
     n_site = gf.n_site
     n_spin = gf.n_spin
 
     # Simplified implementation - would need full Hamiltonian matrix
-    for s in 1:n_spin
-        for ri in 1:n_site
-            for rj in 1:n_site
+    for s = 1:n_spin
+        for ri = 1:n_site
+            for rj = 1:n_site
                 idx = (s - 1) * n_site * n_site + (ri - 1) * n_site + rj
                 # Placeholder for Q matrix calculation
                 gf.cache.ls_local_q[idx] = gf.cache.ls_local_cis_ajs[idx] * w
@@ -388,7 +500,13 @@ end
 
 # Helper functions (simplified implementations)
 
-function _update_proj_cnt!(proj_cnt_new::Vector{Int}, rj::Int, ri::Int, s::Int, ele_num::Vector{Int})
+function _update_proj_cnt!(
+    proj_cnt_new::Vector{Int},
+    rj::Int,
+    ri::Int,
+    s::Int,
+    ele_num::Vector{Int},
+)
     # Simplified projection count update
     # Would need full implementation based on projection operators
     proj_cnt_new[ri] += 1
@@ -401,26 +519,45 @@ function _proj_ratio(proj_cnt_new::Vector{Int}, proj_cnt::Vector{Int})
     return 1.0
 end
 
-function _update_rbm_cnt!(rbm_cnt_new::Vector{T}, rbm_cnt::Vector{T}, rj::Int, ri::Int, s::Int, ele_num::Vector{Int}) where T
+function _update_rbm_cnt!(
+    rbm_cnt_new::Vector{T},
+    rbm_cnt::Vector{T},
+    rj::Int,
+    ri::Int,
+    s::Int,
+    ele_num::Vector{Int},
+) where {T}
     # Simplified RBM count update
     # Would need full implementation based on RBM structure
     rbm_cnt_new[ri] += 1
     rbm_cnt_new[rj] -= 1
 end
 
-function _rbm_ratio(rbm_cnt_new::Vector{T}, rbm_cnt::Vector{T}) where T
+function _rbm_ratio(rbm_cnt_new::Vector{T}, rbm_cnt::Vector{T}) where {T}
     # Simplified RBM ratio calculation
     # Would need full implementation based on RBM structure
     return 1.0
 end
 
-function _calculate_pfaffian_ratio(gf::LocalGreenFunction{T}, mj::Int, s::Int, ele_idx::Vector{Int}) where T
+function _calculate_pfaffian_ratio(
+    gf::LocalGreenFunction{T},
+    mj::Int,
+    s::Int,
+    ele_idx::Vector{Int},
+) where {T}
     # Simplified Pfaffian ratio calculation
     # Would need full implementation with Pfaffian updates
     return 1.0
 end
 
-function _calculate_pfaffian_ratio_2body(gf::LocalGreenFunction{T}, mj::Int, s::Int, ml::Int, t::Int, ele_idx::Vector{Int}) where T
+function _calculate_pfaffian_ratio_2body(
+    gf::LocalGreenFunction{T},
+    mj::Int,
+    s::Int,
+    ml::Int,
+    t::Int,
+    ele_idx::Vector{Int},
+) where {T}
     # Simplified 2-body Pfaffian ratio calculation
     # Would need full implementation with Pfaffian updates
     return 1.0
@@ -431,7 +568,7 @@ end
 
 Clear the Green function cache.
 """
-function clear_green_function_cache!(gf::LocalGreenFunction{T}) where T
+function clear_green_function_cache!(gf::LocalGreenFunction{T}) where {T}
     gf.cache.is_valid = false
     gf.cache.cache_hits = 0
     gf.cache.cache_misses = 0
@@ -446,7 +583,7 @@ end
 
 Get cache hit/miss statistics.
 """
-function get_cache_statistics(gf::LocalGreenFunction{T}) where T
+function get_cache_statistics(gf::LocalGreenFunction{T}) where {T}
     total = gf.cache.cache_hits + gf.cache.cache_misses
     hit_rate = total > 0 ? gf.cache.cache_hits / total : 0.0
     return (hits = gf.cache.cache_hits, misses = gf.cache.cache_misses, hit_rate = hit_rate)
@@ -457,8 +594,14 @@ end
 
 Benchmark Green function calculations.
 """
-function benchmark_green_functions(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int = 1000)
-    println("Benchmarking Green function calculations (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...")
+function benchmark_green_functions(
+    n_site::Int = 10,
+    n_elec::Int = 5,
+    n_iterations::Int = 1000,
+)
+    println(
+        "Benchmarking Green function calculations (n_site=$n_site, n_elec=$n_elec, iterations=$n_iterations)...",
+    )
 
     # Create Green function calculator
     gf = LocalGreenFunction{ComplexF64}(n_site, n_elec)
@@ -473,11 +616,21 @@ function benchmark_green_functions(n_site::Int = 10, n_elec::Int = 5, n_iteratio
 
     # Benchmark 1-body Green functions
     @time begin
-        for _ in 1:n_iterations
-            for ri in 1:n_site
-                for rj in 1:n_site
-                    for s in 1:2
-                        green_function_1body!(gf, ri, rj, s, 1.0 + 0.1im, ele_idx, ele_cfg, ele_num, proj_cnt)
+        for _ = 1:n_iterations
+            for ri = 1:n_site
+                for rj = 1:n_site
+                    for s = 1:2
+                        green_function_1body!(
+                            gf,
+                            ri,
+                            rj,
+                            s,
+                            1.0 + 0.1im,
+                            ele_idx,
+                            ele_cfg,
+                            ele_num,
+                            proj_cnt,
+                        )
                     end
                 end
             end
@@ -487,14 +640,27 @@ function benchmark_green_functions(n_site::Int = 10, n_elec::Int = 5, n_iteratio
 
     # Benchmark 2-body Green functions
     @time begin
-        for _ in 1:n_iterations÷10  # Fewer iterations for 2-body
-            for ri in 1:n_site
-                for rj in 1:n_site
-                    for rk in 1:n_site
-                        for rl in 1:n_site
-                            for s in 1:2
-                                for t in 1:2
-                                    green_function_2body!(gf, ri, rj, rk, rl, s, t, 1.0 + 0.1im, ele_idx, ele_cfg, ele_num, proj_cnt)
+        for _ = 1:n_iterations÷10  # Fewer iterations for 2-body
+            for ri = 1:n_site
+                for rj = 1:n_site
+                    for rk = 1:n_site
+                        for rl = 1:n_site
+                            for s = 1:2
+                                for t = 1:2
+                                    green_function_2body!(
+                                        gf,
+                                        ri,
+                                        rj,
+                                        rk,
+                                        rl,
+                                        s,
+                                        t,
+                                        1.0 + 0.1im,
+                                        ele_idx,
+                                        ele_cfg,
+                                        ele_num,
+                                        proj_cnt,
+                                    )
                                 end
                             end
                         end

@@ -6,19 +6,23 @@ const AMP_MAX = 4.0
 function _check_layout_mask(layout::ParameterLayout, mask::ParameterMask)
     length(mask.proj) == layout.nproj || throw(ArgumentError("proj mask length mismatch"))
     length(mask.rbm) == layout.nrbm || throw(ArgumentError("rbm mask length mismatch"))
-    length(mask.slater) == layout.nslater || throw(ArgumentError("slater mask length mismatch"))
-    length(mask.opttrans) == layout.nopttrans || throw(ArgumentError("opttrans mask length mismatch"))
+    length(mask.slater) == layout.nslater ||
+        throw(ArgumentError("slater mask length mismatch"))
+    length(mask.opttrans) == layout.nopttrans ||
+        throw(ArgumentError("opttrans mask length mismatch"))
     return nothing
 end
 
 
-function initialize_parameters!(params::ParameterSet,
-                                layout::ParameterLayout,
-                                mask::ParameterMask,
-                                flags::ParameterFlags;
-                                rng::AbstractRNG = Random.GLOBAL_RNG,
-                                para_qp_opttrans::AbstractVector{<:Number} = ComplexF64[],
-                                rbm_scale::Real = 1.0)
+function initialize_parameters!(
+    params::ParameterSet,
+    layout::ParameterLayout,
+    mask::ParameterMask,
+    flags::ParameterFlags;
+    rng::AbstractRNG = Random.GLOBAL_RNG,
+    para_qp_opttrans::AbstractVector{<:Number} = ComplexF64[],
+    rbm_scale::Real = 1.0,
+)
     _check_layout_mask(layout, mask)
 
     fill!(params.proj, 0)
@@ -74,11 +78,11 @@ end
 
 function apply_opttrans_basis!(params::ParameterSet, values::AbstractVector)
     ncopy = min(length(params.opttrans), length(values))
-    for i in 1:ncopy
+    for i = 1:ncopy
         params.opttrans[i] = values[i]
     end
     if ncopy < length(params.opttrans)
-        fill!(view(params.opttrans, (ncopy + 1):length(params.opttrans)), 0)
+        fill!(view(params.opttrans, (ncopy+1):length(params.opttrans)), 0)
     end
     return params
 end
