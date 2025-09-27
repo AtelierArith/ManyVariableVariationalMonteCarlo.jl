@@ -52,7 +52,7 @@ The main module `ManyVariableVariationalMonteCarlo` is organized into focused su
 - `GreenFunctionTable`: Handles initial Green function data from `initial.def`
 
 ### Testing Framework
-Uses ReTestItems with `@testitem` blocks instead of traditional `@test` macros. Test files must have `_tests.jl` suffix to be recognized. All stochastic tests should use `StableRNGs` for reproducibility.
+Test files must have `_tests.jl` suffix to be recognized. All stochastic tests should use `StableRNGs` for reproducibility.
 
 ## Development Guidelines
 

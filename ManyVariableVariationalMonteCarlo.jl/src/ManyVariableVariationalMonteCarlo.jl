@@ -18,6 +18,7 @@ include("projections.jl")
 # Wavefunction components
 include("slater.jl")
 include("rbm.jl")
+include("jastrow.jl")
 
 # Monte Carlo sampling
 include("sampler.jl")
@@ -68,16 +69,44 @@ export SimulationConfig, FaceDefinition, facevalue, load_face_definition, push_d
        add_parity_projection!, calculate_projection_ratio,
        gauss_legendre_quadrature, setup_continuous_projection!,
        calculate_continuous_projection_ratio, benchmark_projections,
+       # Enhanced quantum projection exports
+       SymmetryOperation, PointGroupProjection, add_symmetry_operation!,
+       calculate_point_group_ratio, TimeReversalProjection,
+       calculate_time_reversal_ratio, ParticleHoleProjection,
+       calculate_particle_hole_ratio, AdvancedQuantumProjection,
+       calculate_advanced_projection_ratio, setup_cubic_symmetry!,
+       benchmark_advanced_projections,
        # Slater determinant exports
        SlaterMatrix, SlaterDeterminant, initialize_slater!,
        compute_determinant!, compute_inverse!, update_slater!,
        two_electron_update!, get_determinant_value, get_log_determinant_value,
        is_valid, reset_slater!,
+       # Enhanced Slater determinant exports
+       FrozenSpinSlaterDeterminant, initialize_frozen_spin_slater!,
+       update_frozen_spin_slater!, BackflowCorrection, apply_backflow_correction!,
+       backflow_corrected_orbital, BackflowSlaterDeterminant,
+       initialize_backflow_slater!, update_backflow_slater!,
+       get_backflow_determinant_value, get_backflow_log_determinant_value,
+       is_backflow_valid, reset_backflow_slater!,
        # RBM exports
        RBMNetwork, initialize_rbm!, rbm_weight, log_rbm_weight,
        rbm_weight_phys, log_rbm_weight_phys, rbm_gradient, rbm_gradient_phys,
        update_rbm_weights!, update_rbm_weights_phys!, get_rbm_parameters,
        set_rbm_parameters!, rbm_parameter_count, reset_rbm!,
+       # Enhanced RBM exports
+       RBMGradient, compute_efficient_gradient!, update_rbm_efficient!,
+       VariationalRBM, set_parameter_bounds!, set_parameter_scale!,
+       get_parameter_value, set_parameter_value!, record_optimization_step!,
+       apply_regularization!, get_optimization_statistics, reset_optimization_history!,
+       RBMEnsemble, ensemble_rbm_weight, update_ensemble_weights!,
+       # Jastrow factor exports
+       JastrowType, JastrowParameter, JastrowFactor,
+       add_gutzwiller_parameter!, add_density_density_parameter!,
+       add_spin_spin_parameter!, add_three_body_parameter!,
+       jastrow_factor, log_jastrow_factor, jastrow_ratio,
+       jastrow_gradient, update_jastrow_parameters!, get_jastrow_parameters,
+       set_jastrow_parameters!, jastrow_parameter_count, reset_jastrow!,
+       benchmark_jastrow,
        # VMC sampling exports
        VMCConfig, VMCState, VMCResults, initialize_vmc_state!,
        propose_single_electron_move, propose_two_electron_move,

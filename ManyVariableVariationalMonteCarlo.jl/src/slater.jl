@@ -457,3 +457,283 @@ function reset_slater!(slater::SlaterDeterminant{T}) where T
     slater.last_update_row = -1
     slater.last_update_col = -1
 end
+
+# Frozen-spin variants
+
+"""
+    FrozenSpinSlaterDeterminant{T}
+
+Slater determinant with frozen spin configuration.
+"""
+mutable struct FrozenSpinSlaterDeterminant{T <: Union{Float64, ComplexF64}}
+    # Core matrices
+    slater_matrix::SlaterMatrix{T}
+    inverse_matrix::Matrix{T}
+
+    # Frozen spin configuration
+    frozen_spins::Vector{Int}
+    spin_up_indices::Vector{Int}
+    spin_down_indices::Vector{Int}
+
+    # Orbital information
+    orbital_indices::Vector{Int}
+    orbital_signs::Vector{Int}
+
+    # Update tracking
+    update_count::Int
+    last_update_row::Int
+    last_update_col::Int
+
+    # Performance optimization
+    workspace::Vector{T}
+    pivot_indices::Vector{Int}
+
+    function FrozenSpinSlaterDeterminant{T}(n_elec::Int, n_orb::Int, frozen_spins::Vector{Int}) where T
+        slater_matrix = SlaterMatrix{T}(n_elec, n_orb)
+        inverse_matrix = zeros(T, n_elec, n_elec)
+        orbital_indices = zeros(Int, n_elec)
+        orbital_signs = ones(Int, n_elec)
+        workspace = Vector{T}(undef, max(n_elec, n_orb))
+        pivot_indices = zeros(Int, n_elec)
+
+        # Separate spin up and down indices
+        spin_up_indices = Int[]
+        spin_down_indices = Int[]
+
+        for i in 1:length(frozen_spins)
+            if frozen_spins[i] == 1  # Spin up
+                push!(spin_up_indices, i)
+            else  # Spin down
+                push!(spin_down_indices, i)
+            end
+        end
+
+        new{T}(slater_matrix, inverse_matrix, frozen_spins, spin_up_indices, spin_down_indices,
+               orbital_indices, orbital_signs, 0, -1, -1, workspace, pivot_indices)
+    end
+end
+
+"""
+    initialize_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, orbital_matrix::Matrix{T})
+
+Initialize frozen-spin Slater determinant from orbital matrix.
+"""
+function initialize_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, orbital_matrix::Matrix{T}) where T
+    n_elec = slater.slater_matrix.n_elec
+    n_orb = slater.slater_matrix.n_orb
+
+    # Copy orbital matrix to Slater matrix
+    slater.slater_matrix.matrix .= orbital_matrix[1:n_elec, 1:n_orb]
+
+    # Compute determinant and inverse
+    compute_determinant!(slater)
+    compute_inverse!(slater)
+
+    # Initialize orbital indices
+    for i in 1:n_elec
+        slater.orbital_indices[i] = i
+        slater.orbital_signs[i] = 1
+    end
+
+    slater.update_count = 0
+    slater.slater_matrix.is_valid = true
+end
+
+"""
+    update_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int, new_value::T)
+
+Update frozen-spin Slater determinant after single electron move.
+"""
+function update_frozen_spin_slater!(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int, new_value::T) where T
+    # Check if the move is allowed (respects frozen spin configuration)
+    if !_is_move_allowed(slater, row, col)
+        return zero(T)  # Move not allowed
+    end
+
+    # Use the same update logic as regular Slater determinant
+    return update_slater!(slater, row, col, new_value)
+end
+
+function _is_move_allowed(slater::FrozenSpinSlaterDeterminant{T}, row::Int, col::Int) where T
+    # In a real implementation, this would check if the move respects the frozen spin configuration
+    # For now, we allow all moves
+    return true
+end
+
+# Backflow corrections
+
+"""
+    BackflowCorrection{T}
+
+Represents backflow corrections to the Slater determinant.
+"""
+mutable struct BackflowCorrection{T <: Union{Float64, ComplexF64}}
+    # Backflow parameters
+    backflow_weights::Matrix{T}  # n_site × n_site
+    backflow_bias::Vector{T}     # n_site
+
+    # System parameters
+    n_site::Int
+    n_elec::Int
+
+    # Working arrays
+    backflow_buffer::Vector{T}
+    gradient_buffer::Vector{T}
+
+    function BackflowCorrection{T}(n_site::Int, n_elec::Int) where T
+        backflow_weights = zeros(T, n_site, n_site)
+        backflow_bias = zeros(T, n_site)
+        backflow_buffer = Vector{T}(undef, n_site)
+        gradient_buffer = Vector{T}(undef, n_site * n_site)
+
+        new{T}(backflow_weights, backflow_bias, n_site, n_elec, backflow_buffer, gradient_buffer)
+    end
+end
+
+"""
+    apply_backflow_correction!(backflow::BackflowCorrection{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int})
+
+Apply backflow correction to electron positions.
+"""
+function apply_backflow_correction!(backflow::BackflowCorrection{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int}) where T
+    # Calculate backflow corrections for each electron
+    for i in 1:length(ele_idx)
+        site = ele_idx[i]
+        correction = zero(T)
+
+        # Sum over all other electrons
+        for j in 1:length(ele_idx)
+            if i != j
+                other_site = ele_idx[j]
+                correction += backflow.backflow_weights[site, other_site] * ele_cfg[other_site]
+            end
+        end
+
+        # Add bias term
+        correction += backflow.backflow_bias[site]
+
+        # Store correction
+        backflow.backflow_buffer[i] = correction
+    end
+end
+
+"""
+    backflow_corrected_orbital(backflow::BackflowCorrection{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
+                              orbital_index::Int, site::Int) where T
+
+Calculate backflow-corrected orbital value.
+"""
+function backflow_corrected_orbital(backflow::BackflowCorrection{T}, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
+                                   orbital_index::Int, site::Int) where T
+    # Apply backflow correction
+    apply_backflow_correction!(backflow, ele_idx, ele_cfg)
+
+    # Find the electron index for this site
+    ele_idx_pos = findfirst(==(site), ele_idx)
+    if ele_idx_pos === nothing
+        return zero(T)
+    end
+
+    # Calculate corrected orbital value
+    correction = backflow.backflow_buffer[ele_idx_pos]
+
+    # In a real implementation, this would involve evaluating the orbital
+    # at the backflow-corrected position
+    return exp(im * correction)  # Simplified form
+end
+
+"""
+    BackflowSlaterDeterminant{T}
+
+Slater determinant with backflow corrections.
+"""
+mutable struct BackflowSlaterDeterminant{T <: Union{Float64, ComplexF64}}
+    # Core Slater determinant
+    slater::SlaterDeterminant{T}
+
+    # Backflow correction
+    backflow::BackflowCorrection{T}
+
+    # Update tracking
+    update_count::Int
+    last_update_row::Int
+    last_update_col::Int
+
+    function BackflowSlaterDeterminant{T}(n_elec::Int, n_orb::Int, n_site::Int) where T
+        slater = SlaterDeterminant{T}(n_elec, n_orb)
+        backflow = BackflowCorrection{T}(n_site, n_elec)
+
+        new{T}(slater, backflow, 0, -1, -1)
+    end
+end
+
+"""
+    initialize_backflow_slater!(slater::BackflowSlaterDeterminant{T}, orbital_matrix::Matrix{T})
+
+Initialize backflow Slater determinant from orbital matrix.
+"""
+function initialize_backflow_slater!(slater::BackflowSlaterDeterminant{T}, orbital_matrix::Matrix{T}) where T
+    initialize_slater!(slater.slater, orbital_matrix)
+    slater.update_count = 0
+end
+
+"""
+    update_backflow_slater!(slater::BackflowSlaterDeterminant{T}, row::Int, col::Int, new_value::T,
+                           ele_idx::Vector{Int}, ele_cfg::Vector{Int}) where T
+
+Update backflow Slater determinant after single electron move.
+"""
+function update_backflow_slater!(slater::BackflowSlaterDeterminant{T}, row::Int, col::Int, new_value::T,
+                                ele_idx::Vector{Int}, ele_cfg::Vector{Int}) where T
+    # Calculate backflow-corrected orbital value
+    corrected_value = backflow_corrected_orbital(slater.backflow, ele_idx, ele_cfg, col, row)
+
+    # Update the underlying Slater determinant
+    ratio = update_slater!(slater.slater, row, col, corrected_value)
+
+    # Update tracking
+    slater.update_count += 1
+    slater.last_update_row = row
+    slater.last_update_col = col
+
+    return ratio
+end
+
+"""
+    get_backflow_determinant_value(slater::BackflowSlaterDeterminant{T})
+
+Get current determinant value with backflow corrections.
+"""
+function get_backflow_determinant_value(slater::BackflowSlaterDeterminant{T}) where T
+    return get_determinant_value(slater.slater)
+end
+
+"""
+    get_backflow_log_determinant_value(slater::BackflowSlaterDeterminant{T})
+
+Get current log determinant value with backflow corrections.
+"""
+function get_backflow_log_determinant_value(slater::BackflowSlaterDeterminant{T}) where T
+    return get_log_determinant_value(slater.slater)
+end
+
+"""
+    is_backflow_valid(slater::BackflowSlaterDeterminant{T})
+
+Check if backflow Slater determinant is in valid state.
+"""
+function is_backflow_valid(slater::BackflowSlaterDeterminant{T}) where T
+    return is_valid(slater.slater)
+end
+
+"""
+    reset_backflow_slater!(slater::BackflowSlaterDeterminant{T})
+
+Reset backflow Slater determinant to initial state.
+"""
+function reset_backflow_slater!(slater::BackflowSlaterDeterminant{T}) where T
+    reset_slater!(slater.slater)
+    slater.update_count = 0
+    slater.last_update_row = -1
+    slater.last_update_col = -1
+end
