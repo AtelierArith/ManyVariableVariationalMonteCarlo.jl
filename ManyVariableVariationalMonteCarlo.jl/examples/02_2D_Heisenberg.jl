@@ -15,8 +15,9 @@ function main()
     # 2D を 1D に埋め込むインデックスで初期位置を作る（チェッカー配置風）
     coords = [(ix, iy) for iy = 1:ny for ix = 1:nx]
     linear = [(iy - 1) * nx + ix for (ix, iy) in coords]
-    initial_positions =
-        filter(!isnothing, map(i -> (isodd(i) ? i : nothing), linear))[1:n_electrons]
+    # 奇数サイトのみを抽出してチェッカー風に配置
+    pos = [i for i in linear if isodd(i)]
+    initial_positions = pos[1:min(n_electrons, length(pos))]
 
     state = VMCState{ComplexF64}(n_electrons, n_sites)
     initialize_vmc_state!(state, initial_positions)
