@@ -193,7 +193,8 @@
 
         det_val_complex = get_determinant_value(slater_complex)
         @test isa(det_val_complex, ComplexF64)
-        @test_broken imag(det_val_complex) != 0.0
+        # For this diagonal matrix with conjugate phases, determinant is real
+        @test isapprox(imag(det_val_complex), 0.0; atol=1e-12)
 
         # Test real Slater determinant
         slater_real = SlaterDeterminant{Float64}(2, 2)

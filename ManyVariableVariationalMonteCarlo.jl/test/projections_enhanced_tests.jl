@@ -126,7 +126,7 @@
 
         ratio = calculate_advanced_projection_ratio(aqp, ele_idx, ele_cfg, ele_num)
         @test isa(ratio, ComplexF64)
-        @test_broken ratio != zero(ComplexF64)
+        @test ratio != zero(ComplexF64)
         @test aqp.total_projections == 1
     end
 
