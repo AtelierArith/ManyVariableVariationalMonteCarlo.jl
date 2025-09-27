@@ -26,12 +26,23 @@ Base.showerror(io::IO, e::PfaffianLimitError) =
 const PFAFFIAN_LIMIT = 1e-100
 
 """
-    pfaffian(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+    pfaffian(A::Matrix{T}; check_antisymmetric::Bool = true) where T <: Union{Float64, ComplexF64}
 
 Compute Pfaffian of antisymmetric matrix A.
 Uses optimized LAPACK-based implementation when available.
+
+# Arguments
+- `A`: Input matrix (should be antisymmetric)
+- `check_antisymmetric`: Whether to verify that A is antisymmetric (default: true)
+
+# Returns
+- Pfaffian value of type T
+
+# Throws
+- `ArgumentError` if matrix is not square or not antisymmetric
+- `PfaffianLimitError` if Pfaffian value is below numerical threshold
 """
-function pfaffian(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+function pfaffian(A::Matrix{T}; check_antisymmetric::Bool = true) where T <: Union{Float64, ComplexF64}
     n = size(A, 1)
     if n != size(A, 2)
         throw(ArgumentError("Matrix must be square"))
@@ -40,10 +51,9 @@ function pfaffian(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
         return zero(T)  # Pfaffian of odd-dimensional matrix is zero
     end
 
-    # Check antisymmetry (optional, for debugging)
-    # if !isapprox(A, -transpose(A))
-    #     @warn "Matrix is not antisymmetric"
-    # end
+    if check_antisymmetric && !is_antisymmetric(A)
+        throw(ArgumentError("Matrix must be antisymmetric for Pfaffian calculation"))
+    end
 
     return _pfaffian_skew(copy(A))
 end
@@ -61,8 +71,12 @@ function _pfaffian_skew(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
         return one(T)
     elseif n == 2
         return A[1, 2]
+    elseif n == 4
+        # Direct formula for 4x4 matrix
+        return A[1,2]*A[3,4] - A[1,3]*A[2,4] + A[1,4]*A[2,3]
     end
 
+    # For larger matrices, use LU decomposition
     # Use pivot array
     ipiv = Vector{Int}(undef, n)
 
@@ -70,9 +84,9 @@ function _pfaffian_skew(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
     info = 0
     try
         if T <: Float64
-            info = LAPACK.getrf!(A, ipiv)
+            _, _, info = LAPACK.getrf!(A, ipiv)
         else  # ComplexF64
-            info = LAPACK.getrf!(A, ipiv)
+            _, _, info = LAPACK.getrf!(A, ipiv)
         end
     catch e
         if isa(e, LAPACKException)
@@ -113,6 +127,57 @@ function _pfaffian_skew(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
 end
 
 """
+    pfaffian_det_relation(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+
+Verify the relation Pf(A)^2 = det(A) for antisymmetric matrix A.
+Returns (pfaffian_value, determinant_value, relation_satisfied).
+"""
+function pfaffian_det_relation(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+    if !is_antisymmetric(A)
+        throw(ArgumentError("Matrix must be antisymmetric"))
+    end
+
+    pf_val = pfaffian(A; check_antisymmetric=false)
+    det_val = det(A)
+
+    # Check if Pf(A)^2 = det(A) within numerical precision
+    relation_satisfied = isapprox(pf_val^2, det_val, rtol=1e-10)
+
+    return pf_val, det_val, relation_satisfied
+end
+
+"""
+    pfaffian_skew_symmetric(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+
+Compute Pfaffian of skew-symmetric matrix A (A^T = -A).
+This is an alias for pfaffian with antisymmetric check disabled.
+"""
+function pfaffian_skew_symmetric(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+    return pfaffian(A; check_antisymmetric=false)
+end
+
+"""
+    is_antisymmetric(A::Matrix{T}, tol::Float64 = 1e-12) where T
+
+Check if matrix A is antisymmetric within tolerance.
+"""
+function is_antisymmetric(A::Matrix{T}, tol::Float64 = 1e-12) where T
+    n = size(A, 1)
+    if n != size(A, 2)
+        return false
+    end
+
+    for i in 1:n
+        for j in 1:n
+            if abs(A[i, j] + A[j, i]) > tol
+                return false
+            end
+        end
+    end
+    return true
+end
+
+"""
     pfaffian_and_inverse(A::Matrix{T}) where T
 
 Compute both Pfaffian and inverse of antisymmetric matrix A.
@@ -122,8 +187,8 @@ function pfaffian_and_inverse(A::Matrix{T}) where T <: Union{Float64, ComplexF64
     n = size(A, 1)
     A_copy = copy(A)
 
-    # Compute Pfaffian
-    pf = pfaffian(A_copy)
+    # Compute Pfaffian (disable antisymmetric check for internal use)
+    pf = pfaffian(A_copy; check_antisymmetric=false)
 
     # Compute inverse using LAPACK
     ipiv = Vector{Int}(undef, n)
@@ -232,8 +297,8 @@ function woodbury_update!(calc::MatrixCalculation{T}, U::Matrix{T}, V::Matrix{T}
     I_plus_VT_Ainv_U = I + transpose(V) * Ainv_U
 
     # Invert the k×k matrix
-    try
-        I_plus_VT_Ainv_U_inv = inv(I_plus_VT_Ainv_U)
+    I_plus_VT_Ainv_U_inv = try
+        inv(I_plus_VT_Ainv_U)
     catch
         throw(ArgumentError("Woodbury update failed: inner matrix is singular"))
     end
@@ -323,6 +388,308 @@ function get_matrix_calculation(::Type{T}, n::Int, thread_id::Int = Threads.thre
 end
 
 """
+    clear_matrix_calculations!()
+
+Clear all thread-local matrix calculations.
+"""
+function clear_matrix_calculations!()
+    # Clear real calculations
+    for i in 1:length(THREAD_LOCAL_REAL_CALC.calculations)
+        THREAD_LOCAL_REAL_CALC.calculations[i] = nothing
+    end
+
+    # Clear complex calculations
+    for i in 1:length(THREAD_LOCAL_COMPLEX_CALC.calculations)
+        THREAD_LOCAL_COMPLEX_CALC.calculations[i] = nothing
+    end
+end
+
+"""
+    optimized_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
+                   α::T = one(T), β::T = zero(T)) where T
+
+Optimized matrix-matrix multiplication using BLAS.
+"""
+function optimized_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
+                        α::T = one(T), β::T = zero(T)) where T <: Union{Float64, ComplexF64}
+    m, k = size(A)
+    k2, n = size(B)
+
+    if k != k2
+        throw(DimensionMismatch("Inner dimensions must match"))
+    end
+
+    if size(C) != (m, n)
+        throw(DimensionMismatch("Output matrix dimensions must match"))
+    end
+
+    # Use BLAS GEMM
+    if T <: Float64
+        BLAS.gemm!('N', 'N', α, A, B, β, C)
+    else  # ComplexF64
+        BLAS.gemm!('N', 'N', α, A, B, β, C)
+    end
+
+    return C
+end
+
+"""
+    optimized_gemv!(y::Vector{T}, A::Matrix{T}, x::Vector{T},
+                   α::T = one(T), β::T = zero(T)) where T
+
+Optimized matrix-vector multiplication using BLAS.
+"""
+function optimized_gemv!(y::Vector{T}, A::Matrix{T}, x::Vector{T},
+                        α::T = one(T), β::T = zero(T)) where T <: Union{Float64, ComplexF64}
+    m, n = size(A)
+
+    if length(x) != n
+        throw(DimensionMismatch("Vector length must match matrix columns"))
+    end
+
+    if length(y) != m
+        throw(DimensionMismatch("Output vector length must match matrix rows"))
+    end
+
+    # Use BLAS GEMV
+    if T <: Float64
+        BLAS.gemv!('N', α, A, x, β, y)
+    else  # ComplexF64
+        BLAS.gemv!('N', α, A, x, β, y)
+    end
+
+    return y
+end
+
+"""
+    optimized_ger!(A::Matrix{T}, x::Vector{T}, y::Vector{T},
+                  α::T = one(T)) where T
+
+Optimized rank-1 update using BLAS.
+"""
+function optimized_ger!(A::Matrix{T}, x::Vector{T}, y::Vector{T},
+                       α::T = one(T)) where T <: Union{Float64, ComplexF64}
+    m, n = size(A)
+
+    if length(x) != m
+        throw(DimensionMismatch("Vector x length must match matrix rows"))
+    end
+
+    if length(y) != n
+        throw(DimensionMismatch("Vector y length must match matrix columns"))
+    end
+
+    # Use BLAS GER
+    if T <: Float64
+        BLAS.ger!(α, x, y, A)
+    else  # ComplexF64
+        BLAS.geru!(α, x, y, A)
+    end
+
+    return A
+end
+
+"""
+    optimized_axpy!(y::Vector{T}, x::Vector{T}, α::T = one(T)) where T
+
+Optimized vector addition using BLAS.
+"""
+function optimized_axpy!(y::Vector{T}, x::Vector{T}, α::T = one(T)) where T <: Union{Float64, ComplexF64}
+    if length(x) != length(y)
+        throw(DimensionMismatch("Vector lengths must match"))
+    end
+
+    # Use BLAS AXPY
+    if T <: Float64
+        BLAS.axpy!(α, x, y)
+    else  # ComplexF64
+        BLAS.axpy!(α, x, y)
+    end
+
+    return y
+end
+
+"""
+    optimized_scal!(x::Vector{T}, α::T) where T
+
+Optimized vector scaling using BLAS.
+"""
+function optimized_scal!(x::Vector{T}, α::T) where T <: Union{Float64, ComplexF64}
+    # Use BLAS SCAL
+    if T <: Float64
+        BLAS.scal!(α, x)
+    else  # ComplexF64
+        BLAS.scal!(α, x)
+    end
+
+    return x
+end
+
+"""
+    optimized_dot(x::Vector{T}, y::Vector{T}) where T
+
+Optimized dot product using BLAS.
+"""
+function optimized_dot(x::Vector{T}, y::Vector{T}) where T <: Union{Float64, ComplexF64}
+    if length(x) != length(y)
+        throw(DimensionMismatch("Vector lengths must match"))
+    end
+
+    # Use BLAS DOT
+    if T <: Float64
+        return BLAS.dot(x, y)
+    else  # ComplexF64
+        return BLAS.dotc(x, y)
+    end
+end
+
+"""
+    optimized_nrm2(x::Vector{T}) where T
+
+Optimized vector norm using BLAS.
+"""
+function optimized_nrm2(x::Vector{T}) where T <: Union{Float64, ComplexF64}
+    # Use BLAS NRM2
+    if T <: Float64
+        return BLAS.nrm2(x)
+    else  # ComplexF64
+        return BLAS.nrm2(x)
+    end
+end
+
+"""
+    optimized_getrf!(A::Matrix{T}) where T
+
+Optimized LU factorization using LAPACK.
+"""
+function optimized_getrf!(A::Matrix{T}) where T <: Union{Float64, ComplexF64}
+    m, n = size(A)
+    ipiv = Vector{Int}(undef, min(m, n))
+
+    if T <: Float64
+        _, _, info = LAPACK.getrf!(A, ipiv)
+    else  # ComplexF64
+        _, _, info = LAPACK.getrf!(A, ipiv)
+    end
+
+    return A, ipiv, info
+end
+
+"""
+    optimized_getri!(A::Matrix{T}, ipiv::Vector{Int}) where T
+
+Optimized matrix inversion using LAPACK.
+"""
+function optimized_getri!(A::Matrix{T}, ipiv::Vector{Int}) where T <: Union{Float64, ComplexF64}
+    n = size(A, 1)
+
+    if n != size(A, 2)
+        throw(ArgumentError("Matrix must be square"))
+    end
+
+    if T <: Float64
+        _, info = LAPACK.getri!(A, ipiv)
+    else  # ComplexF64
+        _, info = LAPACK.getri!(A, ipiv)
+    end
+
+    return A, Int(round(real(info)))
+end
+
+"""
+    optimized_posv!(A::Matrix{T}, B::Matrix{T}) where T
+
+Optimized positive definite system solve using LAPACK.
+"""
+function optimized_posv!(A::Matrix{T}, B::Matrix{T}) where T <: Union{Float64, ComplexF64}
+    n = size(A, 1)
+
+    if n != size(A, 2)
+        throw(ArgumentError("Matrix A must be square"))
+    end
+
+    if size(B, 1) != n
+        throw(DimensionMismatch("Matrix B rows must match A size"))
+    end
+
+    A_result, B_result = LAPACK.posv!('U', A, B)
+    return A_result, B_result, 0  # LAPACK.posv! doesn't return info, assume success
+end
+
+"""
+    ThreadSafeMatrixOperations{T}
+
+Thread-safe wrapper for matrix operations with workspace management.
+"""
+mutable struct ThreadSafeMatrixOperations{T <: Union{Float64, ComplexF64}}
+    # Thread-local workspaces
+    gemm_workspace::Vector{Matrix{T}}
+    gemv_workspace::Vector{Vector{T}}
+    getrf_workspace::Vector{Vector{Int}}
+    getri_workspace::Vector{Vector{T}}
+
+    # Performance counters
+    total_operations::Int
+    operation_times::Dict{String, Float64}
+
+    function ThreadSafeMatrixOperations{T}(max_threads::Int = Threads.nthreads()) where T
+        gemm_workspace = [Matrix{T}(undef, 0, 0) for _ in 1:max_threads]
+        gemv_workspace = [Vector{T}(undef, 0) for _ in 1:max_threads]
+        getrf_workspace = [Vector{Int}(undef, 0) for _ in 1:max_threads]
+        getri_workspace = [Vector{T}(undef, 0) for _ in 1:max_threads]
+
+        operation_times = Dict{String, Float64}()
+
+        new{T}(gemm_workspace, gemv_workspace, getrf_workspace, getri_workspace, 0, operation_times)
+    end
+end
+
+const GLOBAL_MATRIX_OPS_REAL = ThreadSafeMatrixOperations{Float64}()
+const GLOBAL_MATRIX_OPS_COMPLEX = ThreadSafeMatrixOperations{ComplexF64}()
+
+"""
+    get_thread_safe_ops(::Type{T}) where T
+
+Get thread-safe matrix operations for type T.
+"""
+function get_thread_safe_ops(::Type{T}) where T <: Union{Float64, ComplexF64}
+    if T <: Float64
+        return GLOBAL_MATRIX_OPS_REAL
+    else
+        return GLOBAL_MATRIX_OPS_COMPLEX
+    end
+end
+
+"""
+    thread_safe_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
+                     α::T = one(T), β::T = zero(T)) where T
+
+Thread-safe matrix-matrix multiplication.
+"""
+function thread_safe_gemm!(C::Matrix{T}, A::Matrix{T}, B::Matrix{T},
+                          α::T = one(T), β::T = zero(T)) where T <: Union{Float64, ComplexF64}
+    ops = get_thread_safe_ops(T)
+    thread_id = Threads.threadid()
+
+    # Ensure workspace is large enough
+    m, n = size(C)
+    if size(ops.gemm_workspace[thread_id]) != (m, n)
+        ops.gemm_workspace[thread_id] = Matrix{T}(undef, m, n)
+    end
+
+    # Perform operation
+    start_time = time()
+    optimized_gemm!(C, A, B, α, β)
+    end_time = time()
+
+    # Update statistics
+    ops.total_operations += 1
+    ops.operation_times["gemm"] = get(ops.operation_times, "gemm", 0.0) + (end_time - start_time)
+
+    return C
+end
+
+"""
     benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
 
 Benchmark linear algebra operations for VMC-typical usage.
@@ -330,9 +697,16 @@ Benchmark linear algebra operations for VMC-typical usage.
 function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     println("Benchmarking linear algebra operations (n=$n, iterations=$n_iterations)...")
 
-    # Generate test matrix
+    # Generate test matrix with better conditioning
     A = randn(ComplexF64, n, n)
     A = A - transpose(A)  # Make antisymmetric
+    # Add small off-diagonal elements to improve conditioning while maintaining antisymmetry
+    for i in 1:n
+        for j in i+1:n
+            A[i, j] += 1e-6 * (1 + 0.1im)
+            A[j, i] -= 1e-6 * (1 + 0.1im)
+        end
+    end
 
     # Benchmark Pfaffian calculation
     @time begin
@@ -375,6 +749,33 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
         end
     end
     println("  Sherman-Morrison update rate")
+
+    # Benchmark optimized BLAS operations
+    B = randn(ComplexF64, n, n)
+    C = zeros(ComplexF64, n, n)
+    x = randn(ComplexF64, n)
+    y = zeros(ComplexF64, n)
+
+    @time begin
+        for _ in 1:n_iterations
+            optimized_gemm!(C, A, B)
+        end
+    end
+    println("  Optimized GEMM rate")
+
+    @time begin
+        for _ in 1:n_iterations
+            optimized_gemv!(y, A, x)
+        end
+    end
+    println("  Optimized GEMV rate")
+
+    @time begin
+        for _ in 1:n_iterations
+            optimized_dot(x, y)
+        end
+    end
+    println("  Optimized DOT rate")
 
     println("Linear algebra benchmark completed.")
 end

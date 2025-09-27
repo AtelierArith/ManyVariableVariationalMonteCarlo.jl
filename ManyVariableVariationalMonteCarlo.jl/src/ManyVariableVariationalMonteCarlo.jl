@@ -11,6 +11,9 @@ include("defs.jl")
 include("memory.jl")
 include("rng.jl")
 include("linalg_simple.jl")
+include("linalg.jl")
+include("greens.jl")
+include("projections.jl")
 
 # Wavefunction components
 include("slater.jl")
@@ -22,7 +25,7 @@ include("sampler.jl")
 # Import functions from included modules
 import .get_workspace, .reset_all_workspaces!
 
-export SimulationConfig, FaceDefinition, facevalue, load_face_definition,
+export SimulationConfig, FaceDefinition, facevalue, load_face_definition, push_definition!,
        ParameterLayout, ParameterFlags, ParameterMask, ParameterSet,
        initialize_parameters!, apply_opttrans_basis!,
        GreenFunctionEntry, GreenFunctionTable,
@@ -32,6 +35,10 @@ export SimulationConfig, FaceDefinition, facevalue, load_face_definition,
        CoulombIntraEntry, CoulombIntraTable, read_coulomb_intra,
        InterAllEntry, InterAllTable, read_interall_table,
        GreenOneEntry, GreenOneTable, read_greenone_indices,
+       # Enhanced configuration exports
+       VMCDefinitionFiles, VMCParameters, read_namelist_file, read_modpara_file,
+       read_transfer_file, read_coulomb_intra_file, read_locspn_file,
+       read_gutzwiller_file, load_vmc_configuration,
        # Memory management exports
        MemoryLayout, allocate_global_arrays, memory_summary,
        Workspace, WorkspaceManager, get_workspace, reset_all_workspaces!,
@@ -42,10 +49,25 @@ export SimulationConfig, FaceDefinition, facevalue, load_face_definition,
        benchmark_rng, test_rng_quality,
        # Linear algebra exports
        pfaffian, pfaffian_and_inverse, pfaffian_det_relation, pfaffian_skew_symmetric,
-       is_antisymmetric, MatrixCalculation,
+       is_antisymmetric, MatrixCalculation, update_matrix!,
        sherman_morrison_update!, woodbury_update!, matrix_ratio,
        get_matrix_calculation, clear_matrix_calculations!, benchmark_linalg,
        PfaffianLimitError,
+       # Enhanced linear algebra exports
+       optimized_gemm!, optimized_gemv!, optimized_ger!, optimized_axpy!,
+       optimized_scal!, optimized_dot, optimized_nrm2,
+       optimized_getrf!, optimized_getri!, optimized_posv!,
+       ThreadSafeMatrixOperations, get_thread_safe_ops, thread_safe_gemm!,
+       # Green function exports
+       GreenFunctionCache, LocalGreenFunction, green_function_1body!, green_function_2body!,
+       large_scale_green_function!, clear_green_function_cache!, get_cache_statistics,
+       benchmark_green_functions,
+       # Quantum projection exports
+       ProjectionType, ProjectionOperator, QuantumProjection,
+       add_spin_projection!, add_momentum_projection!, add_particle_number_projection!,
+       add_parity_projection!, calculate_projection_ratio,
+       gauss_legendre_quadrature, setup_continuous_projection!,
+       calculate_continuous_projection_ratio, benchmark_projections,
        # Slater determinant exports
        SlaterMatrix, SlaterDeterminant, initialize_slater!,
        compute_determinant!, compute_inverse!, update_slater!,

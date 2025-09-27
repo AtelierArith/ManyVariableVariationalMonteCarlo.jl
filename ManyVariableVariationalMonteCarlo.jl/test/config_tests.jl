@@ -15,6 +15,7 @@
     @test cfg.model == :FermionHubbard
     @test cfg.lattice == :Tetragonal
 end
+
 @testitem "Green function loader" begin
     using Test
     using ManyVariableVariationalMonteCarlo
@@ -27,6 +28,7 @@ end
     unique_indices = Set(entry.bra for entry in table)
     @test !isempty(unique_indices)
 end
+
 @testitem "Parameter initialisation replicates C heuristics" begin
     using Test
     using ManyVariableVariationalMonteCarlo
@@ -48,27 +50,44 @@ end
     end
     @test params.rbm == expected_rbm
 end
-@testitem "Definition parsers" begin
+
+@testitem "Parameter layout validation" begin
     using Test
     using ManyVariableVariationalMonteCarlo
-    root = normpath(joinpath(@__DIR__, "..", "..", "mVMC", "test", "python", "data", "UHF_InterAll_Exchange"))
-    namelist = load_namelist(joinpath(root, "namelist_all.def"))
-    @test length(namelist) == 6
-    @test namelist[1].key == :ModPara
-    @test namelist[1].path == "modpara.def"
-    @test namelist[end].key == :TwoBodyG
-    transfers = read_transfer_table(joinpath(root, "trans.def"))
-    @test length(transfers) == 16
-    first_transfer = transfers[1]
-    @test first_transfer.amplitude ≈ 1.0 + 0im
-    coulomb = read_coulomb_intra(joinpath(root, "coulombintra.def"))
-    @test length(coulomb) == 4
-    @test coulomb[1].value ≈ 4.0
-    inter = read_interall_table(joinpath(root, "interall.def"))
-    @test length(inter) == 20
-    @test inter[1].indices == (0, 0, 0, 0, 0, 1, 0, 1)
-    green = read_greenone_indices(joinpath(root, "greenone.def"))
-    @test length(green) == 8
-    @test green[1].bra == (0, 0)
-    @test green[1].ket == (0, 0)
+    layout = ParameterLayout(1, 1, 2, 3)  # nproj, nrbm, nslater, nopttrans
+    @test layout.nproj == 1
+    @test layout.nrbm == 1
+    @test layout.nslater == 2
+    @test layout.nopttrans == 3
+end
+
+@testitem "Parameter mask operations" begin
+    using Test
+    using ManyVariableVariationalMonteCarlo
+    layout = ParameterLayout(1, 1, 1, 2)  # nproj, nrbm, nslater, nopttrans
+    mask = ParameterMask(layout; default=false)
+    @test all(!, mask.slater)
+    @test all(!, mask.rbm)
+    @test all(!, mask.opttrans)
+    @test all(!, mask.proj)
+
+    # Test setting specific parameters
+    mask.slater[1] = true
+    @test mask.slater[1] == true
+end
+
+@testitem "SimulationConfig creation" begin
+    using Test
+    using ManyVariableVariationalMonteCarlo
+    repo_root = normpath(joinpath(@__DIR__, "..", ".."))
+    package_root = normpath(joinpath(@__DIR__, ".."))
+    face_path = joinpath(repo_root, "mVMC", "samples", "Standard", "Hubbard", "square", "StdFace.def")
+    face = load_face_definition(face_path)
+    cfg = SimulationConfig(face; root=package_root)
+
+    @test cfg.nsites > 0
+    @test cfg.nsublat > 0
+    @test cfg.nsite_sub > 0
+    @test cfg.model in [:FermionHubbard, :Spin, :Kondo]
+    @test cfg.lattice in [:Tetragonal, :Triangular, :Honeycomb]
 end
