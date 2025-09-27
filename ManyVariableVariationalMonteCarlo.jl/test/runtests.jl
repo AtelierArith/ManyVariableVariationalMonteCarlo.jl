@@ -1,0 +1,3 @@
+using ReTestItems
+using ManyVariableVariationalMonteCarlo
+ReTestItems.runtests(ManyVariableVariationalMonteCarlo)
