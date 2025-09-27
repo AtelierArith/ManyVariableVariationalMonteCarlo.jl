@@ -110,6 +110,21 @@ function initialize_slater!(
     slater.slater_matrix.is_valid = true
 end
 
+
+"""
+    initialize_slater!(slater::SlaterDeterminant{T}, orbital_matrix::Matrix{S}) where {T, S}
+
+Initialize Slater determinant with orbital matrix of different type (with conversion).
+"""
+function initialize_slater!(
+    slater::SlaterDeterminant{T},
+    orbital_matrix::Matrix{S},
+) where {T, S}
+    # Convert the matrix to the correct type
+    orbital_matrix_converted = convert(Matrix{T}, orbital_matrix)
+    initialize_slater!(slater, orbital_matrix_converted)
+end
+
 """
     compute_determinant!(slater::SlaterDeterminant{T})
 
@@ -146,6 +161,7 @@ function compute_determinant!(slater::SlaterDeterminant{T}) where {T}
     slater.slater_matrix.det_value = det_sign * det_value
     slater.slater_matrix.log_det_value = log(abs(det_value))
 end
+
 
 """
     compute_inverse!(slater::SlaterDeterminant{T})
@@ -631,6 +647,45 @@ function initialize_frozen_spin_slater!(
 
     slater.update_count = 0
     slater.slater_matrix.is_valid = true
+end
+
+"""
+    initialize_slater!(slater::FrozenSpinSlaterDeterminant{T}, orbital_matrix::Matrix{T})
+
+Initialize frozen-spin Slater determinant with orbital matrix (alias for initialize_frozen_spin_slater!).
+"""
+function initialize_slater!(
+    slater::FrozenSpinSlaterDeterminant{T},
+    orbital_matrix::Matrix{T},
+) where {T}
+    initialize_frozen_spin_slater!(slater, orbital_matrix)
+end
+
+"""
+    initialize_slater!(slater::FrozenSpinSlaterDeterminant{T}, orbital_matrix::Matrix{S}) where {T, S}
+
+Initialize frozen-spin Slater determinant with orbital matrix of different type (with conversion).
+"""
+function initialize_slater!(
+    slater::FrozenSpinSlaterDeterminant{T},
+    orbital_matrix::Matrix{S},
+) where {T, S}
+    # Convert the matrix to the correct type
+    orbital_matrix_converted = convert(Matrix{T}, orbital_matrix)
+    initialize_slater!(slater, orbital_matrix_converted)
+end
+
+"""
+    compute_determinant!(slater::FrozenSpinSlaterDeterminant{T})
+
+Compute determinant of frozen-spin Slater matrix.
+"""
+function compute_determinant!(slater::FrozenSpinSlaterDeterminant{T}) where {T}
+    # Delegate to the underlying SlaterDeterminant method
+    slater_det = SlaterDeterminant{T}(slater.slater_matrix)
+    compute_determinant!(slater_det)
+    slater.slater_matrix.det_value = slater_det.slater_matrix.det_value
+    slater.slater_matrix.log_det_value = slater_det.slater_matrix.log_det_value
 end
 
 """

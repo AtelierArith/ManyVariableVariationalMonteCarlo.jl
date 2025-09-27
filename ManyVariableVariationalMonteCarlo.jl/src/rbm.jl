@@ -472,16 +472,24 @@ function get_rbm_parameters(rbm::RBMNetwork{T}) where {T}
 
     params = Vector{T}()
 
-    # Flatten weights
-    append!(params, vec(rbm.weights))
+    # Flatten weights in row-major order to match set_rbm_parameters!
+    for i = 1:rbm.n_hidden
+        for j = 1:rbm.n_visible
+            push!(params, rbm.weights[i, j])
+        end
+    end
 
     # Add biases
     append!(params, rbm.visible_bias)
     append!(params, rbm.hidden_bias)
 
-    # Add physical weights if present
+    # Add physical weights if present (in row-major order to match set_rbm_parameters!)
     if rbm.n_phys_layer > 0
-        append!(params, vec(rbm.phys_weights))
+        for i = 1:rbm.n_hidden
+            for j = 1:rbm.n_phys_layer
+                push!(params, rbm.phys_weights[i, j])
+            end
+        end
     end
 
     return params

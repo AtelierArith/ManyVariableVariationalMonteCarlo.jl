@@ -666,7 +666,7 @@ function calculate_point_group_ratio(
     end
 
     # Normalize by number of operations
-    n_active = sum(op.is_active for op in pgp.symmetry_operations)
+    n_active = sum(op.is_active for op in pgp.symmetry_operations; init = 0)
     if n_active > 0
         total_ratio /= n_active
     end

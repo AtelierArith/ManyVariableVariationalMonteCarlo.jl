@@ -1,6 +1,6 @@
 @testitem "config" begin
+    using ManyVariableVariationalMonteCarlo
     @testset "StdFace.def parsing" begin
-        using ManyVariableVariationalMonteCarlo
         repo_root = normpath(joinpath(@__DIR__, "..", ".."))
         package_root = normpath(joinpath(@__DIR__, ".."))
         face_path = joinpath(
@@ -25,7 +25,6 @@
     end
 
     @testset "Green function loader" begin
-        using ManyVariableVariationalMonteCarlo
         using Base: Set
         repo_root = normpath(joinpath(@__DIR__, "..", ".."))
         green_path = joinpath(
@@ -46,7 +45,6 @@
     end
 
     @testset "Parameter initialisation replicates C heuristics" begin
-        using ManyVariableVariationalMonteCarlo
         using StableRNGs
         layout = ParameterLayout(3, 2, 4, 2)
         mask = ParameterMask(layout; default = true)
@@ -76,7 +74,6 @@
     end
 
     @testset "Parameter layout validation" begin
-        using ManyVariableVariationalMonteCarlo
         layout = ParameterLayout(1, 1, 2, 3)  # nproj, nrbm, nslater, nopttrans
         @test layout.nproj == 1
         @test layout.nrbm == 1
@@ -85,7 +82,6 @@
     end
 
     @testset "Parameter mask operations" begin
-        using ManyVariableVariationalMonteCarlo
         layout = ParameterLayout(1, 1, 1, 2)  # nproj, nrbm, nslater, nopttrans
         mask = ParameterMask(layout; default = false)
         @test all(!, mask.slater)
@@ -99,7 +95,6 @@
     end
 
     @testset "SimulationConfig creation" begin
-        using ManyVariableVariationalMonteCarlo
         repo_root = normpath(joinpath(@__DIR__, "..", ".."))
         package_root = normpath(joinpath(@__DIR__, ".."))
         face_path = joinpath(

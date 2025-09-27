@@ -1,7 +1,4 @@
 @testitem "projections" begin
-    """
-    Tests for Quantum Projections implementation (Phase 2: Mathematical Foundation)
-    """
     using Test
     @testset "Projection Basic Operations" begin
         using ManyVariableVariationalMonteCarlo

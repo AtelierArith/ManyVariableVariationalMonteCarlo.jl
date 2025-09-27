@@ -419,9 +419,11 @@ function adam_step!(
 
     # Update parameters
     for i = 1:n_params
+        # Ensure second moment is positive and not too small
+        second_moment_val = max(real(second_moment_corrected[i]), config.epsilon^2)
         adam.current_parameters[i] -=
             config.learning_rate * first_moment_corrected[i] /
-            (sqrt(real(second_moment_corrected[i])) + config.epsilon)
+            (sqrt(second_moment_val) + config.epsilon)
     end
 
     adam.current_gradient .= gradient

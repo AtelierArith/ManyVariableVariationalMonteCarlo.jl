@@ -88,7 +88,7 @@
 
         total = calculate_total_energy(calc, ele_idx, ele_cfg)
         @test isa(total, ComplexF64)
-        @test calc.total_calculations == 3
+        @test calc.total_calculations == 4  # 1 kinetic + 1 potential + 2 more inside total_energy
         @test total == kinetic + potential
     end
 

@@ -495,6 +495,7 @@ function jastrow_gradient(
         end
     end
 
+    jf.total_evaluations += 1
     return gradient
 end
 
@@ -623,10 +624,10 @@ Get total number of active Jastrow parameters.
 function jastrow_parameter_count(jf::JastrowFactor{T}) where {T}
     count = 0
 
-    count += sum(param.is_active for param in jf.gutzwiller_params)
-    count += sum(param.is_active for param in jf.density_density_params)
-    count += sum(param.is_active for param in jf.spin_spin_params)
-    count += sum(param.is_active for param in jf.three_body_params)
+    count += sum(param.is_active for param in jf.gutzwiller_params; init = 0)
+    count += sum(param.is_active for param in jf.density_density_params; init = 0)
+    count += sum(param.is_active for param in jf.spin_spin_params; init = 0)
+    count += sum(param.is_active for param in jf.three_body_params; init = 0)
 
     return count
 end
