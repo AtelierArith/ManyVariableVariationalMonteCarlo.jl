@@ -13,9 +13,10 @@ function main()
     n_electrons = div(n_sites, 2)  # 便宜上「半分」を配置
 
     # 2D を 1D に埋め込むインデックスで初期位置を作る（チェッカー配置風）
-    coords = [(ix, iy) for iy in 1:ny for ix in 1:nx]
+    coords = [(ix, iy) for iy = 1:ny for ix = 1:nx]
     linear = [(iy - 1) * nx + ix for (ix, iy) in coords]
-    initial_positions = filter(!isnothing, map(i -> (isodd(i) ? i : nothing), linear))[1:n_electrons]
+    initial_positions =
+        filter(!isnothing, map(i -> (isodd(i) ? i : nothing), linear))[1:n_electrons]
 
     state = VMCState{ComplexF64}(n_electrons, n_sites)
     initialize_vmc_state!(state, initial_positions)
@@ -31,7 +32,9 @@ function main()
 
     rng = MersenneTwister(2025)
 
-    println("[02_2D_Heisenberg] nx=$(nx), ny=$(ny), n_sites=$(n_sites), n_electrons=$(n_electrons)")
+    println(
+        "[02_2D_Heisenberg] nx=$(nx), ny=$(ny), n_sites=$(n_sites), n_electrons=$(n_electrons)",
+    )
     println("  initial_positions=$(initial_positions)")
 
     results = run_vmc_sampling!(state, config, rng)
@@ -44,4 +47,3 @@ function main()
 end
 
 main()
-

@@ -154,7 +154,7 @@
         A = A - transpose(A)  # Make antisymmetric
         # Add much larger off-diagonal elements to improve conditioning
         for i = 1:n
-            for j = i+1:n
+            for j = (i+1):n
                 A[i, j] += 2.0 * (1 + 0.5im)  # Increased magnitude for better conditioning
                 A[j, i] -= 2.0 * (1 + 0.5im)
             end
@@ -292,7 +292,7 @@
         A_anti = A - transpose(A)
         # Add off-diagonal elements to improve conditioning
         for i = 1:n
-            for j = i+1:n
+            for j = (i+1):n
                 A_anti[i, j] += 1e-1 * (1 + 0.1im)
                 A_anti[j, i] -= 1e-1 * (1 + 0.1im)
             end

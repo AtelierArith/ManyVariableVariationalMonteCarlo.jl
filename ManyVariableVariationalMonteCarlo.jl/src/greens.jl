@@ -640,7 +640,7 @@ function benchmark_green_functions(
 
     # Benchmark 2-body Green functions
     @time begin
-        for _ = 1:n_iterations÷10  # Fewer iterations for 2-body
+        for _ = 1:(n_iterations÷10)  # Fewer iterations for 2-body
             for ri = 1:n_site
                 for rj = 1:n_site
                     for rk = 1:n_site

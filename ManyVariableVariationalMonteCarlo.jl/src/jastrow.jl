@@ -676,7 +676,7 @@ function benchmark_jastrow(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int 
         add_gutzwiller_parameter!(jf, i, ComplexF64(0.1))
     end
 
-    for i = 1:n_site-1
+    for i = 1:(n_site-1)
         add_density_density_parameter!(jf, i, i + 1, ComplexF64(0.05))
     end
 

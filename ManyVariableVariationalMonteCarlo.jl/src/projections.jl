@@ -442,7 +442,7 @@ function _legendre_polynomial_and_derivative(n::Int, x::Float64)
     dp_prev = 0.0
     dp_curr = 1.0
 
-    for k = 1:n-1
+    for k = 1:(n-1)
         p_next = ((2 * k + 1) * x * p_curr - k * p_prev) / (k + 1)
         dp_next = ((2 * k + 1) * (p_curr + x * dp_curr) - k * dp_prev) / (k + 1)
 
@@ -565,7 +565,7 @@ function benchmark_projections(n_site::Int = 10, n_elec::Int = 5, n_iterations::
 
     # Benchmark Gauss-Legendre quadrature
     @time begin
-        for _ = 1:n_iterations÷10
+        for _ = 1:(n_iterations÷10)
             gauss_legendre_quadrature(10, -1.0, 1.0)
         end
     end

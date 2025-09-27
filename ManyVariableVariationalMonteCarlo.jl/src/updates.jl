@@ -237,8 +237,10 @@ function propose_two_electron_move(
         for site2 = 1:update.n_site
             if site1 != site2 && ele_cfg[site1] == 0 && ele_cfg[site2] == 0
                 # Check hopping distances on 1D ring (PBC)
-                if _pbc_distance(site1, current_sites[1], update.n_site) <= update.max_hop_distance &&
-                   _pbc_distance(site2, current_sites[2], update.n_site) <= update.max_hop_distance
+                if _pbc_distance(site1, current_sites[1], update.n_site) <=
+                   update.max_hop_distance &&
+                   _pbc_distance(site2, current_sites[2], update.n_site) <=
+                   update.max_hop_distance
                     n_candidates += 1
                     update.candidate_pairs[n_candidates] = (site1, site2)
                 end
@@ -342,8 +344,10 @@ function propose_exchange_hopping(
         for site2 = 1:update.n_site
             if site1 != site2 && ele_cfg[site1] == 0 && ele_cfg[site2] == 0
                 # Check hopping distances on 1D ring (PBC)
-                if _pbc_distance(site1, current_sites[1], update.n_site) <= update.max_hop_distance &&
-                   _pbc_distance(site2, current_sites[2], update.n_site) <= update.max_hop_distance
+                if _pbc_distance(site1, current_sites[1], update.n_site) <=
+                   update.max_hop_distance &&
+                   _pbc_distance(site2, current_sites[2], update.n_site) <=
+                   update.max_hop_distance
                     n_candidates += 1
                     update.candidate_exchanges[n_candidates] = (site1, site2)
                 end

@@ -31,10 +31,10 @@ function main()
     n_electrons = params.ne > 0 ? params.ne : max(1, div(n_sites, 2))
 
     # 初期配置を単純に作る
-    initial_positions = collect(1:2:min(2 * n_electrons - 1, n_sites))
+    initial_positions = collect(1:2:min(2*n_electrons-1, n_sites))
     resize!(initial_positions, min(length(initial_positions), n_electrons))
     if length(initial_positions) < n_electrons
-        append!(initial_positions, collect(length(initial_positions) + 1:n_electrons))
+        append!(initial_positions, collect((length(initial_positions)+1):n_electrons))
     end
 
     println("[10_from_namelist]")
@@ -68,4 +68,3 @@ function main()
 end
 
 main()
-

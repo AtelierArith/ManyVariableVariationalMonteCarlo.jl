@@ -115,7 +115,7 @@ function _pfaffian_skew(A::Matrix{T}) where {T<:Union{Float64,ComplexF64}}
     end
 
     # Compute product of diagonal elements (with appropriate signs)
-    for i = 1:2:n-1
+    for i = 1:2:(n-1)
         pf *= A[i, i+1]
     end
 
@@ -751,7 +751,7 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     A = A - transpose(A)  # Make antisymmetric
     # Add small off-diagonal elements to improve conditioning while maintaining antisymmetry
     for i = 1:n
-        for j = i+1:n
+        for j = (i+1):n
             A[i, j] += 1e-2 * (1 + 0.1im)
             A[j, i] -= 1e-2 * (1 + 0.1im)
         end
@@ -788,7 +788,7 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     v = randn(ComplexF64, n)
 
     @time begin
-        for _ = 1:n_iterations÷10  # Fewer iterations since this modifies state
+        for _ = 1:(n_iterations÷10)  # Fewer iterations since this modifies state
             try
                 sherman_morrison_update!(calc, u, v)
                 update_matrix!(calc, A)  # Reset for next iteration

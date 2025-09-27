@@ -253,7 +253,7 @@
             A = A - transpose(A)  # Make antisymmetric
             # Add off-diagonal elements to improve conditioning
             for i = 1:n
-                for j = i+1:n
+                for j = (i+1):n
                     A[i, j] += 1e-1 * (1 + 0.1im)
                     A[j, i] -= 1e-1 * (1 + 0.1im)
                 end

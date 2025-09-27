@@ -144,7 +144,7 @@ Initialize Slater determinant with orbital matrix of different type (with conver
 function initialize_slater!(
     slater::SlaterDeterminant{T},
     orbital_matrix::Matrix{S},
-) where {T, S}
+) where {T,S}
     # Convert the matrix to the correct type
     orbital_matrix_converted = convert(Matrix{T}, orbital_matrix)
     initialize_slater!(slater, orbital_matrix_converted)
@@ -694,7 +694,7 @@ Initialize frozen-spin Slater determinant with orbital matrix of different type 
 function initialize_slater!(
     slater::FrozenSpinSlaterDeterminant{T},
     orbital_matrix::Matrix{S},
-) where {T, S}
+) where {T,S}
     # Convert the matrix to the correct type
     orbital_matrix_converted = convert(Matrix{T}, orbital_matrix)
     initialize_slater!(slater, orbital_matrix_converted)

@@ -11,7 +11,7 @@ function _parse_face_value(raw::AbstractString)
     if isempty(value)
         return nothing
     elseif startswith(value, '"') && endswith(value, '"')
-        return value[2:end-1]
+        return value[2:(end-1)]
     elseif lowercase(value) == "true"
         return true
     elseif lowercase(value) == "false"
@@ -64,7 +64,7 @@ function _try_parse_complex(value::AbstractString)
     end
 
     if startswith(value, '(') && endswith(value, ')')
-        inner = value[2:end-1]
+        inner = value[2:(end-1)]
         if occursin(',', inner)
             parts = split(inner, ',')
             if length(parts) == 2

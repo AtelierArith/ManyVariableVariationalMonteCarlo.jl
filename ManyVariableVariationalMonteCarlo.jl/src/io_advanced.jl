@@ -474,7 +474,7 @@ function load_results_text(io::ResultsIO)
                 catch
                     # Try to parse as vector
                     if startswith(value_str, "[") && endswith(value_str, "]")
-                        vector_str = value_str[2:end-1]
+                        vector_str = value_str[2:(end-1)]
                         if !isempty(vector_str)
                             values = [parse(Float64, x) for x in split(vector_str, ",")]
                             results[key] = values

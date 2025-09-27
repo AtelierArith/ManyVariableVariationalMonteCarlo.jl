@@ -137,7 +137,7 @@ function plot_energy_convergence(
     if length(energy_data) > 10
         window_size = min(50, length(energy_data) ÷ 10)
         moving_avg =
-            [mean(energy_data[max(1, i - window_size + 1):i]) for i = 1:length(energy_data)]
+            [mean(energy_data[max(1, i-window_size+1):i]) for i = 1:length(energy_data)]
         plot!(
             p,
             moving_avg,
@@ -277,7 +277,7 @@ function plot_correlation_functions(
 
     # Plot each correlation function
     for (i, corr_data) in enumerate(correlation_data)
-        distances = collect(0:length(corr_data)-1)
+        distances = collect(0:(length(corr_data)-1))
         plot!(
             p,
             distances,
@@ -291,7 +291,7 @@ function plot_correlation_functions(
     # Add theoretical curves if available
     if length(correlation_data) > 0
         # Add exponential decay as reference
-        distances = collect(0:length(correlation_data[1])-1)
+        distances = collect(0:(length(correlation_data[1])-1))
         exp_decay = exp.(-distances ./ 2.0)
         plot!(
             p,
@@ -352,7 +352,7 @@ function plot_acceptance_rates(
     if length(acceptance_data) > 10
         window_size = min(50, length(acceptance_data) ÷ 10)
         moving_avg = [
-            mean(acceptance_data[max(1, i - window_size + 1):i]) for
+            mean(acceptance_data[max(1, i-window_size+1):i]) for
             i = 1:length(acceptance_data)
         ]
         plot!(

@@ -11,7 +11,7 @@ function main()
     n_electrons = 4  # 例: 半分以下の充填を想定
 
     # 初期配置（等間隔に配置）
-    initial_positions = collect(1:2:(2 * n_electrons))
+    initial_positions = collect(1:2:(2*n_electrons))
 
     # VMC 状態の用意
     state = VMCState{ComplexF64}(n_electrons, n_sites)
@@ -41,4 +41,3 @@ function main()
 end
 
 main()
-
