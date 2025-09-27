@@ -3,11 +3,10 @@ Tests for Quantum Projections implementation (Phase 2: Mathematical Foundation)
 """
 
 
-@testitem "Projection Basic Operations" begin
-    using Test
+using Test
+@testset "Projection Basic Operations" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: QuantumProjection, ProjectionType,
                                            add_spin_projection!, add_particle_number_projection!,
                                            add_parity_projection!, calculate_projection_ratio
@@ -42,11 +41,9 @@ Tests for Quantum Projections implementation (Phase 2: Mathematical Foundation)
     @test qp.total_projections == 1
 end
 
-@testitem "Gauss-Legendre Quadrature" begin
-    using Test
+@testset "Gauss-Legendre Quadrature" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: gauss_legendre_quadrature
 
     # Test basic quadrature
@@ -75,11 +72,9 @@ end
     @test isapprox(integral_x2, expected, rtol=1e-10)
 end
 
-@testitem "Continuous Projections" begin
-    using Test
+@testset "Continuous Projections" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: QuantumProjection, ProjectionOperator, MOMENTUM_PROJECTION,
                                            setup_continuous_projection!, calculate_continuous_projection_ratio
 
@@ -105,11 +100,9 @@ end
     @test isa(ratio, ComplexF64)
 end
 
-@testitem "Projection Edge Cases" begin
-    using Test
+@testset "Projection Edge Cases" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: QuantumProjection, add_spin_projection!,
                                            calculate_projection_ratio
 
@@ -135,11 +128,9 @@ end
     @test isa(ratio, ComplexF64)
 end
 
-@testitem "Projection Performance" begin
-    using Test
+@testset "Projection Performance" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: QuantumProjection, add_spin_projection!,
                                            add_particle_number_projection!, calculate_projection_ratio
 
@@ -171,11 +162,9 @@ end
     @test qp.total_projections == 100
 end
 
-@testitem "Projection Benchmark" begin
-    using Test
+@testset "Projection Benchmark" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: benchmark_projections
 
     # Test that benchmark runs without error

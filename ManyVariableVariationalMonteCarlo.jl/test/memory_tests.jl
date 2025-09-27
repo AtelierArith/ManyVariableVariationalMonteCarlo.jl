@@ -1,4 +1,4 @@
-@testitem "Workspace Management" begin
+@testset "Workspace Management" begin
     using Test
     using ManyVariableVariationalMonteCarlo: Workspace, allocate_workspace!, reset_workspace!
     using StableRNGs
@@ -18,7 +18,7 @@
     reset_workspace!(ws)
     @test ws.position == 0
 end
-@testitem "WorkspaceManager" begin
+@testset "WorkspaceManager" begin
     using Test
     using ManyVariableVariationalMonteCarlo: WorkspaceManager
     # Test workspace manager creation
@@ -27,7 +27,7 @@ end
     @test length(manager.double_workspaces) == 2
     @test length(manager.complex_workspaces) == 2
 end
-@testitem "Thread-safe workspace access" begin
+@testset "Thread-safe workspace access" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using Statistics
@@ -42,7 +42,7 @@ end
     reset_all_workspaces!()
     # No easy way to test reset without accessing internals
 end
-@testitem "MemoryLayout" begin
+@testset "MemoryLayout" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using Statistics
@@ -62,7 +62,7 @@ end
     @test layout.ncoulomb_inter == 15
     @test layout.nhund_coupling == 8
 end
-@testitem "Global array allocation" begin
+@testset "Global array allocation" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using Statistics
@@ -87,7 +87,7 @@ end
     @test eltype(arrays.coulomb_intra_params) == Float64
     @test eltype(arrays.rbm_hidden_weights) == ComplexF64
 end
-@testitem "Memory summary calculation" begin
+@testset "Memory summary calculation" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using Statistics
@@ -100,7 +100,7 @@ end
     large_memory_mb = memory_summary(large_layout)
     @test large_memory_mb > memory_mb
 end
-@testitem "Memory layout edge cases" begin
+@testset "Memory layout edge cases" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using Statistics
@@ -117,7 +117,7 @@ end
     @test size(arrays.transfer_indices) == (0, 4)
     @test length(arrays.transfer_params) == 0
 end
-@testitem "Performance characteristics" begin
+@testset "Performance characteristics" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using Statistics

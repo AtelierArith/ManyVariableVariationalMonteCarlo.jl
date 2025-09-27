@@ -3,11 +3,10 @@ Tests for Green Functions implementation (Phase 2: Mathematical Foundation)
 """
 
 
-@testitem "Green Function Basic Operations" begin
-    using Test
+using Test
+@testset "Green Function Basic Operations" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: LocalGreenFunction, green_function_1body!,
                                            green_function_2body!, clear_green_function_cache!,
                                            get_cache_statistics
@@ -51,11 +50,9 @@ Tests for Green Functions implementation (Phase 2: Mathematical Foundation)
     @test stats_after.misses == 0
 end
 
-@testitem "Green Function Edge Cases" begin
-    using Test
+@testset "Green Function Edge Cases" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: LocalGreenFunction, green_function_1body!
 
     n_site = 3
@@ -84,11 +81,9 @@ end
     @test isa(result, ComplexF64)
 end
 
-@testitem "Green Function Performance" begin
-    using Test
+@testset "Green Function Performance" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: LocalGreenFunction, green_function_1body!
 
     # Test with larger system
@@ -120,11 +115,9 @@ end
     @test all(isa.(results, ComplexF64))
 end
 
-@testitem "Green Function Benchmark" begin
-    using Test
+@testset "Green Function Benchmark" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
-    using Test
     using ManyVariableVariationalMonteCarlo: benchmark_green_functions
 
     # Test that benchmark runs without error

@@ -1,4 +1,4 @@
-@testitem "SlaterMatrix basic functionality" begin
+@testset "SlaterMatrix basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -12,7 +12,7 @@
     @test slater.log_det_value == 0.0
     @test !slater.is_valid
 end
-@testitem "SlaterDeterminant basic functionality" begin
+@testset "SlaterDeterminant basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -28,7 +28,7 @@ end
     @test slater.last_update_row == -1
     @test slater.last_update_col == -1
 end
-@testitem "SlaterDeterminant initialization" begin
+@testset "SlaterDeterminant initialization" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -43,7 +43,7 @@ end
     @test slater.orbital_signs == [1, 1]
     @test slater.slater_matrix.matrix == orbital_matrix[1:2, 1:4]
 end
-@testitem "SlaterDeterminant determinant computation" begin
+@testset "SlaterDeterminant determinant computation" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -58,7 +58,7 @@ end
     @test isapprox(abs(slater.slater_matrix.det_value), abs(expected_det), rtol=1e-10)
     @test isapprox(slater.slater_matrix.log_det_value, log(abs(expected_det)), rtol=1e-10)
 end
-@testitem "SlaterDeterminant single electron update" begin
+@testset "SlaterDeterminant single electron update" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -77,7 +77,7 @@ end
     @test slater.last_update_row == 1
     @test slater.last_update_col == 1
 end
-@testitem "SlaterDeterminant two electron update" begin
+@testset "SlaterDeterminant two electron update" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -97,7 +97,7 @@ end
     @test slater.last_update_row == -1  # Marked as two-electron update
     @test slater.last_update_col == -1
 end
-@testitem "SlaterDeterminant utility functions" begin
+@testset "SlaterDeterminant utility functions" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs

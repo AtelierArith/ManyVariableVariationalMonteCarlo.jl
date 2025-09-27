@@ -703,8 +703,8 @@ function benchmark_linalg(n::Int = 100, n_iterations::Int = 1000)
     # Add small off-diagonal elements to improve conditioning while maintaining antisymmetry
     for i in 1:n
         for j in i+1:n
-            A[i, j] += 1e-6 * (1 + 0.1im)
-            A[j, i] -= 1e-6 * (1 + 0.1im)
+            A[i, j] += 1e-2 * (1 + 0.1im)
+            A[j, i] -= 1e-2 * (1 + 0.1im)
         end
     end
 

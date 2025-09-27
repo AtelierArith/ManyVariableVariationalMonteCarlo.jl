@@ -1,4 +1,4 @@
-@testitem "VMCConfig basic functionality" begin
+@testset "VMCConfig basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -26,7 +26,7 @@
     @test config.use_two_electron_updates
     @test config.two_electron_probability == 0.2
 end
-@testitem "VMCState basic functionality" begin
+@testset "VMCState basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -42,7 +42,7 @@ end
     @test state.n_rejected == 0
     @test state.n_updates == 0
 end
-@testitem "VMCState initialization" begin
+@testset "VMCState initialization" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -56,7 +56,7 @@ end
     @test state.n_rejected == 0
     @test state.n_updates == 0
 end
-@testitem "VMCState move proposals" begin
+@testset "VMCState move proposals" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -84,7 +84,7 @@ end
     @test new_pos1 != old_pos1
     @test new_pos2 != old_pos2
 end
-@testitem "VMCState move acceptance" begin
+@testset "VMCState move acceptance" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -107,7 +107,7 @@ end
     @test state.n_accepted == 2
     @test state.n_updates == 2
 end
-@testitem "VMCState move rejection" begin
+@testset "VMCState move rejection" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -122,7 +122,7 @@ end
     @test state.n_rejected == 1
     @test state.n_updates == 1
 end
-@testitem "VMCState utility functions" begin
+@testset "VMCState utility functions" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -143,7 +143,7 @@ end
     @test state.n_rejected == 0
     @test state.n_updates == 0
 end
-@testitem "VMCResults basic functionality" begin
+@testset "VMCResults basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -164,7 +164,7 @@ end
     @test results.autocorrelation_time == 1.0
     @test results.effective_samples == 3
 end
-@testitem "VMC sampling integration" begin
+@testset "VMC sampling integration" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs

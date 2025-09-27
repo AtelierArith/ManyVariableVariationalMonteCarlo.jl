@@ -1,4 +1,4 @@
-@testitem "RBMNetwork basic functionality" begin
+@testset "RBMNetwork basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -15,7 +15,7 @@
     @test !rbm.is_initialized
     @test rbm.is_complex
 end
-@testitem "RBMNetwork initialization" begin
+@testset "RBMNetwork initialization" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -30,7 +30,7 @@ end
     @test all(x -> abs(x) < 0.1, rbm.hidden_bias)
     @test all(x -> abs(x) < 0.1, rbm.phys_weights)
 end
-@testitem "RBMNetwork weight computation" begin
+@testset "RBMNetwork weight computation" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -53,7 +53,7 @@ end
     @test isapprox(weight_phys, exp(log_weight_phys), rtol=1e-10)
     @test weight_phys isa ComplexF64
 end
-@testitem "RBMNetwork gradient computation" begin
+@testset "RBMNetwork gradient computation" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -81,7 +81,7 @@ end
     @test size(grad_phys.phys_weights) == (3, 1)
     @test all(x -> x isa ComplexF64, grad_phys.phys_weights)
 end
-@testitem "RBMNetwork weight updates" begin
+@testset "RBMNetwork weight updates" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -109,7 +109,7 @@ end
     update_rbm_weights_phys!(rbm, grad_weights, grad_visible_bias, grad_hidden_bias, grad_phys_weights; learning_rate=0.01)
     @test rbm.phys_weights ≈ original_phys_weights + 0.01 * grad_phys_weights
 end
-@testitem "RBMNetwork parameter management" begin
+@testset "RBMNetwork parameter management" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -134,7 +134,7 @@ end
     @test all(x -> x == 0.5, rbm.hidden_bias)
     @test all(x -> x == 0.5, rbm.phys_weights)
 end
-@testitem "RBMNetwork reset" begin
+@testset "RBMNetwork reset" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -151,7 +151,7 @@ end
     @test all(x -> x == 0.0, rbm.hidden_bias)
     @test all(x -> x == 0.0, rbm.phys_weights)
 end
-@testitem "RBMNetwork real-valued" begin
+@testset "RBMNetwork real-valued" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs

@@ -1,4 +1,4 @@
-@testitem "VMCRng basic functionality" begin
+@testset "VMCRng basic functionality" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -9,7 +9,7 @@
     rng2 = VMCRng()
     @test isa(rng2.seed, UInt32)
 end
-@testitem "ParallelRngManager" begin
+@testset "ParallelRngManager" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -24,7 +24,7 @@ end
     @test length(manager.rngs) == 4
     @test manager.master_seed == 12345
 end
-@testitem "RNG initialization and access" begin
+@testset "RNG initialization and access" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -38,7 +38,7 @@ end
     # Test error on invalid thread ID
     @test_throws Exception get_thread_rng(5)
 end
-@testitem "VMC random number functions" begin
+@testset "VMC random number functions" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -69,7 +69,7 @@ end
     @test b2 == true
     @test b3 == false
 end
-@testitem "RNG reproducibility" begin
+@testset "RNG reproducibility" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -80,7 +80,7 @@ end
     seq2 = [vmcrand(1) for _ in 1:10]
     @test seq1 == seq2
 end
-@testitem "RNG state save/restore" begin
+@testset "RNG state save/restore" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -93,7 +93,7 @@ end
     restore_rng_state!(state)
     @test true  # If we get here, no error was thrown
 end
-@testitem "RNG error handling" begin
+@testset "RNG error handling" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -105,7 +105,7 @@ end
     invalid_state = "invalid_state"
     @test_throws MethodError restore_rng_state!(invalid_state)
 end
-@testitem "RNG statistical properties" begin
+@testset "RNG statistical properties" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -131,7 +131,7 @@ end
     expected = n_samples / 10
     @test all(0.8 * expected <= count <= 1.2 * expected for count in counts)
 end
-@testitem "RNG thread safety" begin
+@testset "RNG thread safety" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
@@ -149,7 +149,7 @@ end
         end
     end
 end
-@testitem "RNG performance characteristics" begin
+@testset "RNG performance characteristics" begin
     using Test
     using ManyVariableVariationalMonteCarlo
     using StableRNGs

@@ -1,5 +1,5 @@
-@testitem "StdFace.def parsing" begin
-    using Test
+using Test
+@testset "StdFace.def parsing" begin
     using ManyVariableVariationalMonteCarlo
     repo_root = normpath(joinpath(@__DIR__, "..", ".."))
     package_root = normpath(joinpath(@__DIR__, ".."))
@@ -16,8 +16,7 @@
     @test cfg.lattice == :Tetragonal
 end
 
-@testitem "Green function loader" begin
-    using Test
+@testset "Green function loader" begin
     using ManyVariableVariationalMonteCarlo
     using Base: Set
     repo_root = normpath(joinpath(@__DIR__, "..", ".."))
@@ -29,8 +28,7 @@ end
     @test !isempty(unique_indices)
 end
 
-@testitem "Parameter initialisation replicates C heuristics" begin
-    using Test
+@testset "Parameter initialisation replicates C heuristics" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     layout = ParameterLayout(3, 2, 4, 2)
@@ -51,8 +49,7 @@ end
     @test params.rbm == expected_rbm
 end
 
-@testitem "Parameter layout validation" begin
-    using Test
+@testset "Parameter layout validation" begin
     using ManyVariableVariationalMonteCarlo
     layout = ParameterLayout(1, 1, 2, 3)  # nproj, nrbm, nslater, nopttrans
     @test layout.nproj == 1
@@ -61,8 +58,7 @@ end
     @test layout.nopttrans == 3
 end
 
-@testitem "Parameter mask operations" begin
-    using Test
+@testset "Parameter mask operations" begin
     using ManyVariableVariationalMonteCarlo
     layout = ParameterLayout(1, 1, 1, 2)  # nproj, nrbm, nslater, nopttrans
     mask = ParameterMask(layout; default=false)
@@ -76,8 +72,7 @@ end
     @test mask.slater[1] == true
 end
 
-@testitem "SimulationConfig creation" begin
-    using Test
+@testset "SimulationConfig creation" begin
     using ManyVariableVariationalMonteCarlo
     repo_root = normpath(joinpath(@__DIR__, "..", ".."))
     package_root = normpath(joinpath(@__DIR__, ".."))

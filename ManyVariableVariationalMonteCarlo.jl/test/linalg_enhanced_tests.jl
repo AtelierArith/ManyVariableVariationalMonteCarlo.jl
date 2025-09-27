@@ -3,12 +3,11 @@ Tests for Enhanced Linear Algebra implementation (Phase 2: Mathematical Foundati
 """
 
 
-@testitem "Optimized BLAS Operations" begin
-    using Test
+using Test
+@testset "Optimized BLAS Operations" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: optimized_gemm!, optimized_gemv!, optimized_ger!,
                                            optimized_axpy!, optimized_scal!, optimized_dot,
                                            optimized_nrm2
@@ -71,12 +70,10 @@ Tests for Enhanced Linear Algebra implementation (Phase 2: Mathematical Foundati
     @test isapprox(result, norm(x), rtol=1e-12)
 end
 
-@testitem "Optimized LAPACK Operations" begin
-    using Test
+@testset "Optimized LAPACK Operations" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: optimized_getrf!, optimized_getri!, optimized_posv!
 
     # Test GETRF and GETRI
@@ -105,12 +102,10 @@ end
     @test isapprox(A_original * B_solved, B_original, rtol=1e-6)
 end
 
-@testitem "Thread-Safe Operations" begin
-    using Test
+@testset "Thread-Safe Operations" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: ThreadSafeMatrixOperations, get_thread_safe_ops,
                                            thread_safe_gemm!
 
@@ -131,12 +126,10 @@ end
     @test haskey(ops.operation_times, "gemm")
 end
 
-@testitem "Pfaffian Enhanced Operations" begin
-    using Test
+@testset "Pfaffian Enhanced Operations" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: pfaffian, pfaffian_and_inverse,
                                            pfaffian_det_relation, is_antisymmetric,
                                            MatrixCalculation, update_matrix!,
@@ -149,8 +142,8 @@ end
     # Add much larger off-diagonal elements to improve conditioning
     for i in 1:n
         for j in i+1:n
-            A[i, j] += 1e-1 * (1 + 0.1im)
-            A[j, i] -= 1e-1 * (1 + 0.1im)
+            A[i, j] += 1.0 * (1 + 0.1im)
+            A[j, i] -= 1.0 * (1 + 0.1im)
         end
     end
 
@@ -193,12 +186,10 @@ end
     @test isa(pf_new2, ComplexF64)
 end
 
-@testitem "Linear Algebra Edge Cases" begin
-    using Test
+@testset "Linear Algebra Edge Cases" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: pfaffian, optimized_gemm!, optimized_gemv!
 
     # Test zero matrix
@@ -232,12 +223,10 @@ end
     @test_throws DimensionMismatch optimized_gemv!(y, A, x)
 end
 
-@testitem "Linear Algebra Performance" begin
-    using Test
+@testset "Linear Algebra Performance" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: optimized_gemm!, optimized_gemv!,
                                            optimized_dot, MatrixCalculation,
                                            update_matrix!, sherman_morrison_update!
@@ -300,12 +289,10 @@ end
     end
 end
 
-@testitem "Linear Algebra Benchmark" begin
-    using Test
+@testset "Linear Algebra Benchmark" begin
     using ManyVariableVariationalMonteCarlo
     using StableRNGs
     using LinearAlgebra
-    using Test
     using ManyVariableVariationalMonteCarlo: benchmark_linalg
 
     # Test that benchmark runs without error

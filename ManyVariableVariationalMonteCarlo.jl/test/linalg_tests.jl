@@ -1,10 +1,9 @@
 
-@testitem "Pfaffian calculation" begin
+using Test
+@testset "Pfaffian calculation" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
-    using Test
     # Test with 2x2 antisymmetric matrix
     A2 = [0.0 1.0; -1.0 0.0]
     pf2 = pfaffian(A2)
@@ -29,12 +28,10 @@
     @test isa(pfc, ComplexF64)
 end
 
-@testitem "Pfaffian properties" begin
+@testset "Pfaffian properties" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
-    using Test
     # Test with known 2x2 matrix
     A2 = [0.0 1.0; -1.0 0.0]
     pf2 = pfaffian(A2)
@@ -57,11 +54,10 @@ end
     @test abs(pfc^2 - det_Ac) < 1e-10
 end
 
-@testitem "Pfaffian antisymmetric validation" begin
+@testset "Pfaffian antisymmetric validation" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     # Test antisymmetric check
     A_good = [0.0 1.0; -1.0 0.0]
     A_bad = [0.0 1.0; 0.0 0.0]  # Not antisymmetric
@@ -78,11 +74,10 @@ end
     @test isa(pf_bad, Float64)
 end
 
-@testitem "Pfaffian-det relation verification" begin
+@testset "Pfaffian-det relation verification" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     # Test the relation Pf(A)^2 = det(A)
     A = zeros(4, 4)
     A[1,2] = 1.0; A[2,1] = -1.0
@@ -94,22 +89,20 @@ end
     @test isapprox(pf_val^2, det_val, rtol=1e-10)
 end
 
-@testitem "Pfaffian skew-symmetric alias" begin
+@testset "Pfaffian skew-symmetric alias" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     A = [0.0 1.0; -1.0 0.0]
     pf1 = pfaffian(A; check_antisymmetric=false)
     pf2 = pfaffian_skew_symmetric(A)
     @test pf1 == pf2
 end
 
-@testitem "Pfaffian and inverse calculation" begin
+@testset "Pfaffian and inverse calculation" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     rng = StableRNG(23456)
     n = 4
     M = randn(rng, n, n)
@@ -122,11 +115,10 @@ end
     @test isapprox(A * A_inv, I, rtol=1e-10)
 end
 
-@testitem "MatrixCalculation basic operations" begin
+@testset "MatrixCalculation basic operations" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     n = 4
     calc = MatrixCalculation{ComplexF64}(n)
     @test calc.n == n
@@ -141,11 +133,10 @@ end
     @test isapprox(calc.matrix, A, rtol=1e-12)
 end
 
-@testitem "Sherman-Morrison update" begin
+@testset "Sherman-Morrison update" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     n = 4
     calc = MatrixCalculation{ComplexF64}(n)
     A = randn(ComplexF64, n, n)
@@ -159,11 +150,10 @@ end
     @test isa(pf_new, ComplexF64)
 end
 
-@testitem "Woodbury update" begin
+@testset "Woodbury update" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     n = 4
     calc = MatrixCalculation{ComplexF64}(n)
     A = randn(ComplexF64, n, n)
@@ -177,11 +167,10 @@ end
     @test isa(pf_new, ComplexF64)
 end
 
-@testitem "Matrix ratio calculation" begin
+@testset "Matrix ratio calculation" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     n = 4
     calc = MatrixCalculation{ComplexF64}(n)
     A = randn(ComplexF64, n, n)
@@ -193,11 +182,10 @@ end
     @test isa(ratio, ComplexF64)
 end
 
-@testitem "Thread-local matrix calculations" begin
+@testset "Thread-local matrix calculations" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     n = 4
     calc1 = get_matrix_calculation(ComplexF64, n, 1)
 
@@ -215,20 +203,18 @@ end
     clear_matrix_calculations!()
 end
 
-@testitem "Linear algebra benchmark" begin
+@testset "Linear algebra benchmark" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     # Test that benchmark runs without error
     @test_nowarn benchmark_linalg(10, 50)
 end
 
-@testitem "Pfaffian edge cases" begin
+@testset "Pfaffian edge cases" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     # Test empty matrix
     A_empty = zeros(0, 0)
     pf_empty = pfaffian(A_empty)
@@ -247,11 +233,10 @@ end
     @test pf_singular == 0.0
 end
 
-@testitem "Pfaffian numerical stability" begin
+@testset "Pfaffian numerical stability" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     # Test with very small values
     A_small = 1e-10 * [0.0 1.0; -1.0 0.0]
     pf_small = pfaffian(A_small)
@@ -263,11 +248,10 @@ end
     @test isa(pf_large, Float64)
 end
 
-@testitem "Pfaffian performance" begin
+@testset "Pfaffian performance" begin
     using LinearAlgebra
     using StableRNGs
     using ManyVariableVariationalMonteCarlo
-    using Test
     # Test with larger matrices
     sizes = [10, 20, 50]
     for n in sizes
