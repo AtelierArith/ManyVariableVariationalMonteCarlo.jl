@@ -440,7 +440,9 @@ function create_hubbard_hamiltonian(n_sites::Int, n_electrons::Int, t::T, U::T;
                                    apbc::Bool=false,
                                    twist_x::Float64=0.0,
                                    twist_y::Float64=0.0) where {T}
-    ham = Hamiltonian{T}(n_sites, n_electrons)
+    # Always construct a complex Hamiltonian to support boundary twists/APBC
+    # (real inputs are safely converted to ComplexF64 as needed)
+    ham = Hamiltonian{ComplexF64}(n_sites, n_electrons)
 
     # Add on-site Coulomb terms
     for i in 1:n_sites

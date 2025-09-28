@@ -937,6 +937,56 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         end
     end
 
+    # If Lanczos mode is enabled, also emit mVMC-like zvo_ls_* outputs here
+    if sim.config.nlanczos_mode > 0
+        # Derive a small per-step sample count consistent with run_lanczos!
+        nsteps = 5
+        base_samples = max(10, Int(cld(sim.config.nvmc_sample, max(1, nsteps))))
+
+        energies = Float64[]
+        variances = Float64[]
+        for step in 1:nsteps
+            result = sample_configurations!(sim, base_samples)
+            push!(energies, real(result.energy_mean))
+            push!(variances, result.energy_std^2)
+        end
+
+        open(joinpath(output_dir, "zvo_ls_result.dat"), "w") do f
+            println(f, "# step  Etot  Var(E)")
+            for (i, E) in enumerate(energies)
+                @printf(f, "%6d  %16.10f  %16.10f\n", i, E, variances[i])
+                maybe_flush_interval(f, sim, i)
+            end
+            maybe_flush(f, sim)
+        end
+
+        open(joinpath(output_dir, "zvo_ls_alpha_beta.dat"), "w") do f
+            println(f, "# step  alpha  beta")
+            for i in 1:length(energies)
+                alpha = energies[i]
+                beta = i > 1 ? abs(energies[i] - energies[i-1]) : 0.0
+                @printf(f, "%6d  %16.10f  %16.10f\n", i, alpha, beta)
+                maybe_flush_interval(f, sim, i)
+            end
+            maybe_flush(f, sim)
+        end
+
+        # If NLanczosMode>1, emit a one-body Green snapshot for Lanczos (zvo_ls_cisajs.dat)
+        if sim.config.nlanczos_mode > 1
+            Gup, Gdn = compute_onebody_green_local(sim)
+            open(joinpath(output_dir, "zvo_ls_cisajs.dat"), "w") do f
+                println(f, "# i  s  j  t   Re[G]   Im[G]")
+                n = size(Gup, 1)
+                for i in 1:n, j in 1:n
+                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
+                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+                    maybe_flush_interval(f, sim, (i-1)*n + j)
+                end
+                maybe_flush(f, sim)
+            end
+        end
+    end
+
     # Write structure factors and momentum distribution if present
     let ks = get(sim.physics_results, "k_grid", Any[]),
         ssf = get(sim.physics_results, "spin_structure_factor", ComplexF64[]),

@@ -22,8 +22,10 @@
     output_results(sim, outdir)
 
     # Build expected k-grid ordering: nx outer, ny inner (as in implementation)
-    expected_k = [(2pi * nx / Lx, 2pi * ny / Ly) for nx in 0:(Lx-1), ny in 0:(Ly-1)]
-    expected_k = collect(Iterators.flatten(expected_k))
+    expected_k = Tuple{Float64,Float64}[]
+    for nx in 0:(Lx-1), ny in 0:(Ly-1)
+        push!(expected_k, (2pi * nx / Lx, 2pi * ny / Ly))
+    end
 
     # zvo_struct.dat: kx ky ReSs ImSs ReSn ImSn
     lines_struct = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_struct.dat")))
