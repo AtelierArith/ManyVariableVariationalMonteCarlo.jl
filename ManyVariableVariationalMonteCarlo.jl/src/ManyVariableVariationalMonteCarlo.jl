@@ -39,6 +39,12 @@ include("io_advanced.jl")   # HDF5 and JSON dependencies now available
 # include("visualization.jl") # Requires Plots
 # include("benchmarking.jl")  # Requires BenchmarkTools
 
+# New high-priority modules based on mVMC analysis
+include("fsz.jl")            # Fixed Spin Zone (FSZ) specialized modules
+include("backflow.jl")       # Backflow corrections for wavefunction
+include("advanced_sampling.jl") # Advanced sampling controls (Burn-in, splitting)
+include("lanczos.jl")        # Lanczos method integration
+
 # Import functions from included modules
 import .get_workspace, .reset_all_workspaces!
 
@@ -439,8 +445,52 @@ export SimulationConfig,
     save_results,
     load_results,
     export_data,
-    benchmark_io_system
+    benchmark_io_system,
 # Note: Other advanced features exports commented out due to missing dependencies
 # (parallel computing, visualization, benchmarking)
+
+    # FSZ (Fixed Spin Zone) functions
+    FSZConfiguration,
+    FSZState,
+    FSZHamiltonian,
+    create_fsz_configuration,
+    initialize_fsz_state!,
+    create_fsz_hamiltonian,
+    calculate_fsz_local_energy,
+    fsz_single_electron_update!,
+    fsz_two_electron_update!,
+
+    # Backflow correction functions
+    BackflowConfiguration,
+    BackflowState,
+    create_backflow_configuration,
+    initialize_backflow_state!,
+    calculate_backflow_matrix!,
+    apply_backflow_correction!,
+    calculate_backflow_ratio,
+    update_backflow_state!,
+    calculate_bf_slater_element,
+
+    # Advanced sampling functions
+    BurnInConfiguration,
+    SplitSamplingConfiguration,
+    WarmUpState,
+    create_burn_in_configuration,
+    create_split_sampling_configuration,
+    initialize_warmup_state,
+    perform_burn_in!,
+    split_sampling_loop,
+    adaptive_step_size!,
+    calculate_autocorrelation,
+
+    # Lanczos method functions
+    LanczosConfiguration,
+    LanczosState,
+    create_lanczos_configuration,
+    initialize_lanczos_state,
+    run_lanczos_calculation!,
+    calculate_energy_lanczos,
+    calculate_energy_by_alpha,
+    integrate_lanczos_with_vmc!
 
 end # module ManyVariableVariationalMonteCarlo

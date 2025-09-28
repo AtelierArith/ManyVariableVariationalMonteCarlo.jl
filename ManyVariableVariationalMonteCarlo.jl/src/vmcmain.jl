@@ -24,6 +24,18 @@ where frequent flushing is preferred.
 end
 
 """
+    maybe_flush_interval(io, sim, i::Int)
+
+Flush IO every `NFileFlushInterval` lines when enabled.
+"""
+@inline function maybe_flush_interval(io::IO, sim, i::Int)
+    N = sim.config.flush_interval
+    if sim.config.flush_file && N > 0 && (i % N == 0)
+        flush(io)
+    end
+end
+
+"""
     VMCMode
 
 Enumeration of VMC calculation modes.
@@ -364,11 +376,11 @@ Sample electron configurations and measure basic quantities.
 function sample_configurations!(sim::VMCSimulation{T}, n_samples::Int) where {T}
     config = VMCConfig(
         n_samples = n_samples,
-        n_thermalization = max(50, div(n_samples, 10)),
+        n_thermalization = sim.config.nvmc_warm_up,
         n_measurement = n_samples,
-        n_update_per_sample = 1,
+        n_update_per_sample = max(1, sim.config.nvmc_interval),
         use_two_electron_updates = true,
-        two_electron_probability = 0.15
+        two_electron_probability = 0.15,
     )
 
     # Initialize RNG
@@ -786,6 +798,23 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         maybe_flush(f, sim)
     end
 
+    # Optional: custom observables (example: total magnetization as custom)
+    open(joinpath(output_dir, "zvo_custom.dat"), "w") do f
+        println(f, "# name  mean  stderr")
+        if sim.vmc_state !== nothing
+            n = sim.vmc_state.n_sites
+            nup = div(sim.vmc_state.n_electrons, 2)
+            n_up = zeros(Int, n); n_dn = zeros(Int, n)
+            for (k, pos) in enumerate(sim.vmc_state.electron_positions)
+                if k <= nup; n_up[pos] += 1; else; n_dn[pos] += 1; end
+            end
+            szt = 0.5 * (sum(n_up) - sum(n_dn))
+            @printf(f, "%s  %16.10f  %16.10f
+", "magnetization", szt, 0.0)
+        end
+        maybe_flush(f, sim)
+    end
+
     # Write correlation data if present
     let spin = get(sim.physics_results, "spin_correlation", ComplexF64[]),
         dens = get(sim.physics_results, "density_correlation", ComplexF64[]),
@@ -800,6 +829,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                     p = d < length(pair) ? pair[d+1] : 0.0 + 0.0im
                     @printf(f, "%6d  %16.10f %16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
                            d, real(s), imag(s), real(n), imag(n), real(p), imag(p))
+                    maybe_flush_interval(f, sim, d+1)
                 end
                 maybe_flush(f, sim)
             end
@@ -813,6 +843,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             println(f, "# index  Re[E]  Im[E]")
             for (i, e) in enumerate(samples)
                 @printf(f, "%8d  %16.10f  %16.10f\n", i, real(e), imag(e))
+                maybe_flush_interval(f, sim, i)
             end
             maybe_flush(f, sim)
         end
@@ -825,6 +856,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             println(f, "# index  acceptance")
             for (i, a) in enumerate(acc)
                 @printf(f, "%8d  %16.10f\n", i, a)
+                maybe_flush_interval(f, sim, i)
             end
             maybe_flush(f, sim)
         end
@@ -844,18 +876,21 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                         for i in 1:length(ssf)
                             @printf(f, "%16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
                                    ks[i][1], real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                            maybe_flush_interval(f, sim, i)
                         end
                     elseif nd == 2
                         println(f, "# kx ky  Re[Ss] Im[Ss]  Re[Sn] Im[Sn]")
                         for i in 1:length(ssf)
                             @printf(f, "%16.10f %16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
                                    ks[i][1], ks[i][2], real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                            maybe_flush_interval(f, sim, i)
                         end
                     else
                         println(f, "# k-vector  Re[Ss] Im[Ss]  Re[Sn] Im[Sn]")
                         for i in 1:length(ssf)
                             @printf(f, "%s  %16.10f %16.10f  %16.10f %16.10f\n",
                                    string(ks[i]), real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                            maybe_flush_interval(f, sim, i)
                         end
                     end
                 else
@@ -863,6 +898,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                     for i in 1:length(ssf)
                         @printf(f, "%6d  %16.10f %16.10f  %16.10f %16.10f\n",
                                i, real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                        maybe_flush_interval(f, sim, i)
                     end
                 end
                 maybe_flush(f, sim)
@@ -876,22 +912,26 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                         println(f, "# k  Re[nk] Im[nk]")
                         for i in 1:length(nk)
                             @printf(f, "%16.10f  %16.10f %16.10f\n", ks[i][1], real(nk[i]), imag(nk[i]))
+                            maybe_flush_interval(f, sim, i)
                         end
                     elseif nd == 2
                         println(f, "# kx ky  Re[nk] Im[nk]")
                         for i in 1:length(nk)
                             @printf(f, "%16.10f %16.10f  %16.10f %16.10f\n", ks[i][1], ks[i][2], real(nk[i]), imag(nk[i]))
+                            maybe_flush_interval(f, sim, i)
                         end
                     else
                         println(f, "# k-vector  Re[nk] Im[nk]")
                         for i in 1:length(nk)
                             @printf(f, "%s  %16.10f %16.10f\n", string(ks[i]), real(nk[i]), imag(nk[i]))
+                            maybe_flush_interval(f, sim, i)
                         end
                     end
                 else
                     println(f, "# idx  Re[nk] Im[nk]")
                     for i in 1:length(nk)
                         @printf(f, "%6d  %16.10f %16.10f\n", i, real(nk[i]), imag(nk[i]))
+                        maybe_flush_interval(f, sim, i)
                     end
                 end
                 maybe_flush(f, sim)
@@ -899,9 +939,14 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         end
     end
 
-    # Write simple one-body Green function snapshot (zvo_cisajs.dat)
+    # Write one-body Green function (advanced local or snapshot) (zvo_cisajs.dat)
     if sim.vmc_state !== nothing
-        Gup, Gdn = compute_onebody_green(sim.vmc_state)
+        # Switch to LocalGreenFunction when requested via face definition
+        Gup, Gdn = if haskey(sim.config.face, :OneBodyG) && sim.config.face[:OneBodyG] == true
+            compute_onebody_green_local(sim)
+        else
+            compute_onebody_green(sim.vmc_state)
+        end
         open(joinpath(output_dir, "zvo_cisajs.dat"), "w") do f
             println(f, "# i  s  j  t   Re[G]   Im[G]")
             n = size(Gup, 1)
@@ -909,19 +954,65 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             for i in 1:n, j in 1:n
                 @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
                 @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+                maybe_flush_interval(f, sim, (i-1)*n + j)
             end
             maybe_flush(f, sim)
         end
-        # 4-body Green function placeholders (compatibility headers)
-        open(joinpath(output_dir, "zvo_cisajscktaltex.dat"), "w") do f
-            println(f, "# 4-body Green function (placeholder)")
-            println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
-            maybe_flush(f, sim)
-        end
-        open(joinpath(output_dir, "zvo_cisajscktalt.dat"), "w") do f
-            println(f, "# 4-body Green function DC (placeholder)")
-            println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
-            maybe_flush(f, sim)
+        # 4-body Green function: compute if enabled and small, else write placeholders
+        if haskey(sim.config.face, :TwoBodyG) && sim.config.face[:TwoBodyG] == true
+            open(joinpath(output_dir, "zvo_cisajscktaltex.dat"), "w") do f
+                println(f, "# 4-body Green function (equal-time)")
+                println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
+                n = sim.vmc_state.n_sites
+                ne = sim.vmc_state.n_electrons
+                if n <= 8 && ne <= 8
+                    gf = LocalGreenFunction{ComplexF64}(n, ne, 2)
+                    fill!(gf.ele_idx, 0); fill!(gf.ele_cfg, 0); fill!(gf.ele_num, 0); fill!(gf.proj_cnt, 0)
+                    nup = div(ne, 2)
+                    for k in 1:nup
+                        pos = sim.vmc_state.electron_positions[k]
+                        gf.ele_idx[k] = pos
+                        rsi = pos + (1 - 1) * n
+                        gf.ele_cfg[rsi] = 1; gf.ele_num[rsi] = 1
+                    end
+                    for k in 1:(ne - nup)
+                        pos = sim.vmc_state.electron_positions[nup + k]
+                        gf.ele_idx[nup + k] = pos
+                        rsi = pos + (2 - 1) * n
+                        gf.ele_cfg[rsi] = 1; gf.ele_num[rsi] = 1
+                    end
+                    ip = one(ComplexF64)
+                    maxrows = 20000
+                    count = 0
+                    for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                        z = green_function_2body!(gf, i, j, k, l, 1, 1, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
+                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                               i, 1, j, 1, k, 1, l, 1, real(z), imag(z))
+                        count += 1
+                        maybe_flush_interval(f, sim, count)
+                        if count >= maxrows
+                            break
+                        end
+                    end
+                end
+                maybe_flush(f, sim)
+            end
+            open(joinpath(output_dir, "zvo_cisajscktalt.dat"), "w") do f
+                println(f, "# 4-body Green function DC (placeholder)")
+                println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
+                maybe_flush(f, sim)
+            end
+        else
+            open(joinpath(output_dir, "zvo_cisajscktaltex.dat"), "w") do f
+                println(f, "# 4-body Green function (placeholder)")
+                println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
+                maybe_flush(f, sim)
+            end
+            open(joinpath(output_dir, "zvo_cisajscktalt.dat"), "w") do f
+                println(f, "# 4-body Green function DC (placeholder)")
+                println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
+                maybe_flush(f, sim)
+            end
         end
     end
 
@@ -952,6 +1043,57 @@ function compute_onebody_green(state::VMCState{T}) where {T}
     for i in 1:n
         Gup[i,i] = n_up[i]
         Gdn[i,i] = n_dn[i]
+    end
+    return Gup, Gdn
+end
+
+"""
+    compute_onebody_green_local(sim::VMCSimulation{T}) where T
+
+Compute equal-time one-body Green function using LocalGreenFunction machinery.
+This uses the current snapshot electron positions to populate the required
+arrays for the placeholder local Green implementation.
+"""
+function compute_onebody_green_local(sim::VMCSimulation{T}) where {T}
+    n = sim.vmc_state.n_sites
+    ne = sim.vmc_state.n_electrons
+    nspin = 2
+    # LocalGreenFunction works with T type for internal arrays; use ComplexF64
+    gf = LocalGreenFunction{ComplexF64}(n, ne, nspin)
+
+    # Build ele_idx (indices of electron positions per spin), ele_cfg (occupation per site,spin), ele_num (0/1 per site,spin)
+    fill!(gf.ele_idx, 0)
+    fill!(gf.ele_cfg, 0)
+    fill!(gf.ele_num, 0)
+    fill!(gf.proj_cnt, 0)
+
+    nup = div(ne, 2)
+    # Fill spin-up electrons
+    for k in 1:nup
+        pos = sim.vmc_state.electron_positions[k]
+        gf.ele_idx[k] = pos
+        rsi = pos + (1 - 1) * n
+        gf.ele_cfg[rsi] = 1
+        gf.ele_num[rsi] = 1
+    end
+    # Fill spin-down electrons
+    for k in 1:(ne - nup)
+        pos = sim.vmc_state.electron_positions[nup + k]
+        gf.ele_idx[nup + k] = pos
+        rsi = pos + (2 - 1) * n
+        gf.ele_cfg[rsi] = 1
+        gf.ele_num[rsi] = 1
+    end
+
+    Gup = zeros(ComplexF64, n, n)
+    Gdn = zeros(ComplexF64, n, n)
+    # ip is a placeholder parameter for the local green call; set to 1
+    ip = one(ComplexF64)
+    for i in 1:n, j in 1:n
+        # spin up = 1
+        Gup[i, j] = green_function_1body!(gf, i, j, 1, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
+        # spin down = 2
+        Gdn[i, j] = green_function_1body!(gf, i, j, 2, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
     end
     return Gup, Gdn
 end

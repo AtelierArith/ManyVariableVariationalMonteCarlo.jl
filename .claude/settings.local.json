@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(julia:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Read(/Users/atelierarith/work/atelierarith/**)",
+      "Read(/Users/atelierarith/work/**)"
     ],
     "deny": [],
     "ask": []

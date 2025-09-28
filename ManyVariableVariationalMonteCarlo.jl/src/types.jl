@@ -90,6 +90,9 @@ struct SimulationConfig
     # Output flush control
     flush_file::Bool
     flush_interval::Int
+    # Sampling control
+    nvmc_warm_up::Int
+    nvmc_interval::Int
 end
 
 """

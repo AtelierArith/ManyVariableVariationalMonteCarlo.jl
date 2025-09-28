@@ -18,7 +18,7 @@ function main()
     linear = [(iy - 1) * nx + ix for (ix, iy) in coords]
 
     # ペア配置：隣接サイトにペアを作る
-    pair_positions = []
+    pair_positions = Int[]
     for i = 1:2:(n_sites-1)
         if length(pair_positions) < n_electrons - 1
             push!(pair_positions, i, i+1)

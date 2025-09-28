@@ -55,6 +55,18 @@ mVMC-tutorial の各サンプルディレクトリには `input.toml` と `MakeI
 - 初期設定の要約（サイト数/電子数 など）
 - VMC サンプリングの統計（エネルギー平均/分散、受理率 など）
 
+## 各モデルの特徴
+
+### 基本モデル
+- **01_1D_Hubbard**: 1次元ハバードモデル（電子相関効果の基本）
+- **02_2D_Heisenberg**: 2次元ハイゼンベルクモデル（量子磁性の基本）
+
+### 発展モデル
+- **06_1D_Kondo**: 近藤モデル（重い電子系、多軌道効果）
+- **07_2D_ExHubbard**: 拡張ハバードモデル（長距離クーロン相互作用）
+- **08_2D_J1J2_Heisenberg**: J1-J2ハイゼンベルクモデル（フラストレーション効果）
+- **09_2D_AttractiveHubbard**: 引力ハバードモデル（超伝導、BCS-BECクロスオーバー）
+
 ## 参考
 - 物理モデルや入力ファイル仕様は `mVMC` と `mVMC-tutorial` を参照してください。
 - Julia 実装の型や関数は `src/` と `test/` を見ると把握しやすいです（`VMCConfig`, `VMCState`, `run_vmc_sampling!`, `load_vmc_configuration` 等）。

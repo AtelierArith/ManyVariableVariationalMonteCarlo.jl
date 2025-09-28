@@ -17,16 +17,24 @@ function main()
     coords = [(ix, iy) for iy = 1:ny for ix = 1:nx]
     linear = [(iy - 1) * nx + ix for (ix, iy) in coords]
     # スピラル配置風（位相を持った配置）
-    spiral_positions = []
+    spiral_positions = Int[]
     for (idx, i) in enumerate(linear)
-        if idx <= n_electrons
+        if length(spiral_positions) < n_electrons
             # 簡単なスピラル風パターン
             if (idx % 4) in [1, 2]
                 push!(spiral_positions, i)
             end
         end
     end
-    initial_positions = spiral_positions[1:min(n_electrons, length(spiral_positions))]
+    # 足りない場合は順番に埋める
+    while length(spiral_positions) < n_electrons
+        for i in linear
+            if !(i in spiral_positions) && length(spiral_positions) < n_electrons
+                push!(spiral_positions, i)
+            end
+        end
+    end
+    initial_positions = spiral_positions[1:n_electrons]
 
     state = VMCState{ComplexF64}(n_electrons, n_sites)
     initialize_vmc_state!(state, initial_positions)
