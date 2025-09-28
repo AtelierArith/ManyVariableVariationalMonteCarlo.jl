@@ -363,6 +363,11 @@ function run_physics_calculation!(sim::VMCSimulation{T}) where {T}
         )
     end
 
+    # Optional Lanczos (minimal integration): write mVMC-like zvo_ls_*.dat outputs
+    if sim.config.nlanczos_mode > 0
+        run_lanczos!(sim)
+    end
+
     @info @sprintf("Physics calculation: E = %.6f ± %.6f",
                    real(sim.physics_results["energy_mean"]),
                    sim.physics_results["energy_std"])
@@ -388,6 +393,76 @@ function sample_configurations!(sim::VMCSimulation{T}, n_samples::Int) where {T}
 
     # Run sampling
     return run_vmc_sampling!(sim.vmc_state, config, rng)
+end
+
+"""
+    run_lanczos!(sim::VMCSimulation{T}; nsteps::Int=5) where {T}
+
+Minimal Lanczos integration to generate mVMC-like zvo_ls_* outputs.
+This routine does not construct the many-body Hamiltonian explicitly.
+It samples energies at several pseudo-Lanczos steps and records trends.
+Enable with `NLanczosMode > 0` in Face/SimulationConfig.
+"""
+function run_lanczos!(sim::VMCSimulation{T}; nsteps::Int=5) where {T}
+    outdir = "output"
+    try
+        outdir = sim.config.face[:CDataFileHead]
+    catch
+        # ignore
+    end
+    mkpath(outdir)
+
+    # Derive a small per-step sample count
+    base_samples = max(10, Int(cld(sim.config.nvmc_sample, max(1, nsteps))))
+
+    # Arrays to store energies, variances (as placeholders)
+    energies = Float64[]
+    variances = Float64[]
+
+    for step in 1:nsteps
+        # Sample a reduced number of configurations
+        result = sample_configurations!(sim, base_samples)
+        push!(energies, real(result.energy_mean))
+        # crude variance proxy from std
+        push!(variances, result.energy_std^2)
+    end
+
+    # Write zvo_ls_result.dat (step, E, Var)
+    open(joinpath(outdir, "zvo_ls_result.dat"), "w") do f
+        println(f, "# step  Etot  Var(E)")
+        for (i, E) in enumerate(energies)
+            @printf(f, "%6d  %16.10f  %16.10f\n", i, E, variances[i])
+            maybe_flush_interval(f, sim, i)
+        end
+        maybe_flush(f, sim)
+    end
+
+    # Write zvo_ls_alpha_beta.dat with simple finite-difference placeholders
+    open(joinpath(outdir, "zvo_ls_alpha_beta.dat"), "w") do f
+        println(f, "# step  alpha  beta")
+        for i in 1:length(energies)
+            alpha = energies[i]
+            beta = i > 1 ? abs(energies[i] - energies[i-1]) : 0.0
+            @printf(f, "%6d  %16.10f  %16.10f\n", i, alpha, beta)
+            maybe_flush_interval(f, sim, i)
+        end
+        maybe_flush(f, sim)
+    end
+
+    # If NLanczosMode>1, emit a one-body Green snapshot for Lanczos
+    if sim.config.nlanczos_mode > 1
+        Gup, Gdn = compute_onebody_green_local(sim)
+        open(joinpath(outdir, "zvo_ls_cisajs.dat"), "w") do f
+            println(f, "# i  s  j  t   Re[G]   Im[G]")
+            n = size(Gup, 1)
+            for i in 1:n, j in 1:n
+                @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
+                @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+                maybe_flush_interval(f, sim, (i-1)*n + j)
+            end
+            maybe_flush(f, sim)
+        end
+    end
 end
 
 """
