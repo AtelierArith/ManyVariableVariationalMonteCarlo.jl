@@ -35,6 +35,25 @@ function main()
     # Print results
     print_simulation_summary(sim)
 
+    # --- Optional: use Slater projector for one-body Green's output ---
+    # By default, zvo_cisajs.dat writes a snapshot-based estimator (diagonal occupancy).
+    # To enable a projector-based one-body G from the Slater determinant, set:
+    #   push_definition!(face, :OneBodyGMode, "slater")
+    # or equivalently:
+    #   push_definition!(face, :OneBodyG, "slater")
+    # Then re-run the simulation and output to a different directory to compare.
+    # Example (commented out):
+    # face2 = FaceDefinition()
+    # push_definition!(face2, :model, "FermionHubbard")
+    # push_definition!(face2, :lattice, "chain")
+    # push_definition!(face2, :L, 4)
+    # push_definition!(face2, :nelec, 2)
+    # push_definition!(face2, :OneBodyGMode, "slater")
+    # config2 = SimulationConfig(face2)
+    # sim2 = VMCSimulation(config2, layout; T=ComplexF64)
+    # run_simulation!(sim2)
+    # output_results(sim2, "output_slater")
+
     # Test Hamiltonian creation
     println("\n--- Testing Hamiltonian ---")
     ham = create_hubbard_hamiltonian(config.nsites, config.nelec, config.t, config.u; lattice_type=:chain)

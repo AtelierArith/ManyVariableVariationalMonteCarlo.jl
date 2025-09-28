@@ -1066,13 +1066,24 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
 
     # Write one-body Green function (Slater/local/snapshot) (zvo_cisajs.dat)
     if sim.vmc_state !== nothing
-        # Mode selection precedence:
+        # Mode selection precedence (backward compatible):
         # 1) if OneBodyG == true -> local Green snapshot (compat)
-        # 2) if Slater determinant available -> Slater-based projector
-        # 3) fallback to snapshot occupancy
-        Gup, Gdn = if haskey(sim.config.face, :OneBodyG) && sim.config.face[:OneBodyG] == true
+        # 2) if OneBodyGMode == "slater" (or OneBodyG == "slater") -> Slater-based projector
+        # 3) fallback to snapshot occupancy (default)
+        local face = sim.config.face
+        local use_local = haskey(face, :OneBodyG) && face[:OneBodyG] == true
+        local use_slater = false
+        if haskey(face, :OneBodyGMode)
+            v = lowercase(string(face[:OneBodyGMode]))
+            use_slater = (v == "slater" || v == "projector") && sim.slater_det !== nothing
+        elseif haskey(face, :OneBodyG) && !(face[:OneBodyG] === true)
+            # Allow OneBodyG = "slater" for convenience
+            v = lowercase(string(face[:OneBodyG]))
+            use_slater = (v == "slater" || v == "projector") && sim.slater_det !== nothing
+        end
+        Gup, Gdn = if use_local
             compute_onebody_green_local(sim)
-        elseif sim.slater_det !== nothing
+        elseif use_slater
             compute_onebody_green_slater(sim)
         else
             compute_onebody_green(sim.vmc_state)
@@ -1111,11 +1122,16 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         end
         # 4-body Green function: compute via Wick if enabled, else write placeholders
         if haskey(sim.config.face, :TwoBodyG) && sim.config.face[:TwoBodyG] == true
+            # Configurable row cap to avoid huge files
+            local maxrows = try
+                facevalue(sim.config.face, :MaxG4Rows, Int; default = 20000)
+            catch
+                20000
+            end
             open(joinpath(output_dir, "zvo_cisajscktaltex.dat"), "w") do f
                 println(f, "# 4-body Green function (equal-time, Wick)")
                 println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
                 n = sim.vmc_state.n_sites
-                maxrows = 20000
                 count = 0
                 wick4 = function (G::AbstractMatrix{<:Complex}, i::Int,j::Int,k::Int,l::Int)
                     δ = (j == k) ? one(eltype(G)) : zero(eltype(G))
@@ -1144,8 +1160,30 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 maybe_flush(f, sim)
             end
             open(joinpath(output_dir, "zvo_cisajscktalt.dat"), "w") do f
-                println(f, "# 4-body Green function DC (placeholder)")
+                println(f, "# 4-body Green function DC (Wick product)")
                 println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
+                n = sim.vmc_state.n_sites
+                count = 0
+                for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                    # spin-up DC = G_up[i,k] * G_up[j,l]
+                    z1dc = Gup[i,k] * Gup[j,l]
+                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                           i, 1, j, 1, k, 1, l, 1, real(z1dc), imag(z1dc))
+                    count += 1
+                    maybe_flush_interval(f, sim, count)
+                    if count >= maxrows
+                        break
+                    end
+                    # spin-down DC = G_dn[i,k] * G_dn[j,l]
+                    z2dc = Gdn[i,k] * Gdn[j,l]
+                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                           i, 2, j, 2, k, 2, l, 2, real(z2dc), imag(z2dc))
+                    count += 1
+                    maybe_flush_interval(f, sim, count)
+                    if count >= maxrows
+                        break
+                    end
+                end
                 maybe_flush(f, sim)
             end
             # Emit binned variants if requested
@@ -1157,18 +1195,60 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             nstore = max(1, nstore)
             for b in 1:nstore
                 suffix = @sprintf("_%03d", b)
-                # Equal-time 4-body
-                cp = joinpath(output_dir, "zvo_cisajscktaltex" * suffix * ".dat")
-                open(cp, "w") do f
-                    println(f, "# 4-body Green function (equal-time)")
+                # Equal-time 4-body (Wick)
+                open(joinpath(output_dir, "zvo_cisajscktaltex" * suffix * ".dat"), "w") do f
+                    println(f, "# 4-body Green function (equal-time, Wick)")
                     println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
+                    n = sim.vmc_state.n_sites
+                    count = 0
+                    wick4 = function (G::AbstractMatrix{<:Complex}, i::Int,j::Int,k::Int,l::Int)
+                        δ = (j == k) ? one(eltype(G)) : zero(eltype(G))
+                        return δ * G[i,l] - G[i,k] * G[j,l]
+                    end
+                    for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                        z1 = wick4(Gup, i, j, k, l)
+                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                               i, 1, j, 1, k, 1, l, 1, real(z1), imag(z1))
+                        count += 1
+                        maybe_flush_interval(f, sim, count)
+                        if count >= maxrows
+                            break
+                        end
+                        z2 = wick4(Gdn, i, j, k, l)
+                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                               i, 2, j, 2, k, 2, l, 2, real(z2), imag(z2))
+                        count += 1
+                        maybe_flush_interval(f, sim, count)
+                        if count >= maxrows
+                            break
+                        end
+                    end
                     maybe_flush(f, sim)
                 end
-                # DC part
-                cpd = joinpath(output_dir, "zvo_cisajscktalt" * suffix * ".dat")
-                open(cpd, "w") do f
-                    println(f, "# 4-body Green function DC (placeholder)")
+                # DC part (Wick product)
+                open(joinpath(output_dir, "zvo_cisajscktalt" * suffix * ".dat"), "w") do f
+                    println(f, "# 4-body Green function DC (Wick product)")
                     println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
+                    n = sim.vmc_state.n_sites
+                    count = 0
+                    for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                        z1dc = Gup[i,k] * Gup[j,l]
+                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                               i, 1, j, 1, k, 1, l, 1, real(z1dc), imag(z1dc))
+                        count += 1
+                        maybe_flush_interval(f, sim, count)
+                        if count >= maxrows
+                            break
+                        end
+                        z2dc = Gdn[i,k] * Gdn[j,l]
+                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                               i, 2, j, 2, k, 2, l, 2, real(z2dc), imag(z2dc))
+                        count += 1
+                        maybe_flush_interval(f, sim, count)
+                        if count >= maxrows
+                            break
+                        end
+                    end
                     maybe_flush(f, sim)
                 end
             end
