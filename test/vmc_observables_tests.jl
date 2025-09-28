@@ -18,7 +18,7 @@
     config = SimulationConfig(face)
     layout = ParameterLayout(2, 0, 2, 0)
 
-    sim = VMCSimulation(config, layout; T=ComplexF64)
+    sim = VMCSimulation(config, layout; T = ComplexF64)
     initialize_simulation!(sim)
     run_physics_calculation!(sim)
 
@@ -29,7 +29,7 @@
     @test length(spin) >= 1 && length(dens) >= 1
 
     # Check computation helper yields consistent sizes
-    corrs = compute_equal_time_correlations(sim.vmc_state; max_distance=3)
+    corrs = compute_equal_time_correlations(sim.vmc_state; max_distance = 3)
     @test length(corrs.spin) == 4
     @test length(corrs.density) == 4
 

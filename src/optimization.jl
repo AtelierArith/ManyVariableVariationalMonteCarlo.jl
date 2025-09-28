@@ -278,9 +278,9 @@ function solve_sr_equations_cg!(
     λ = config.regularization_parameter
     function matvec!(y::AbstractVector{T}, x::AbstractVector{T})
         @inbounds begin
-            for i in 1:n
+            for i = 1:n
                 acc = λ * x[i]
-                @simd for j in 1:n
+                @simd for j = 1:n
                     acc += sr.overlap_matrix[i, j] * x[j]
                 end
                 y[i] = acc
@@ -291,21 +291,22 @@ function solve_sr_equations_cg!(
 
     # Diagonal preconditioner M ≈ diag(S+λI)
     Mdiag = similar(sr.work_vector)
-    @inbounds for i in 1:n
+    @inbounds for i = 1:n
         Mdiag[i] = sr.overlap_matrix[i, i] + λ
         if Mdiag[i] == 0
             Mdiag[i] = one(T)
         end
     end
     function precond!(z::AbstractVector{T}, r::AbstractVector{T})
-        @inbounds for i in 1:n
+        @inbounds for i = 1:n
             z[i] = r[i] / Mdiag[i]
         end
         return z
     end
 
     x = sr.parameter_delta
-    r = sr.work_vector; fill!(r, zero(T))
+    r = sr.work_vector;
+    fill!(r, zero(T))
     Ap = similar(r)
     z = similar(r)
     p = similar(r)
@@ -318,10 +319,10 @@ function solve_sr_equations_cg!(
 
     itmax = max(1, config.sr_cg_max_iter)
     tol2 = config.sr_cg_tol^2
-    for it in 1:itmax
+    for it = 1:itmax
         matvec!(Ap, p)
         α = rz_old / dot(conj.(p), Ap)
-        @inbounds @simd for i in 1:n
+        @inbounds @simd for i = 1:n
             x[i] += α * p[i]
             r[i] -= α * Ap[i]
         end
@@ -332,7 +333,7 @@ function solve_sr_equations_cg!(
         precond!(z, r)
         rz_new = dot(conj.(r), z)
         β = rz_new / rz_old
-        @inbounds @simd for i in 1:n
+        @inbounds @simd for i = 1:n
             p[i] = z[i] + β * p[i]
         end
         rz_old = rz_new

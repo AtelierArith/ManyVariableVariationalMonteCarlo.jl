@@ -136,7 +136,7 @@ mutable struct Hamiltonian{T<:Number}
             n_sites,
             n_electrons,
             nothing,
-            Dict{Vector{Int},T}()
+            Dict{Vector{Int},T}(),
         )
     end
 end
@@ -146,14 +146,22 @@ end
 
 Create a new Hamiltonian for a system with given number of sites and electrons.
 """
-Hamiltonian(n_sites::Int, n_electrons::Int; T=ComplexF64) = Hamiltonian{T}(n_sites, n_electrons)
+Hamiltonian(n_sites::Int, n_electrons::Int; T = ComplexF64) =
+    Hamiltonian{T}(n_sites, n_electrons)
 
 """
     add_transfer!(ham::Hamiltonian{T}, coeff::T, i::Int, si::Int, j::Int, sj::Int) where {T}
 
 Add a kinetic energy (transfer) term to the Hamiltonian.
 """
-function add_transfer!(ham::Hamiltonian{T}, coeff, i::Int, si::Int, j::Int, sj::Int) where {T}
+function add_transfer!(
+    ham::Hamiltonian{T},
+    coeff,
+    i::Int,
+    si::Int,
+    j::Int,
+    sj::Int,
+) where {T}
     cT = convert(T, coeff)
     push!(ham.transfer_terms, TransferTerm{T}(cT, i, si, j, sj))
     ham.kinetic_matrix = nothing  # Invalidate cache
@@ -215,8 +223,18 @@ end
 
 Add a general four-operator interaction term.
 """
-function add_interall!(ham::Hamiltonian{T}, coeff, i::Int, si::Int, j::Int, sj::Int,
-                      k::Int, sk::Int, l::Int, sl::Int) where {T}
+function add_interall!(
+    ham::Hamiltonian{T},
+    coeff,
+    i::Int,
+    si::Int,
+    j::Int,
+    sj::Int,
+    k::Int,
+    sk::Int,
+    l::Int,
+    sl::Int,
+) where {T}
     cT = convert(T, coeff)
     push!(ham.interall_terms, InterAllTerm{T}(cT, i, si, j, sj, k, sk, l, sl))
 end
@@ -228,8 +246,11 @@ end
 Calculate the Hamiltonian expectation value for a given electron configuration.
 Equivalent to CalculateHamiltonian in the C reference implementation.
 """
-function calculate_hamiltonian(ham::Hamiltonian{T}, electron_config::Vector{Int},
-                              electron_numbers::Vector{Int}) where {T}
+function calculate_hamiltonian(
+    ham::Hamiltonian{T},
+    electron_config::Vector{Int},
+    electron_numbers::Vector{Int},
+) where {T}
     energy = zero(T)
 
     # Kinetic energy (transfer terms)
@@ -252,11 +273,14 @@ end
 
 Calculate kinetic energy contribution.
 """
-function calculate_kinetic_energy(ham::Hamiltonian{T}, electron_config::Vector{Int},
-                                 electron_numbers::Vector{Int}) where {T}
+function calculate_kinetic_energy(
+    ham::Hamiltonian{T},
+    electron_config::Vector{Int},
+    electron_numbers::Vector{Int},
+) where {T}
     energy = zero(T)
     n_up = electron_numbers[1:ham.n_sites]
-    n_down = electron_numbers[ham.n_sites+1:2*ham.n_sites]
+    n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
     for term in ham.transfer_terms
         if term.spin_i == term.spin_j
@@ -288,10 +312,13 @@ end
 Calculate on-site Coulomb interaction energy.
 Equivalent to the CoulombIntra part in CalculateHamiltonian.
 """
-function calculate_coulomb_intra_energy(ham::Hamiltonian{T}, electron_numbers::Vector{Int}) where {T}
+function calculate_coulomb_intra_energy(
+    ham::Hamiltonian{T},
+    electron_numbers::Vector{Int},
+) where {T}
     energy = zero(T)
     n_up = electron_numbers[1:ham.n_sites]
-    n_down = electron_numbers[ham.n_sites+1:2*ham.n_sites]
+    n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
     for term in ham.coulomb_intra_terms
         energy += term.coefficient * n_up[term.site] * n_down[term.site]
@@ -305,9 +332,13 @@ end
 
 Calculate inter-site Coulomb interaction energy.
 """
-function calculate_coulomb_inter_energy(ham::Hamiltonian{T}, electron_numbers::Vector{Int}) where {T}
+function calculate_coulomb_inter_energy(
+    ham::Hamiltonian{T},
+    electron_numbers::Vector{Int},
+) where {T}
     energy = zero(T)
-    n_total = electron_numbers[1:ham.n_sites] + electron_numbers[ham.n_sites+1:2*ham.n_sites]
+    n_total =
+        electron_numbers[1:ham.n_sites] + electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
     for term in ham.coulomb_inter_terms
         energy += term.coefficient * n_total[term.site_i] * n_total[term.site_j]
@@ -324,7 +355,7 @@ Calculate Hund coupling energy.
 function calculate_hund_energy(ham::Hamiltonian{T}, electron_numbers::Vector{Int}) where {T}
     energy = zero(T)
     n_up = electron_numbers[1:ham.n_sites]
-    n_down = electron_numbers[ham.n_sites+1:2*ham.n_sites]
+    n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
     for term in ham.hund_terms
         # Hund term: J * (S⃗ᵢ · S⃗ⱼ - nᵢnⱼ/4)
@@ -349,8 +380,11 @@ end
 
 Calculate pair hopping energy (simplified approximation).
 """
-function calculate_pair_hopping_energy(ham::Hamiltonian{T}, electron_config::Vector{Int},
-                                      electron_numbers::Vector{Int}) where {T}
+function calculate_pair_hopping_energy(
+    ham::Hamiltonian{T},
+    electron_config::Vector{Int},
+    electron_numbers::Vector{Int},
+) where {T}
     # Pair hopping terms are complex and require proper treatment of creation/annihilation operators
     # For now, return zero as placeholder
     return zero(T)
@@ -362,8 +396,11 @@ end
 
 Calculate exchange interaction energy (simplified approximation).
 """
-function calculate_exchange_energy(ham::Hamiltonian{T}, electron_config::Vector{Int},
-                                  electron_numbers::Vector{Int}) where {T}
+function calculate_exchange_energy(
+    ham::Hamiltonian{T},
+    electron_config::Vector{Int},
+    electron_numbers::Vector{Int},
+) where {T}
     # Exchange terms are complex and require proper treatment
     # For now, return zero as placeholder
     return zero(T)
@@ -375,8 +412,11 @@ end
 
 Calculate general four-operator interaction energy (simplified approximation).
 """
-function calculate_interall_energy(ham::Hamiltonian{T}, electron_config::Vector{Int},
-                                  electron_numbers::Vector{Int}) where {T}
+function calculate_interall_energy(
+    ham::Hamiltonian{T},
+    electron_config::Vector{Int},
+    electron_numbers::Vector{Int},
+) where {T}
     # InterAll terms are the most general and complex
     # For now, return zero as placeholder
     return zero(T)
@@ -390,10 +430,10 @@ Equivalent to CalculateDoubleOccupation in the C reference implementation.
 """
 function calculate_double_occupation(electron_numbers::Vector{Int}, n_sites::Int)
     n_up = electron_numbers[1:n_sites]
-    n_down = electron_numbers[n_sites+1:2*n_sites]
+    n_down = electron_numbers[(n_sites+1):(2*n_sites)]
 
     double_occ = 0.0
-    for i in 1:n_sites
+    for i = 1:n_sites
         double_occ += n_up[i] * n_down[i]
     end
 
@@ -435,24 +475,29 @@ end
 
 Create a standard Hubbard model Hamiltonian.
 """
-function create_hubbard_hamiltonian(n_sites::Int, n_electrons::Int, t::T, U::T;
-                                   lattice_type::Symbol=:chain,
-                                   apbc::Bool=false,
-                                   twist_x::Float64=0.0,
-                                   twist_y::Float64=0.0) where {T}
+function create_hubbard_hamiltonian(
+    n_sites::Int,
+    n_electrons::Int,
+    t::T,
+    U::T;
+    lattice_type::Symbol = :chain,
+    apbc::Bool = false,
+    twist_x::Float64 = 0.0,
+    twist_y::Float64 = 0.0,
+) where {T}
     # Always construct a complex Hamiltonian to support boundary twists/APBC
     # (real inputs are safely converted to ComplexF64 as needed)
     ham = Hamiltonian{ComplexF64}(n_sites, n_electrons)
 
     # Add on-site Coulomb terms
-    for i in 1:n_sites
+    for i = 1:n_sites
         add_coulomb_intra!(ham, U, i)
     end
 
     # Add hopping terms based on lattice type
     if lattice_type == :chain
         # 1D chain with nearest-neighbor hopping
-        for i in 1:n_sites-1
+        for i = 1:(n_sites-1)
             # Spin up hopping
             add_transfer!(ham, -t, i, 0, i+1, 0)
             add_transfer!(ham, -t, i+1, 0, i, 0)
@@ -477,7 +522,7 @@ function create_hubbard_hamiltonian(n_sites::Int, n_electrons::Int, t::T, U::T;
         Lx = Int(sqrt(n_sites))
         Ly = n_sites ÷ Lx
 
-        for i in 1:n_sites
+        for i = 1:n_sites
             ix = (i - 1) % Lx + 1
             iy = (i - 1) ÷ Lx + 1
 
@@ -527,12 +572,16 @@ end
 
 Create a standard Heisenberg model Hamiltonian.
 """
-function create_heisenberg_hamiltonian(n_sites::Int, J::T; lattice_type::Symbol=:chain) where {T}
+function create_heisenberg_hamiltonian(
+    n_sites::Int,
+    J::T;
+    lattice_type::Symbol = :chain,
+) where {T}
     ham = Hamiltonian{T}(n_sites, n_sites)  # One electron per site for spin-1/2
 
     if lattice_type == :chain
         # 1D chain with nearest-neighbor exchange
-        for i in 1:n_sites-1
+        for i = 1:(n_sites-1)
             add_hund_coupling!(ham, J, i, i+1)
         end
 

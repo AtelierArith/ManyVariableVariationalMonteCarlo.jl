@@ -23,7 +23,10 @@
     # Parse k values from struct file
     ks = Float64[]
     for line in eachline(joinpath(outdir, "zvo_struct.dat"))
-        if isempty(line) || startswith(line, "#"); continue; end
+        if isempty(line) || startswith(line, "#")
+            ;
+            continue;
+        end
         parts = split(strip(line))
         # First column is k
         push!(ks, parse(Float64, parts[1]))
@@ -31,8 +34,8 @@
     @test length(ks) == L
 
     # Expected k: 2π n / L
-    expected = [2pi * n / L for n in 0:(L-1)]
-    for i in 1:L
-        @test isapprox(ks[i], expected[i]; atol=1e-9)
+    expected = [2pi * n / L for n = 0:(L-1)]
+    for i = 1:L
+        @test isapprox(ks[i], expected[i]; atol = 1e-9)
     end
 end

@@ -43,16 +43,33 @@ end
 
 Create Lanczos configuration with default parameters.
 """
-function create_lanczos_configuration(; n_lanczos_mode=1, max_lanczos_steps=100,
-                                     lanczos_tolerance=1e-8, calculate_energy=true,
-                                     calculate_greens=false, calculate_four_body=false,
-                                     output_lanczos=true, file_prefix="zvo_ls")
+function create_lanczos_configuration(;
+    n_lanczos_mode = 1,
+    max_lanczos_steps = 100,
+    lanczos_tolerance = 1e-8,
+    calculate_energy = true,
+    calculate_greens = false,
+    calculate_four_body = false,
+    output_lanczos = true,
+    file_prefix = "zvo_ls",
+)
     return LanczosConfiguration(
-        n_lanczos_mode, max_lanczos_steps, lanczos_tolerance,
-        calculate_energy, false, Float64[],
-        calculate_greens, 0, 0, 0,
-        calculate_four_body, 0, 0,
-        output_lanczos, false, file_prefix
+        n_lanczos_mode,
+        max_lanczos_steps,
+        lanczos_tolerance,
+        calculate_energy,
+        false,
+        Float64[],
+        calculate_greens,
+        0,
+        0,
+        0,
+        calculate_four_body,
+        0,
+        0,
+        output_lanczos,
+        false,
+        file_prefix,
     )
 end
 
@@ -94,7 +111,11 @@ end
 
 Initialize Lanczos state with given vector size and configuration.
 """
-function initialize_lanczos_state(T::Type{<:Number}, vector_size::Int, config::LanczosConfiguration)
+function initialize_lanczos_state(
+    T::Type{<:Number},
+    vector_size::Int,
+    config::LanczosConfiguration,
+)
     return LanczosState{T}(
         Vector{Vector{T}}(),           # lanczos_vectors
         0,                             # current_step
@@ -109,7 +130,7 @@ function initialize_lanczos_state(T::Type{<:Number}, vector_size::Int, config::L
         T[],                           # qqqq_data
         T[],                           # q_cisajs_q_data
         T[],                           # q_cisajs_ckt_alt_q_data
-        T[]                            # q_cisajs_ckt_alt_q_dc_data
+        T[],                            # q_cisajs_ckt_alt_q_dc_data
     )
 end
 
@@ -119,8 +140,11 @@ end
 
 Perform one step of the Lanczos algorithm.
 """
-function lanczos_step!(state::LanczosState{T}, hamiltonian_action::Function,
-                      current_vector::Vector{T}) where T
+function lanczos_step!(
+    state::LanczosState{T},
+    hamiltonian_action::Function,
+    current_vector::Vector{T},
+) where {T}
     state.current_step += 1
 
     # Apply Hamiltonian to current vector
@@ -145,7 +169,9 @@ function lanczos_step!(state::LanczosState{T}, hamiltonian_action::Function,
 
     elseif state.current_step <= length(state.lanczos_vectors)
         # Subsequent steps
-        prev_vector = state.current_step > 1 ? state.lanczos_vectors[state.current_step-1] : zeros(T, length(current_vector))
+        prev_vector =
+            state.current_step > 1 ? state.lanczos_vectors[state.current_step-1] :
+            zeros(T, length(current_vector))
 
         # Orthogonalize
         alpha = real(dot(current_vector, h_vector))
@@ -165,7 +191,8 @@ function lanczos_step!(state::LanczosState{T}, hamiltonian_action::Function,
         end
     end
 
-    return state.current_step < length(state.lanczos_vectors) ? state.lanczos_vectors[end] : nothing
+    return state.current_step < length(state.lanczos_vectors) ? state.lanczos_vectors[end] :
+           nothing
 end
 
 """
@@ -173,14 +200,17 @@ end
 
 Compute eigenvalues of the tridiagonal Lanczos matrix.
 """
-function compute_lanczos_eigenvalues!(state::LanczosState{T}, config::LanczosConfiguration) where T
+function compute_lanczos_eigenvalues!(
+    state::LanczosState{T},
+    config::LanczosConfiguration,
+) where {T}
     n = length(state.alpha_diag)
     if n == 0
         return
     end
 
     # Construct tridiagonal matrix
-    tri_matrix = SymTridiagonal(state.alpha_diag, state.beta_offdiag[1:end-1])
+    tri_matrix = SymTridiagonal(state.alpha_diag, state.beta_offdiag[1:(end-1)])
 
     # Compute eigenvalues and eigenvectors
     eigenvals, eigenvecs = eigen(tri_matrix)
@@ -196,7 +226,7 @@ function compute_lanczos_eigenvalues!(state::LanczosState{T}, config::LanczosCon
 
     # Check convergence
     state.converged = fill(false, length(eigenvals))
-    for i in 1:length(eigenvals)
+    for i = 1:length(eigenvals)
         if n > 1
             # Simple convergence check based on change in eigenvalue
             # More sophisticated checks could be implemented
@@ -211,7 +241,7 @@ end
 Calculate ground state energy using Lanczos method.
 Based on CalculateEne function in mVMC.
 """
-function calculate_energy_lanczos(H1::T, H2_1::T, H2_2::T, H3::T, H4::T) where T<:Number
+function calculate_energy_lanczos(H1::T, H2_1::T, H2_2::T, H3::T, H4::T) where {T<:Number}
     # This implements the energy calculation from Hamiltonian moments
     # H1 = ⟨H⟩, H2_1 = ⟨H²⟩, H2_2 = ⟨H⟩², H3 = ⟨H³⟩, H4 = ⟨H⁴⟩
 
@@ -230,17 +260,26 @@ function calculate_energy_lanczos(H1::T, H2_1::T, H2_2::T, H3::T, H4::T) where T
     if abs(H2_2) > 1e-12
         alpha_plus = -H1 / H2_2
         energy_plus = H1 + alpha_plus * H2_1
-        energy_var_plus = abs(H2_1 + 2 * alpha_plus * H3 + alpha_plus^2 * H4 - energy_plus^2)
+        energy_var_plus =
+            abs(H2_1 + 2 * alpha_plus * H3 + alpha_plus^2 * H4 - energy_plus^2)
 
         alpha_minus = -alpha_plus
         energy_minus = H1 + alpha_minus * H2_1
-        energy_var_minus = abs(H2_1 + 2 * alpha_minus * H3 + alpha_minus^2 * H4 - energy_minus^2)
+        energy_var_minus =
+            abs(H2_1 + 2 * alpha_minus * H3 + alpha_minus^2 * H4 - energy_minus^2)
     else
         energy_plus = H1
         energy_minus = H1
     end
 
-    return (alpha_plus, energy_plus, energy_var_plus, alpha_minus, energy_minus, energy_var_minus)
+    return (
+        alpha_plus,
+        energy_plus,
+        energy_var_plus,
+        alpha_minus,
+        energy_minus,
+        energy_var_minus,
+    )
 end
 
 """
@@ -249,7 +288,14 @@ end
 Calculate energy for a given alpha parameter.
 Based on CalculateEneByAlpha function in mVMC.
 """
-function calculate_energy_by_alpha(H1::T, H2_1::T, H2_2::T, H3::T, H4::T, alpha::Float64) where T<:Number
+function calculate_energy_by_alpha(
+    H1::T,
+    H2_1::T,
+    H2_2::T,
+    H3::T,
+    H4::T,
+    alpha::Float64,
+) where {T<:Number}
     # Energy calculation for fixed alpha
     energy = H1 + alpha * H2_1
     energy_variance = abs(H2_1 + 2 * alpha * H3 + alpha^2 * H4 - energy^2)
@@ -265,9 +311,14 @@ end
 Calculate physical values using Lanczos method.
 Based on CalculatePhysVal_real/CalculatePhysVal_fcmp in mVMC.
 """
-function calculate_physical_values_lanczos(H1::T, H2_1::T, alpha::Float64,
-                                          qphys_q_data::Vector{T}, n_phys::Int,
-                                          n_ls_ham::Int) where T<:Number
+function calculate_physical_values_lanczos(
+    H1::T,
+    H2_1::T,
+    alpha::Float64,
+    qphys_q_data::Vector{T},
+    n_phys::Int,
+    n_ls_ham::Int,
+) where {T<:Number}
     phys_ls_data = zeros(T, n_phys)
 
     # Calculate physical values using Lanczos projection
@@ -275,7 +326,7 @@ function calculate_physical_values_lanczos(H1::T, H2_1::T, alpha::Float64,
 
     denominator = 1.0 + alpha * H2_1
     if abs(denominator) > 1e-12
-        for i in 1:min(n_phys, length(qphys_q_data))
+        for i = 1:min(n_phys, length(qphys_q_data))
             phys_ls_data[i] = qphys_q_data[i] / denominator
         end
     end
@@ -289,8 +340,12 @@ end
 
 Run complete Lanczos calculation.
 """
-function run_lanczos_calculation!(state::LanczosState{T}, config::LanczosConfiguration,
-                                 hamiltonian_action::Function, initial_vector::Vector{T}) where T
+function run_lanczos_calculation!(
+    state::LanczosState{T},
+    config::LanczosConfiguration,
+    hamiltonian_action::Function,
+    initial_vector::Vector{T},
+) where {T}
     # Normalize initial vector
     initial_vector = copy(initial_vector)
     initial_vector ./= norm(initial_vector)
@@ -298,7 +353,7 @@ function run_lanczos_calculation!(state::LanczosState{T}, config::LanczosConfigu
     current_vector = initial_vector
 
     # Lanczos iteration
-    for step in 1:config.max_lanczos_steps
+    for step = 1:config.max_lanczos_steps
         next_vector = lanczos_step!(state, hamiltonian_action, current_vector)
 
         if next_vector === nothing
@@ -333,8 +388,11 @@ end
 
 Output Lanczos calculation results to files.
 """
-function output_lanczos_results(state::LanczosState{T}, config::LanczosConfiguration,
-                               output_dir::String = ".") where T
+function output_lanczos_results(
+    state::LanczosState{T},
+    config::LanczosConfiguration,
+    output_dir::String = ".",
+) where {T}
     if !config.output_lanczos
         return
     end
@@ -376,13 +434,17 @@ end
 
 Integrate Lanczos method with VMC calculations.
 """
-function integrate_lanczos_with_vmc!(vmc_state, vmc_config, lanczos_config::LanczosConfiguration)
+function integrate_lanczos_with_vmc!(
+    vmc_state,
+    vmc_config,
+    lanczos_config::LanczosConfiguration,
+)
     if lanczos_config.n_lanczos_mode == 0
         return nothing  # No Lanczos calculation
     end
 
     # Create Hamiltonian action function for VMC state
-    function hamiltonian_action(vector::Vector{T}) where T
+    function hamiltonian_action(vector::Vector{T}) where {T}
         # This would apply the Hamiltonian to a vector in the VMC basis
         # Implementation depends on the specific VMC representation
         return vector  # Placeholder
@@ -390,13 +452,22 @@ function integrate_lanczos_with_vmc!(vmc_state, vmc_config, lanczos_config::Lanc
 
     # Initialize Lanczos state
     vector_size = length(vmc_state.positions)  # Or appropriate size
-    lanczos_state = initialize_lanczos_state(eltype(vmc_state.local_energy), vector_size, lanczos_config)
+    lanczos_state = initialize_lanczos_state(
+        eltype(vmc_state.local_energy),
+        vector_size,
+        lanczos_config,
+    )
 
     # Create initial vector from VMC state
     initial_vector = complex.(vmc_state.positions)  # Simplified
 
     # Run Lanczos calculation
-    run_lanczos_calculation!(lanczos_state, lanczos_config, hamiltonian_action, initial_vector)
+    run_lanczos_calculation!(
+        lanczos_state,
+        lanczos_config,
+        hamiltonian_action,
+        initial_vector,
+    )
 
     # Output results
     output_lanczos_results(lanczos_state, lanczos_config)
@@ -405,9 +476,15 @@ function integrate_lanczos_with_vmc!(vmc_state, vmc_config, lanczos_config::Lanc
 end
 
 # Export Lanczos-related functions and types
-export LanczosConfiguration, LanczosState,
-       create_lanczos_configuration, initialize_lanczos_state,
-       lanczos_step!, compute_lanczos_eigenvalues!,
-       calculate_energy_lanczos, calculate_energy_by_alpha,
-       calculate_physical_values_lanczos, run_lanczos_calculation!,
-       output_lanczos_results, integrate_lanczos_with_vmc!
+export LanczosConfiguration,
+    LanczosState,
+    create_lanczos_configuration,
+    initialize_lanczos_state,
+    lanczos_step!,
+    compute_lanczos_eigenvalues!,
+    calculate_energy_lanczos,
+    calculate_energy_by_alpha,
+    calculate_physical_values_lanczos,
+    run_lanczos_calculation!,
+    output_lanczos_results,
+    integrate_lanczos_with_vmc!

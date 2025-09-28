@@ -1,7 +1,7 @@
 @testsetup module VMCTestSetup
-    using ManyVariableVariationalMonteCarlo
-    using Random
-    using LinearAlgebra
+using ManyVariableVariationalMonteCarlo
+using Random
+using LinearAlgebra
 end
 
 @testitem "VMCSimulation basic construction" begin
@@ -72,7 +72,7 @@ end
     config = SimulationConfig(face)
     layout = ParameterLayout(2, 0, 2, 0)
 
-    sim = VMCSimulation(config, layout; T=ComplexF64)
+    sim = VMCSimulation(config, layout; T = ComplexF64)
     initialize_simulation!(sim)
 
     # Run short optimization
@@ -100,7 +100,7 @@ end
     config = SimulationConfig(face)
     layout = ParameterLayout(2, 0, 2, 0)
 
-    sim = VMCSimulation(config, layout; T=ComplexF64)
+    sim = VMCSimulation(config, layout; T = ComplexF64)
     initialize_simulation!(sim)
 
     # Run physics calculation

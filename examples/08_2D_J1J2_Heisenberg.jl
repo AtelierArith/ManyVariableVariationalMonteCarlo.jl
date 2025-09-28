@@ -51,7 +51,9 @@ function main()
 
     rng = MersenneTwister(2024)
 
-    println("[08_2D_J1J2_Heisenberg] nx=$(nx), ny=$(ny), n_sites=$(n_sites), n_electrons=$(n_electrons)")
+    println(
+        "[08_2D_J1J2_Heisenberg] nx=$(nx), ny=$(ny), n_sites=$(n_sites), n_electrons=$(n_electrons)",
+    )
     println("  initial_positions=$(initial_positions)")
 
     results = run_vmc_sampling!(state, config, rng)

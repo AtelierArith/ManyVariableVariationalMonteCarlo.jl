@@ -13,7 +13,7 @@ function main()
     println("\n--- 1D Hubbard Chain VMC ---")
     L = 6
     nelec = 3
-    ham_chain, geom_chain, config_chain = stdface_chain(L, "Hubbard"; t=1.0, U=4.0)
+    ham_chain, geom_chain, config_chain = stdface_chain(L, "Hubbard"; t = 1.0, U = 4.0)
 
     println("System: 1D Hubbard chain")
     println("  Sites: $L, Electrons: $nelec")
@@ -49,18 +49,20 @@ function main()
     println("\n--- 2D Square Lattice VMC ---")
     Lx, Ly = 3, 3
     nelec = 9  # Half filling
-    ham_square, geom_square, config_square = stdface_square(Lx, Ly, "Hubbard";
-                                                           t=1.0, U=4.0, t_prime=0.2)
+    ham_square, geom_square, config_square =
+        stdface_square(Lx, Ly, "Hubbard"; t = 1.0, U = 4.0, t_prime = 0.2)
 
     println("System: 2D square lattice")
     println("  Size: $(Lx)×$(Ly), Electrons: $nelec")
-    println("  Parameters: t=$(config_square.t), U=$(config_square.U), t'=$(config_square.t_prime)")
+    println(
+        "  Parameters: t=$(config_square.t), U=$(config_square.U), t'=$(config_square.t_prime)",
+    )
     lattice_summary(geom_square)
 
     # 3. Triangular Lattice Spin Model
     println("\n--- Triangular Lattice Spin Model ---")
     Lx, Ly = 4, 4
-    ham_tri, geom_tri, config_tri = stdface_triangular(Lx, Ly, "Spin"; J=1.0)
+    ham_tri, geom_tri, config_tri = stdface_triangular(Lx, Ly, "Spin"; J = 1.0)
 
     println("System: 2D triangular lattice (spin model)")
     println("  Size: $(Lx)×$(Ly)")
@@ -71,7 +73,8 @@ function main()
     # 4. Honeycomb Lattice Analysis
     println("\n--- Honeycomb Lattice Analysis ---")
     Lx, Ly = 2, 2
-    ham_honey, geom_honey, config_honey = stdface_honeycomb(Lx, Ly, "Hubbard"; t=1.0, U=3.0)
+    ham_honey, geom_honey, config_honey =
+        stdface_honeycomb(Lx, Ly, "Hubbard"; t = 1.0, U = 3.0)
 
     println("System: 2D honeycomb lattice")
     println("  Size: $(Lx)×$(Ly), Total sites: $(geom_honey.n_sites_total)")
@@ -83,9 +86,14 @@ function main()
 
     println("Honeycomb lattice coordinate analysis:")
     println("  First few site coordinates:")
-    for i in 1:min(4, size(coords_honey, 1))
-        @printf("    Site %d: (%.3f, %.3f), neighbors: %d\n",
-               i, coords_honey[i, 1], coords_honey[i, 2], length(neighbors_honey[i]))
+    for i = 1:min(4, size(coords_honey, 1))
+        @printf(
+            "    Site %d: (%.3f, %.3f), neighbors: %d\n",
+            i,
+            coords_honey[i, 1],
+            coords_honey[i, 2],
+            length(neighbors_honey[i])
+        )
     end
 
     # 5. Comparison of different models
@@ -94,11 +102,20 @@ function main()
         ("Chain 1D", ham_chain, geom_chain, "Hubbard"),
         ("Square 2D", ham_square, geom_square, "Hubbard"),
         ("Triangular 2D", ham_tri, geom_tri, "Spin"),
-        ("Honeycomb 2D", ham_honey, geom_honey, "Hubbard")
+        ("Honeycomb 2D", ham_honey, geom_honey, "Hubbard"),
     ]
 
-    println(@sprintf("%-15s %-6s %-8s %-8s %-8s %-8s",
-           "Model", "Sites", "Transfer", "Coulomb", "Hund", "Coord"))
+    println(
+        @sprintf(
+            "%-15s %-6s %-8s %-8s %-8s %-8s",
+            "Model",
+            "Sites",
+            "Transfer",
+            "Coulomb",
+            "Hund",
+            "Coord"
+        )
+    )
     println("-"^65)
 
     for (name, ham, geom, model_type) in models
@@ -114,8 +131,17 @@ function main()
             avg_coord = 0.0
         end
 
-        println(@sprintf("%-15s %-6d %-8d %-8d %-8d %-8.1f",
-               name, geom.n_sites_total, n_transfer, n_coulomb, n_hund, avg_coord))
+        println(
+            @sprintf(
+                "%-15s %-6d %-8d %-8d %-8d %-8.1f",
+                name,
+                geom.n_sites_total,
+                n_transfer,
+                n_coulomb,
+                n_hund,
+                avg_coord
+            )
+        )
     end
 
     # 6. Energy scale analysis
@@ -125,7 +151,7 @@ function main()
     test_configs = [
         ("Chain", 4, ham_chain),
         ("Square", 9, ham_square),
-        ("Honeycomb", 8, ham_honey)  # Use first 8 sites
+        ("Honeycomb", 8, ham_honey),  # Use first 8 sites
     ]
 
     println("Sample energy calculations (normalized per site):")
@@ -137,11 +163,11 @@ function main()
         electron_numbers = zeros(Int, 2*ham.n_sites)
 
         # Distribute electrons (simple filling)
-        for i in 1:n_test_electrons
+        for i = 1:n_test_electrons
             site = ((i-1) % n_sites) + 1
             spin = (i-1) ÷ n_sites
             if spin < 2
-                electron_numbers[site + spin*ham.n_sites] = 1
+                electron_numbers[site+spin*ham.n_sites] = 1
             end
         end
 
@@ -168,7 +194,7 @@ function main()
     for U in U_values
         row_data = String[]
         for t in t_values
-            ham_test, _, _ = stdface_chain(L_test, "Hubbard"; t=t, U=U)
+            ham_test, _, _ = stdface_chain(L_test, "Hubbard"; t = t, U = U)
             n_terms = length(ham_test.transfer_terms) + length(ham_test.coulomb_intra_terms)
             push!(row_data, @sprintf("%d", n_terms))
         end
@@ -180,7 +206,9 @@ function main()
     println("="^60)
     println("\nKey achievements:")
     println("✓ StdFace lattice generators implemented")
-    println("✓ Multiple lattice types supported (chain, square, triangular, honeycomb, kagome, ladder)")
+    println(
+        "✓ Multiple lattice types supported (chain, square, triangular, honeycomb, kagome, ladder)",
+    )
     println("✓ Both Hubbard and spin models supported")
     println("✓ Automatic Hamiltonian generation from lattice geometry")
     println("✓ Integration with VMC simulation framework")

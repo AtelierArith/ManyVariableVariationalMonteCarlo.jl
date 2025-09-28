@@ -38,7 +38,7 @@ end
     @test io.error_on_missing == true
 
     # Test custom configuration IO
-    io_custom = ConfigurationIO(config_file="custom.json", output_dir="custom_output")
+    io_custom = ConfigurationIO(config_file = "custom.json", output_dir = "custom_output")
     @test io_custom.config_file == "custom.json"
     @test io_custom.output_dir == "custom_output"
 end
@@ -47,15 +47,15 @@ end
     using ManyVariableVariationalMonteCarlo
 
     # Test configuration save and load
-    io = ConfigurationIO(config_file="test_config.json")
+    io = ConfigurationIO(config_file = "test_config.json")
 
     # Create test configuration
-    config = Dict{String, Any}(
+    config = Dict{String,Any}(
         "n_sites" => 10,
         "n_electrons" => 5,
         "n_samples" => 1000,
         "temperature" => 1.0,
-        "parameters" => [1.0, 2.0, 3.0]
+        "parameters" => [1.0, 2.0, 3.0],
     )
 
     # Save configuration
@@ -71,45 +71,42 @@ end
     @test loaded_config["parameters"] == [1.0, 2.0, 3.0]
 
     # Clean up
-    rm("test_config.json", force=true)
+    rm("test_config.json", force = true)
 end
 
 @testitem "Configuration Validation" begin
     using ManyVariableVariationalMonteCarlo
 
     # Test valid configuration
-    valid_config = Dict{String, Any}(
-        "n_sites" => 10,
-        "n_electrons" => 5,
-        "n_samples" => 1000
-    )
+    valid_config =
+        Dict{String,Any}("n_sites" => 10, "n_electrons" => 5, "n_samples" => 1000)
 
     # Should not throw
     validate_configuration(valid_config)
 
     # Test invalid configuration - missing required key
-    invalid_config = Dict{String, Any}(
+    invalid_config = Dict{String,Any}(
         "n_sites" => 10,
-        "n_electrons" => 5
+        "n_electrons" => 5,
         # Missing "n_samples"
     )
 
     @test_throws ArgumentError validate_configuration(invalid_config)
 
     # Test invalid configuration - invalid values
-    invalid_config2 = Dict{String, Any}(
+    invalid_config2 = Dict{String,Any}(
         "n_sites" => -1,  # Negative
         "n_electrons" => 5,
-        "n_samples" => 1000
+        "n_samples" => 1000,
     )
 
     @test_throws AssertionError validate_configuration(invalid_config2)
 
     # Test invalid configuration - n_electrons > n_sites
-    invalid_config3 = Dict{String, Any}(
+    invalid_config3 = Dict{String,Any}(
         "n_sites" => 5,
         "n_electrons" => 10,  # More electrons than sites
-        "n_samples" => 1000
+        "n_samples" => 1000,
     )
 
     @test_throws AssertionError validate_configuration(invalid_config3)
@@ -133,7 +130,7 @@ end
     @test io.async_write == false
 
     # Test custom results IO
-    io_custom = ResultsIO(results_file="custom.h5", primary_format=JSON_FORMAT)
+    io_custom = ResultsIO(results_file = "custom.h5", primary_format = JSON_FORMAT)
     @test io_custom.results_file == "custom.h5"
     @test io_custom.primary_format == JSON_FORMAT
 end
@@ -142,18 +139,15 @@ end
     using ManyVariableVariationalMonteCarlo
 
     # Test results save and load
-    io = ResultsIO(results_file="test_results.h5")
+    io = ResultsIO(results_file = "test_results.h5")
 
     # Create test results
-    results = Dict{String, Any}(
+    results = Dict{String,Any}(
         "energy_mean" => 1.5,
         "energy_std" => 0.1,
         "energy_samples" => [1.4, 1.5, 1.6],
         "gradient_samples" => [1.0 2.0; 3.0 4.0],
-        "metadata" => Dict(
-            "n_sites" => 10,
-            "n_electrons" => 5
-        )
+        "metadata" => Dict("n_sites" => 10, "n_electrons" => 5),
     )
 
     # Save results
@@ -170,7 +164,7 @@ end
     @test loaded_results["metadata"]["n_electrons"] == 5
 
     # Clean up
-    rm("test_results.h5", force=true)
+    rm("test_results.h5", force = true)
 end
 
 @testitem "Data Exporter Basic Functionality" begin
@@ -187,7 +181,7 @@ end
     @test exporter.async_export == false
 
     # Test custom data exporter
-    exporter_custom = DataExporter(output_format=JSON_FORMAT, batch_size=500)
+    exporter_custom = DataExporter(output_format = JSON_FORMAT, batch_size = 500)
     @test exporter_custom.output_format == JSON_FORMAT
     @test exporter_custom.batch_size == 500
 end
@@ -197,16 +191,13 @@ end
     using JSON
 
     # Test data export
-    exporter = DataExporter(output_format=JSON_FORMAT)
+    exporter = DataExporter(output_format = JSON_FORMAT)
 
     # Create test data
-    data = Dict{String, Any}(
+    data = Dict{String,Any}(
         "energy_data" => [1.0, 2.0, 3.0],
         "parameter_data" => [0.1, 0.2, 0.3],
-        "metadata" => Dict(
-            "n_samples" => 3,
-            "timestamp" => "2024-01-01"
-        )
+        "metadata" => Dict("n_samples" => 3, "timestamp" => "2024-01-01"),
     )
 
     # Export data
@@ -220,7 +211,7 @@ end
     @test exported_data["metadata"]["n_samples"] == 3
 
     # Clean up
-    rm("test_export.json", force=true)
+    rm("test_export.json", force = true)
 end
 
 @testitem "I/O Performance" begin
@@ -230,16 +221,12 @@ end
     io = ConfigurationIO()
 
     # Create large configuration
-    large_config = Dict{String, Any}(
+    large_config = Dict{String,Any}(
         "n_sites" => 100,
         "n_electrons" => 50,
         "n_samples" => 10000,
         "large_array" => rand(1000),
-        "nested_dict" => Dict(
-            "level1" => Dict(
-                "level2" => rand(100)
-            )
-        )
+        "nested_dict" => Dict("level1" => Dict("level2" => rand(100))),
     )
 
     # Benchmark save
@@ -260,25 +247,29 @@ end
     @test length(loaded_config["nested_dict"]["level1"]["level2"]) == 100
 
     # Clean up
-    rm("config.json", force=true)
+    rm("config.json", force = true)
 end
 
 @testitem "I/O Error Handling" begin
     using ManyVariableVariationalMonteCarlo
 
     # Test error handling
-    io = ConfigurationIO(error_on_missing=true)
+    io = ConfigurationIO(error_on_missing = true)
 
     # Test missing file
     @test_throws ArgumentError load_configuration(io, JSON_FORMAT)
 
     # Test unsupported format
-    io_limited = ConfigurationIO(supported_formats=[HDF5_FORMAT])
-    @test_throws ArgumentError save_configuration(io_limited, Dict{String,Any}(), JSON_FORMAT)
+    io_limited = ConfigurationIO(supported_formats = [HDF5_FORMAT])
+    @test_throws ArgumentError save_configuration(
+        io_limited,
+        Dict{String,Any}(),
+        JSON_FORMAT,
+    )
 
     # Test invalid configuration
-    io_strict = ConfigurationIO(strict_mode=true)
-    invalid_config = Dict{String, Any}("invalid" => "config")
+    io_strict = ConfigurationIO(strict_mode = true)
+    invalid_config = Dict{String,Any}("invalid" => "config")
     @test_throws ArgumentError save_configuration(io_strict, invalid_config, JSON_FORMAT)
 end
 
@@ -286,16 +277,20 @@ end
     using ManyVariableVariationalMonteCarlo
 
     # Test format compatibility
-    test_data = Dict{String, Any}(
+    test_data = Dict{String,Any}(
         "number" => 42,
         "string" => "test",
         "array" => [1, 2, 3],
         "matrix" => [1 2; 3 4],
-        "nested" => Dict("key" => "value")
+        "nested" => Dict("key" => "value"),
     )
 
     # Test JSON format
-    io_json = ConfigurationIO(config_file="test.json", validate_on_write=false, validate_on_read=false)
+    io_json = ConfigurationIO(
+        config_file = "test.json",
+        validate_on_write = false,
+        validate_on_read = false,
+    )
     save_configuration(io_json, test_data, JSON_FORMAT)
     loaded_json = load_configuration(io_json, JSON_FORMAT)
     @test loaded_json["number"] == 42
@@ -306,7 +301,12 @@ end
     @test loaded_json["nested"]["key"] == "value"
 
     # Test binary format
-    io_binary = ConfigurationIO(config_file="test.bin", validate_on_write=false, validate_on_read=false, supported_formats=[BINARY_FORMAT, JSON_FORMAT])
+    io_binary = ConfigurationIO(
+        config_file = "test.bin",
+        validate_on_write = false,
+        validate_on_read = false,
+        supported_formats = [BINARY_FORMAT, JSON_FORMAT],
+    )
     save_configuration(io_binary, test_data, BINARY_FORMAT)
     loaded_binary = load_configuration(io_binary, BINARY_FORMAT)
     @test loaded_binary["number"] == 42
@@ -316,8 +316,8 @@ end
     @test loaded_binary["nested"]["key"] == "value"
 
     # Clean up
-    rm("test.json", force=true)
-    rm("test.bin", force=true)
+    rm("test.json", force = true)
+    rm("test.bin", force = true)
 end
 
 @testitem "I/O Metadata Handling" begin
@@ -325,11 +325,7 @@ end
 
     # Test metadata handling
     io = ConfigurationIO()
-    config = Dict{String, Any}(
-        "n_sites" => 10,
-        "n_electrons" => 5,
-        "n_samples" => 1000
-    )
+    config = Dict{String,Any}("n_sites" => 10, "n_electrons" => 5, "n_samples" => 1000)
 
     # Save with metadata
     save_configuration(io, config, JSON_FORMAT)
@@ -343,5 +339,5 @@ end
     @test loaded_config["_metadata"]["format"] == "JSON_FORMAT"
 
     # Clean up
-    rm("config.json", force=true)
+    rm("config.json", force = true)
 end

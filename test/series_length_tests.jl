@@ -20,10 +20,16 @@
     output_results(sim, outdir)
 
     # zvo_energy.dat
-    e_lines = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_energy.dat")))
+    e_lines = filter(
+        l -> !isempty(l) && !startswith(l, "#"),
+        readlines(joinpath(outdir, "zvo_energy.dat")),
+    )
     @test length(e_lines) == 30
 
     # zvo_accept.dat
-    a_lines = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_accept.dat")))
+    a_lines = filter(
+        l -> !isempty(l) && !startswith(l, "#"),
+        readlines(joinpath(outdir, "zvo_accept.dat")),
+    )
     @test length(a_lines) == 30
 end

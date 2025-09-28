@@ -173,7 +173,10 @@ function Base.copy(params::ParameterSet)
 end
 
 Base.length(params::ParameterSet) =
-    length(params.proj) + length(params.rbm) + length(params.slater) + length(params.opttrans)
+    length(params.proj) +
+    length(params.rbm) +
+    length(params.slater) +
+    length(params.opttrans)
 
 function Base.show(io::IO, params::ParameterSet)
     print(

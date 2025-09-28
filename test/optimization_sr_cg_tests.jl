@@ -20,7 +20,7 @@
     config = SimulationConfig(face)
     layout = ParameterLayout(2, 0, 2, 0)
 
-    sim = VMCSimulation(config, layout; T=ComplexF64)
+    sim = VMCSimulation(config, layout; T = ComplexF64)
     initialize_simulation!(sim)
     run_parameter_optimization!(sim)
 

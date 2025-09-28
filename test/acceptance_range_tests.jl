@@ -19,7 +19,10 @@
     output_results(sim, outdir)
 
     for line in eachline(joinpath(outdir, "zvo_accept.dat"))
-        if isempty(line) || startswith(line, "#"); continue; end
+        if isempty(line) || startswith(line, "#")
+            ;
+            continue;
+        end
         parts = split(strip(line))
         a = parse(Float64, parts[end])
         @test 0.0 <= a <= 1.0

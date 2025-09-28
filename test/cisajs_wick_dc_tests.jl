@@ -5,29 +5,41 @@
 
     # Robust line parsers
     function parse_ex_line(line::AbstractString)
-        m = match(r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([-+0-9eE\.]+)\s+([-+0-9eE\.]+)\s*$", line)
+        m = match(
+            r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([-+0-9eE\.]+)\s+([-+0-9eE\.]+)\s*$",
+            line,
+        )
         if m === nothing
             return nothing
         end
-        i  = parse(Int, m.captures[1]); s = parse(Int, m.captures[2])
-        j  = parse(Int, m.captures[3]); t = parse(Int, m.captures[4])
-        k  = parse(Int, m.captures[5]); u = parse(Int, m.captures[6])
-        l  = parse(Int, m.captures[7]); v = parse(Int, m.captures[8])
+        i = parse(Int, m.captures[1]);
+        s = parse(Int, m.captures[2])
+        j = parse(Int, m.captures[3]);
+        t = parse(Int, m.captures[4])
+        k = parse(Int, m.captures[5]);
+        u = parse(Int, m.captures[6])
+        l = parse(Int, m.captures[7]);
+        v = parse(Int, m.captures[8])
         re = parse(Float64, m.captures[9])
         im = parse(Float64, m.captures[10])
-        return (i,s,j,t,k,u,l,v,re,im)
+        return (i, s, j, t, k, u, l, v, re, im)
     end
 
     function parse_g_line(line::AbstractString)
-        m = match(r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([-+0-9eE\.]+)\s+([-+0-9eE\.]+)\s*$", line)
+        m = match(
+            r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([-+0-9eE\.]+)\s+([-+0-9eE\.]+)\s*$",
+            line,
+        )
         if m === nothing
             return nothing
         end
-        i  = parse(Int, m.captures[1]); s = parse(Int, m.captures[2])
-        j  = parse(Int, m.captures[3]); t = parse(Int, m.captures[4])
+        i = parse(Int, m.captures[1]);
+        s = parse(Int, m.captures[2])
+        j = parse(Int, m.captures[3]);
+        t = parse(Int, m.captures[4])
         re = parse(Float64, m.captures[5])
         im = parse(Float64, m.captures[6])
-        return (i,s,j,t,re,im)
+        return (i, s, j, t, re, im)
     end
 
     face = FaceDefinition()
@@ -58,8 +70,8 @@
             startswith(line, "#") && continue
             tup = parse_ex_line(line)
             if tup !== nothing
-                i,s,j,t,k,u,l,v,_,_ = tup
-                i0,j0,k0,l0,s0,t0,u0,v0 = i,j,k,l,s,t,u,v
+                i, s, j, t, k, u, l, v, _, _ = tup
+                i0, j0, k0, l0, s0, t0, u0, v0 = i, j, k, l, s, t, u, v
                 found = true
                 break
             end
@@ -98,7 +110,7 @@
             startswith(line, "#") && continue
             tup = parse_g_line(line)
             if tup !== nothing
-                i,s,j,t,re,_ = tup
+                i, s, j, t, re, _ = tup
                 if s == s0 && t == t0 && i == i0 && j == l0
                     Gil = re
                     break
@@ -137,7 +149,7 @@
                 startswith(line, "#") && continue
                 tup = parse_ex_line(line)
                 if tup !== nothing
-                    i,s,j,t,k,u,l,v,re,_ = tup
+                    i, s, j, t, k, u, l, v, re, _ = tup
                     if s==s0 && t==t0 && u==u0 && v==v0 && i==i0 && j==j0 && k==k0 && l==l0
                         return re
                     end
@@ -176,5 +188,5 @@
             end
         end
     end
-    @test isapprox(ex_val + dc_val, δ * Gil; atol=1e-8, rtol=1e-6)
+    @test isapprox(ex_val + dc_val, δ * Gil; atol = 1e-8, rtol = 1e-6)
 end

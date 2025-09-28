@@ -56,7 +56,7 @@ end
     t = 1.0
     U = 4.0
 
-    ham = create_hubbard_hamiltonian(n_sites, n_electrons, t, U; lattice_type=:chain)
+    ham = create_hubbard_hamiltonian(n_sites, n_electrons, t, U; lattice_type = :chain)
 
     @test ham.n_sites == 4
     @test ham.n_electrons == 2
@@ -86,7 +86,7 @@ end
     n_sites = 6
     J = 1.0
 
-    ham = create_heisenberg_hamiltonian(n_sites, J; lattice_type=:chain)
+    ham = create_heisenberg_hamiltonian(n_sites, J; lattice_type = :chain)
 
     @test ham.n_sites == 6
     @test ham.n_electrons == 6  # One electron per site
@@ -198,7 +198,7 @@ end
 end
 
 @testitem "Hamiltonian summary output" begin
-    ham = create_hubbard_hamiltonian(4, 2, 1.0, 4.0; lattice_type=:chain)
+    ham = create_hubbard_hamiltonian(4, 2, 1.0, 4.0; lattice_type = :chain)
 
     # Test that summary doesn't error
     hamiltonian_summary(ham)  # Should print without error
@@ -214,7 +214,7 @@ end
 @testitem "Square lattice Hamiltonian" begin
     # Test 2x2 square lattice
     n_sites = 4
-    ham = create_hubbard_hamiltonian(n_sites, 2, 1.0, 4.0; lattice_type=:square)
+    ham = create_hubbard_hamiltonian(n_sites, 2, 1.0, 4.0; lattice_type = :square)
 
     @test ham.n_sites == 4
     @test length(ham.coulomb_intra_terms) == 4

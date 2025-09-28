@@ -37,8 +37,13 @@ end
 
 Create backflow configuration with default parameters.
 """
-function create_backflow_configuration(n_orbitals::Int, n_particles::Int;
-                                     eta_flag=true, smp_eta_flag=false, use_real=false)
+function create_backflow_configuration(
+    n_orbitals::Int,
+    n_particles::Int;
+    eta_flag = true,
+    smp_eta_flag = false,
+    use_real = false,
+)
     T = use_real ? Float64 : ComplexF64
 
     # Initialize eta parameters (simplified - should be optimized)
@@ -51,15 +56,24 @@ function create_backflow_configuration(n_orbitals::Int, n_particles::Int;
     pos_bf = collect(1:n_particles)
 
     # Submatrix indexing
-    bf_sub_idx = [collect(1:n_orbitals) for _ in 1:n_particles]
+    bf_sub_idx = [collect(1:n_orbitals) for _ = 1:n_particles]
     n_bf_idx_total = n_backflow_idx
     n_range_idx = n_particles
 
     return BackflowConfiguration{T}(
-        eta_parameters, n_orbitals, n_particles,
-        n_backflow_idx, backflow_idx, range_idx, pos_bf,
-        bf_sub_idx, n_bf_idx_total, n_range_idx,
-        eta_flag, smp_eta_flag, use_real
+        eta_parameters,
+        n_orbitals,
+        n_particles,
+        n_backflow_idx,
+        backflow_idx,
+        range_idx,
+        pos_bf,
+        bf_sub_idx,
+        n_bf_idx_total,
+        n_range_idx,
+        eta_flag,
+        smp_eta_flag,
+        use_real,
     )
 end
 
@@ -103,8 +117,11 @@ end
 
 Initialize backflow state with given configuration and electron positions.
 """
-function initialize_backflow_state!(state::BackflowState{T}, bf_config::BackflowConfiguration{T},
-                                   positions::Vector{Int}) where T
+function initialize_backflow_state!(
+    state::BackflowState{T},
+    bf_config::BackflowConfiguration{T},
+    positions::Vector{Int},
+) where {T}
     n_orb = bf_config.n_orbitals
     n_part = bf_config.n_particles
 
@@ -135,7 +152,7 @@ end
 Calculate the backflow transformation matrix.
 This transforms the single-particle orbitals based on many-body correlations.
 """
-function calculate_backflow_matrix!(state::BackflowState{T}) where T
+function calculate_backflow_matrix!(state::BackflowState{T}) where {T}
     bf_config = state.bf_config
     positions = state.positions
 
@@ -143,7 +160,7 @@ function calculate_backflow_matrix!(state::BackflowState{T}) where T
     fill!(state.bf_matrix, zero(T))
 
     # Add identity (unperturbed orbitals)
-    for i in 1:bf_config.n_orbitals
+    for i = 1:bf_config.n_orbitals
         state.bf_matrix[i, i] = one(T)
     end
 
@@ -152,12 +169,12 @@ function calculate_backflow_matrix!(state::BackflowState{T}) where T
     end
 
     # Apply backflow transformation
-    for i in 1:bf_config.n_particles
+    for i = 1:bf_config.n_particles
         pos_i = positions[i]
-        for j in 1:bf_config.n_particles
+        for j = 1:bf_config.n_particles
             if i != j
                 pos_j = positions[j]
-                for orb in 1:bf_config.n_orbitals
+                for orb = 1:bf_config.n_orbitals
                     # Simplified backflow transformation
                     # Real implementation would use distance-dependent kernels
                     eta_val = bf_config.eta_parameters[orb, i]
@@ -173,7 +190,7 @@ end
 
 Apply backflow correction to the Slater matrix.
 """
-function apply_backflow_correction!(state::BackflowState{T}) where T
+function apply_backflow_correction!(state::BackflowState{T}) where {T}
     calculate_backflow_matrix!(state)
 
     # Apply transformation: Ψ_BF = Ψ_0 × BF_matrix
@@ -188,7 +205,7 @@ end
 Calculate gradient of backflow transformation with respect to particle position.
 Needed for efficient updates.
 """
-function calculate_backflow_gradient!(state::BackflowState{T}, particle_idx::Int) where T
+function calculate_backflow_gradient!(state::BackflowState{T}, particle_idx::Int) where {T}
     bf_config = state.bf_config
     positions = state.positions
 
@@ -200,8 +217,8 @@ function calculate_backflow_gradient!(state::BackflowState{T}, particle_idx::Int
     end
 
     # Calculate gradient
-    for orb in 1:bf_config.n_orbitals
-        for other_particle in 1:bf_config.n_particles
+    for orb = 1:bf_config.n_orbitals
+        for other_particle = 1:bf_config.n_particles
             if other_particle != particle_idx
                 # Gradient of backflow correction
                 eta_val = bf_config.eta_parameters[orb, particle_idx]
@@ -217,7 +234,11 @@ end
 
 Calculate the ratio of wavefunctions for a proposed particle move with backflow.
 """
-function calculate_backflow_ratio(state::BackflowState{T}, particle_idx::Int, new_position::Int) where T
+function calculate_backflow_ratio(
+    state::BackflowState{T},
+    particle_idx::Int,
+    new_position::Int,
+) where {T}
     old_position = state.positions[particle_idx]
 
     if old_position == new_position
@@ -228,8 +249,8 @@ function calculate_backflow_ratio(state::BackflowState{T}, particle_idx::Int, ne
     delta_bf = zeros(T, state.bf_config.n_orbitals, state.bf_config.n_orbitals)
 
     if state.bf_config.eta_flag
-        for orb in 1:state.bf_config.n_orbitals
-            for other_particle in 1:state.bf_config.n_particles
+        for orb = 1:state.bf_config.n_orbitals
+            for other_particle = 1:state.bf_config.n_particles
                 if other_particle != particle_idx
                     eta_val = state.bf_config.eta_parameters[orb, particle_idx]
                     pos_other = state.positions[other_particle]
@@ -267,7 +288,11 @@ end
 
 Update backflow state after accepting a particle move.
 """
-function update_backflow_state!(state::BackflowState{T}, particle_idx::Int, new_position::Int) where T
+function update_backflow_state!(
+    state::BackflowState{T},
+    particle_idx::Int,
+    new_position::Int,
+) where {T}
     # Update position
     state.positions[particle_idx] = new_position
 
@@ -285,7 +310,10 @@ end
 
 Calculate energy contribution from backflow corrections.
 """
-function calculate_backflow_energy_contribution(state::BackflowState{T}, hamiltonian) where T
+function calculate_backflow_energy_contribution(
+    state::BackflowState{T},
+    hamiltonian,
+) where {T}
     # Energy contribution from backflow is typically included in the
     # kinetic energy through the modified orbitals
     # This is a placeholder for more sophisticated implementations
@@ -305,8 +333,11 @@ end
 
 Update backflow parameters using computed gradients.
 """
-function optimize_backflow_parameters!(bf_config::BackflowConfiguration{T},
-                                     gradient::Matrix{T}, step_size::Real) where T
+function optimize_backflow_parameters!(
+    bf_config::BackflowConfiguration{T},
+    gradient::Matrix{T},
+    step_size::Real,
+) where {T}
     if bf_config.smp_eta_flag
         # Update eta parameters
         bf_config.eta_parameters .-= step_size .* gradient
@@ -319,14 +350,14 @@ end
 Calculate individual element of backflow-corrected Slater matrix.
 Equivalent to SlaterElmBF_fcmp/SlaterElmBF_real in mVMC.
 """
-function calculate_bf_slater_element(state::BackflowState{T}, i::Int, j::Int) where T
+function calculate_bf_slater_element(state::BackflowState{T}, i::Int, j::Int) where {T}
     # This calculates ⟨φᵢ|Ψ_BF⟩ where φᵢ is a single-particle orbital
     # and Ψ_BF is the backflow-corrected many-body wavefunction
 
     element = zero(T)
 
     # Sum over all configurations with particle i at orbital j
-    for k in 1:state.bf_config.n_orbitals
+    for k = 1:state.bf_config.n_orbitals
         element += state.original_slater[i, k] * state.bf_matrix[k, j]
     end
 
@@ -334,9 +365,15 @@ function calculate_bf_slater_element(state::BackflowState{T}, i::Int, j::Int) wh
 end
 
 # Export backflow-related functions and types
-export BackflowConfiguration, BackflowState,
-       create_backflow_configuration, initialize_backflow_state!,
-       calculate_backflow_matrix!, apply_backflow_correction!,
-       calculate_backflow_gradient!, calculate_backflow_ratio,
-       update_backflow_state!, calculate_backflow_energy_contribution,
-       optimize_backflow_parameters!, calculate_bf_slater_element
+export BackflowConfiguration,
+    BackflowState,
+    create_backflow_configuration,
+    initialize_backflow_state!,
+    calculate_backflow_matrix!,
+    apply_backflow_correction!,
+    calculate_backflow_gradient!,
+    calculate_backflow_ratio,
+    update_backflow_state!,
+    calculate_backflow_energy_contribution,
+    optimize_backflow_parameters!,
+    calculate_bf_slater_element

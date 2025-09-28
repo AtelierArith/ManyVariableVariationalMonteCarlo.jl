@@ -32,7 +32,11 @@ end
 
 Create FSZ configuration from a given spin configuration.
 """
-function create_fsz_configuration(spin_config::Vector{Int}; use_real=false, optimize_fsz=true)
+function create_fsz_configuration(
+    spin_config::Vector{Int};
+    use_real = false,
+    optimize_fsz = true,
+)
     n_sites = length(spin_config)
 
     up_sites = findall(x -> x == 1, spin_config)
@@ -52,9 +56,16 @@ function create_fsz_configuration(spin_config::Vector{Int}; use_real=false, opti
     T = use_real ? Float64 : ComplexF64
 
     return FSZConfiguration{T}(
-        spin_config, n_up, n_down, n_sites,
-        up_sites, down_sites, empty_sites,
-        proj_count, use_real, optimize_fsz
+        spin_config,
+        n_up,
+        n_down,
+        n_sites,
+        up_sites,
+        down_sites,
+        empty_sites,
+        proj_count,
+        use_real,
+        optimize_fsz,
     )
 end
 
@@ -98,7 +109,10 @@ end
 
 Initialize FSZ state with given configuration.
 """
-function initialize_fsz_state!(state::FSZState{T}, fsz_config::FSZConfiguration{T}) where T
+function initialize_fsz_state!(
+    state::FSZState{T},
+    fsz_config::FSZConfiguration{T},
+) where {T}
     state.fsz_config = fsz_config
 
     # Initialize electron positions from FSZ configuration
@@ -143,8 +157,8 @@ struct FSZHamiltonian{T<:Number}
     base_ham::Hamiltonian{T}
 
     # FSZ-specific precomputed terms
-    up_hop_matrix::SparseMatrixCSC{T, Int}    # Hopping for up electrons
-    down_hop_matrix::SparseMatrixCSC{T, Int}  # Hopping for down electrons
+    up_hop_matrix::SparseMatrixCSC{T,Int}    # Hopping for up electrons
+    down_hop_matrix::SparseMatrixCSC{T,Int}  # Hopping for down electrons
 
     # Interaction terms (spin-separated)
     up_up_coulomb::Vector{Tuple{Int,Int,T}}   # Up-up Coulomb interactions
@@ -164,7 +178,10 @@ end
 
 Create FSZ-specialized Hamiltonian from base Hamiltonian and FSZ configuration.
 """
-function create_fsz_hamiltonian(ham::Hamiltonian{T}, fsz_config::FSZConfiguration{T}) where T
+function create_fsz_hamiltonian(
+    ham::Hamiltonian{T},
+    fsz_config::FSZConfiguration{T},
+) where {T}
     n_sites = fsz_config.n_sites
 
     # Separate hopping terms by spin
@@ -222,9 +239,15 @@ function create_fsz_hamiltonian(ham::Hamiltonian{T}, fsz_config::FSZConfiguratio
     end
 
     return FSZHamiltonian{T}(
-        ham, up_hop_matrix, down_hop_matrix,
-        up_up_coulomb, down_down_coulomb, up_down_coulomb,
-        onsite_up, onsite_down, fsz_config
+        ham,
+        up_hop_matrix,
+        down_hop_matrix,
+        up_up_coulomb,
+        down_down_coulomb,
+        up_down_coulomb,
+        onsite_up,
+        onsite_down,
+        fsz_config,
     )
 end
 
@@ -234,15 +257,15 @@ end
 Calculate local energy for FSZ state.
 Optimized version that exploits fixed spin configuration.
 """
-function calculate_fsz_local_energy(state::FSZState{T}, ham::FSZHamiltonian{T}) where T
+function calculate_fsz_local_energy(state::FSZState{T}, ham::FSZHamiltonian{T}) where {T}
     energy = zero(T)
 
     # Kinetic energy (hopping terms)
     # Up electrons
     if length(state.up_positions) > 0
-        for i in 1:length(state.up_positions)
+        for i = 1:length(state.up_positions)
             site_i = state.up_positions[i]
-            for j in 1:length(state.up_positions)
+            for j = 1:length(state.up_positions)
                 site_j = state.up_positions[j]
                 if ham.up_hop_matrix[site_i, site_j] != 0
                     energy += ham.up_hop_matrix[site_i, site_j] * state.green_up[j, i]
@@ -253,9 +276,9 @@ function calculate_fsz_local_energy(state::FSZState{T}, ham::FSZHamiltonian{T}) 
 
     # Down electrons
     if length(state.down_positions) > 0
-        for i in 1:length(state.down_positions)
+        for i = 1:length(state.down_positions)
             site_i = state.down_positions[i]
-            for j in 1:length(state.down_positions)
+            for j = 1:length(state.down_positions)
                 site_j = state.down_positions[j]
                 if ham.down_hop_matrix[site_i, site_j] != 0
                     energy += ham.down_hop_matrix[site_i, site_j] * state.green_down[j, i]
@@ -305,8 +328,14 @@ end
 Perform single electron update in FSZ mode.
 Only spatial coordinates change, spin is fixed.
 """
-function fsz_single_electron_update!(state::FSZState{T}, ham::FSZHamiltonian{T},
-                                     electron_idx::Int, new_site::Int, spin::Int, rng) where T
+function fsz_single_electron_update!(
+    state::FSZState{T},
+    ham::FSZHamiltonian{T},
+    electron_idx::Int,
+    new_site::Int,
+    spin::Int,
+    rng,
+) where {T}
     if spin == 0  # Up electron
         old_site = state.up_positions[electron_idx]
 
@@ -364,9 +393,16 @@ end
 Perform two-electron update in FSZ mode.
 Specialized for fixed spin configurations.
 """
-function fsz_two_electron_update!(state::FSZState{T}, ham::FSZHamiltonian{T},
-                                  electron1_idx::Int, electron2_idx::Int,
-                                  new_site1::Int, new_site2::Int, spin::Int, rng) where T
+function fsz_two_electron_update!(
+    state::FSZState{T},
+    ham::FSZHamiltonian{T},
+    electron1_idx::Int,
+    electron2_idx::Int,
+    new_site1::Int,
+    new_site2::Int,
+    spin::Int,
+    rng,
+) where {T}
     # This is a placeholder for the FSZ two-electron update
     # Full implementation would involve:
     # 1. Check FSZ constraints for both moves
@@ -378,6 +414,12 @@ function fsz_two_electron_update!(state::FSZState{T}, ham::FSZHamiltonian{T},
 end
 
 # Export FSZ-related functions and types
-export FSZConfiguration, FSZState, FSZHamiltonian,
-       create_fsz_configuration, initialize_fsz_state!, create_fsz_hamiltonian,
-       calculate_fsz_local_energy, fsz_single_electron_update!, fsz_two_electron_update!
+export FSZConfiguration,
+    FSZState,
+    FSZHamiltonian,
+    create_fsz_configuration,
+    initialize_fsz_state!,
+    create_fsz_hamiltonian,
+    calculate_fsz_local_energy,
+    fsz_single_electron_update!,
+    fsz_two_electron_update!

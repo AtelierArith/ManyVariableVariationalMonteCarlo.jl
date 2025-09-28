@@ -54,10 +54,25 @@ mutable struct PairCreationAnnihilationUpdate{T<:Union{Float64,ComplexF64}}
     total_attempts::Int
     total_accepted::Int
     acceptance_rate::Float64
-    function PairCreationAnnihilationUpdate{T}(n_site::Int, n_elec::Int; max_hop_distance::Int=1, update_probability::Float64=0.05) where {T}
+    function PairCreationAnnihilationUpdate{T}(
+        n_site::Int,
+        n_elec::Int;
+        max_hop_distance::Int = 1,
+        update_probability::Float64 = 0.05,
+    ) where {T}
         candidate_pairs = Vector{Tuple{Int,Int}}(undef, n_site * n_site)
         ratio_buffer = Vector{T}(undef, n_elec)
-        new{T}(n_site, n_elec, max_hop_distance, update_probability, candidate_pairs, ratio_buffer, 0, 0, 0.0)
+        new{T}(
+            n_site,
+            n_elec,
+            max_hop_distance,
+            update_probability,
+            candidate_pairs,
+            ratio_buffer,
+            0,
+            0,
+            0.0,
+        )
     end
 end
 
@@ -77,7 +92,7 @@ function propose_pair_creation_annihilation(
     end
     s1, s2 = ele_idx[e1], ele_idx[e2]
     n_candidates = 0
-    for t1 in 1:update.n_site, t2 in 1:update.n_site
+    for t1 = 1:update.n_site, t2 = 1:update.n_site
         if t1 != t2 && ele_cfg[t1] == 0 && ele_cfg[t2] == 0
             if _pbc_distance(t1, s1, update.n_site) <= update.max_hop_distance &&
                _pbc_distance(t2, s2, update.n_site) <= update.max_hop_distance
@@ -511,7 +526,12 @@ function propose_update(
     elseif rand_val < p3
         return propose_exchange_hopping(manager.exchange_hopping, ele_idx, ele_cfg, rng)
     elseif manager.pair_creation !== nothing && manager.pair_creation_prob > 0
-        return propose_pair_creation_annihilation(manager.pair_creation, ele_idx, ele_cfg, rng)
+        return propose_pair_creation_annihilation(
+            manager.pair_creation,
+            ele_idx,
+            ele_cfg,
+            rng,
+        )
     else
         return UpdateResult{T}(false, zero(T), SINGLE_ELECTRON)
     end
@@ -537,7 +557,8 @@ function accept_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
         elseif result.update_type == EXCHANGE_HOPPING
             manager.exchange_hopping.total_attempts += 1
             manager.exchange_hopping.total_accepted += 1
-        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION &&
+               manager.pair_creation !== nothing
             manager.pair_creation.total_attempts += 1
             manager.pair_creation.total_accepted += 1
         end
@@ -555,7 +576,8 @@ function accept_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
             manager.exchange_hopping.acceptance_rate =
                 manager.exchange_hopping.total_accepted /
                 manager.exchange_hopping.total_attempts
-        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION &&
+               manager.pair_creation !== nothing
             manager.pair_creation.acceptance_rate =
                 manager.pair_creation.total_accepted / manager.pair_creation.total_attempts
         end
@@ -578,7 +600,8 @@ function reject_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
             manager.two_electron.total_attempts += 1
         elseif result.update_type == EXCHANGE_HOPPING
             manager.exchange_hopping.total_attempts += 1
-        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION &&
+               manager.pair_creation !== nothing
             manager.pair_creation.total_attempts += 1
         end
 
@@ -595,7 +618,8 @@ function reject_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
             manager.exchange_hopping.acceptance_rate =
                 manager.exchange_hopping.total_accepted /
                 manager.exchange_hopping.total_attempts
-        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION &&
+               manager.pair_creation !== nothing
             manager.pair_creation.acceptance_rate =
                 manager.pair_creation.total_accepted / manager.pair_creation.total_attempts
         end

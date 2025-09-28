@@ -26,7 +26,7 @@ function main()
     println("Parameters: $(length(layout)) total")
 
     # Create simulation
-    sim = VMCSimulation(config, layout; T=ComplexF64)
+    sim = VMCSimulation(config, layout; T = ComplexF64)
 
     # Run simulation
     println("\n--- Running VMC Simulation ---")
@@ -56,7 +56,13 @@ function main()
 
     # Test Hamiltonian creation
     println("\n--- Testing Hamiltonian ---")
-    ham = create_hubbard_hamiltonian(config.nsites, config.nelec, config.t, config.u; lattice_type=:chain)
+    ham = create_hubbard_hamiltonian(
+        config.nsites,
+        config.nelec,
+        config.t,
+        config.u;
+        lattice_type = :chain,
+    )
     hamiltonian_summary(ham)
 
     # Test energy calculation

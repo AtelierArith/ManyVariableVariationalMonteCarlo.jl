@@ -36,18 +36,32 @@ end
 
 Create burn-in configuration with specified parameters.
 """
-function create_burn_in_configuration(; n_burn_in=1000, burn_flag=true, n_warmup=100,
-                                     burn_interval=10, adaptive_burn=false,
-                                     burn_check_interval=100, burn_tolerance=1e-3,
-                                     track_thermalization=true, energy_window_size=50)
+function create_burn_in_configuration(;
+    n_burn_in = 1000,
+    burn_flag = true,
+    n_warmup = 100,
+    burn_interval = 10,
+    adaptive_burn = false,
+    burn_check_interval = 100,
+    burn_tolerance = 1e-3,
+    track_thermalization = true,
+    energy_window_size = 50,
+)
     burn_ele_idx = Int[]
     burn_ele_cfg = Matrix{Int}(undef, 0, 0)
 
     return BurnInConfiguration(
-        n_burn_in, burn_flag, n_warmup,
-        burn_ele_idx, burn_ele_cfg, burn_interval,
-        adaptive_burn, burn_check_interval, burn_tolerance,
-        track_thermalization, energy_window_size
+        n_burn_in,
+        burn_flag,
+        n_warmup,
+        burn_ele_idx,
+        burn_ele_cfg,
+        burn_interval,
+        adaptive_burn,
+        burn_check_interval,
+        burn_tolerance,
+        track_thermalization,
+        energy_window_size,
     )
 end
 
@@ -85,15 +99,20 @@ end
 
 Create split sampling configuration.
 """
-function create_split_sampling_configuration(n_total_samples::Int; n_split_size=4,
-                                            split_mode=:parallel, dynamic_balancing=false,
-                                            target_time_per_split=60.0, comm_split=false,
-                                            sync_interval=100)
+function create_split_sampling_configuration(
+    n_total_samples::Int;
+    n_split_size = 4,
+    split_mode = :parallel,
+    dynamic_balancing = false,
+    target_time_per_split = 60.0,
+    comm_split = false,
+    sync_interval = 100,
+)
     n_samples_per_split = div(n_total_samples, n_split_size)
 
     # Create split indices
     split_indices = Vector{Vector{Int}}(undef, n_split_size)
-    for i in 1:n_split_size
+    for i = 1:n_split_size
         start_idx = (i-1) * n_samples_per_split + 1
         end_idx = i == n_split_size ? n_total_samples : i * n_samples_per_split
         split_indices[i] = collect(start_idx:end_idx)
@@ -104,10 +123,16 @@ function create_split_sampling_configuration(n_total_samples::Int; n_split_size=
     split_results = Vector{Any}(undef, n_split_size)
 
     return SplitSamplingConfiguration(
-        n_split_size, n_samples_per_split, split_mode,
-        split_indices, split_seeds, split_results,
-        dynamic_balancing, target_time_per_split,
-        comm_split, sync_interval
+        n_split_size,
+        n_samples_per_split,
+        split_mode,
+        split_indices,
+        split_seeds,
+        split_results,
+        dynamic_balancing,
+        target_time_per_split,
+        comm_split,
+        sync_interval,
     )
 end
 
@@ -144,12 +169,23 @@ end
 
 Initialize warm-up state.
 """
-function initialize_warmup_state(T::Type{<:Number}; target_acceptance=0.5, autocorr_window=50)
+function initialize_warmup_state(
+    T::Type{<:Number};
+    target_acceptance = 0.5,
+    autocorr_window = 50,
+)
     return WarmUpState{T}(
-        0, false, false,
-        T[], Float64[], Float64[],
-        target_acceptance, autocorr_window, Float64[],
-        time(), 0.0
+        0,
+        false,
+        false,
+        T[],
+        Float64[],
+        Float64[],
+        target_acceptance,
+        autocorr_window,
+        Float64[],
+        time(),
+        0.0,
     )
 end
 
@@ -158,7 +194,13 @@ end
 
 Perform burn-in phase with specified configuration.
 """
-function perform_burn_in!(state, config::BurnInConfiguration, sampler_function, args...; verbose=false)
+function perform_burn_in!(
+    state,
+    config::BurnInConfiguration,
+    sampler_function,
+    args...;
+    verbose = false,
+)
     if !config.burn_flag
         return state
     end
@@ -167,7 +209,7 @@ function perform_burn_in!(state, config::BurnInConfiguration, sampler_function, 
 
     warmup_state = initialize_warmup_state(eltype(state.local_energy))
 
-    for step in 1:config.n_burn_in
+    for step = 1:config.n_burn_in
         # Perform sampling step
         accepted = sampler_function(state, args...)
 
@@ -197,7 +239,9 @@ function perform_burn_in!(state, config::BurnInConfiguration, sampler_function, 
     warmup_state.is_warmed_up = true
     warmup_state.thermalization_time = time() - warmup_state.warmup_start_time
 
-    verbose && println("Burn-in completed in $(round(warmup_state.thermalization_time, digits=2)) seconds")
+    verbose && println(
+        "Burn-in completed in $(round(warmup_state.thermalization_time, digits=2)) seconds",
+    )
 
     return state, warmup_state
 end
@@ -213,7 +257,7 @@ function check_burn_in_convergence(warmup_state::WarmUpState, config::BurnInConf
     end
 
     # Check energy variance in recent window
-    recent_energies = warmup_state.energy_history[end-config.energy_window_size+1:end]
+    recent_energies = warmup_state.energy_history[(end-config.energy_window_size+1):end]
     energy_variance = var(real.(recent_energies))
 
     # Check if variance is below tolerance
@@ -241,14 +285,18 @@ end
 
 Execute parallel split sampling (requires threading or distributed computing).
 """
-function parallel_split_sampling(config::SplitSamplingConfiguration, sampling_function, args...)
+function parallel_split_sampling(
+    config::SplitSamplingConfiguration,
+    sampling_function,
+    args...,
+)
     # This is a simplified version - full implementation would use
     # Threads.@threads or Distributed.@distributed
 
     results = Vector{Any}(undef, config.n_split_size)
 
     # For now, execute sequentially (would be parallel in full implementation)
-    for split_idx in 1:config.n_split_size
+    for split_idx = 1:config.n_split_size
         # Set random seed for this split
         Random.seed!(config.split_seeds[split_idx])
 
@@ -268,10 +316,14 @@ end
 
 Execute sequential split sampling.
 """
-function sequential_split_sampling(config::SplitSamplingConfiguration, sampling_function, args...)
+function sequential_split_sampling(
+    config::SplitSamplingConfiguration,
+    sampling_function,
+    args...,
+)
     results = Vector{Any}(undef, config.n_split_size)
 
-    for split_idx in 1:config.n_split_size
+    for split_idx = 1:config.n_split_size
         # Set random seed for this split
         Random.seed!(config.split_seeds[split_idx])
 
@@ -301,7 +353,7 @@ function combine_split_results(results::Vector{Any}, config::SplitSamplingConfig
     # This is a placeholder - actual implementation depends on result type
     # For VMC, this might involve combining energy estimates, error bars, etc.
 
-    combined_result = Dict{String, Any}()
+    combined_result = Dict{String,Any}()
 
     # Combine energies if present
     if haskey(results[1], :energy_mean)
@@ -329,8 +381,11 @@ end
 
 Adapt step size during warm-up to achieve target acceptance rate.
 """
-function adaptive_step_size!(warmup_state::WarmUpState, current_acceptance::Float64,
-                            step_size_factor::Float64 = 1.1)
+function adaptive_step_size!(
+    warmup_state::WarmUpState,
+    current_acceptance::Float64,
+    step_size_factor::Float64 = 1.1,
+)
     push!(warmup_state.acceptance_history, current_acceptance)
 
     # Adjust step size to reach target acceptance
@@ -349,7 +404,10 @@ end
 
 Calculate autocorrelation function for convergence diagnostics.
 """
-function calculate_autocorrelation(data::Vector{T}, max_lag::Int = min(50, length(data)÷4)) where T
+function calculate_autocorrelation(
+    data::Vector{T},
+    max_lag::Int = min(50, length(data)÷4),
+) where {T}
     n = length(data)
     if n < 2
         return Float64[]
@@ -361,7 +419,7 @@ function calculate_autocorrelation(data::Vector{T}, max_lag::Int = min(50, lengt
     autocorr = Float64[]
     variance = var(data)
 
-    for lag in 0:max_lag
+    for lag = 0:max_lag
         if lag >= n
             break
         end
@@ -369,7 +427,7 @@ function calculate_autocorrelation(data::Vector{T}, max_lag::Int = min(50, lengt
         # Calculate autocorrelation at this lag
         covariance = 0.0
         count = 0
-        for i in 1:(n-lag)
+        for i = 1:(n-lag)
             covariance += real(data_centered[i] * conj(data_centered[i+lag]))
             count += 1
         end
@@ -407,9 +465,18 @@ function estimate_correlation_length(autocorr::Vector{Float64})
 end
 
 # Export advanced sampling functions and types
-export BurnInConfiguration, SplitSamplingConfiguration, WarmUpState,
-       create_burn_in_configuration, create_split_sampling_configuration,
-       initialize_warmup_state, perform_burn_in!, check_burn_in_convergence,
-       split_sampling_loop, parallel_split_sampling, sequential_split_sampling,
-       combine_split_results, adaptive_step_size!, calculate_autocorrelation,
-       estimate_correlation_length
+export BurnInConfiguration,
+    SplitSamplingConfiguration,
+    WarmUpState,
+    create_burn_in_configuration,
+    create_split_sampling_configuration,
+    initialize_warmup_state,
+    perform_burn_in!,
+    check_burn_in_convergence,
+    split_sampling_loop,
+    parallel_split_sampling,
+    sequential_split_sampling,
+    combine_split_results,
+    adaptive_step_size!,
+    calculate_autocorrelation,
+    estimate_correlation_length

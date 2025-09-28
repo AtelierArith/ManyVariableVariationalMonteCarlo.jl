@@ -21,7 +21,10 @@
 
     # Find first data line in zvo_corr.dat and check columns
     for line in eachline(joinpath(outdir, "zvo_corr.dat"))
-        if isempty(line) || startswith(line, "#"); continue; end
+        if isempty(line) || startswith(line, "#")
+            ;
+            continue;
+        end
         parts = split(strip(line))
         # distance + 6 numeric columns: total 7 tokens
         @test length(parts) == 7

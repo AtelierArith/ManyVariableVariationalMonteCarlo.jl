@@ -66,7 +66,7 @@ struct LatticeGeometry{T<:Real}
         dimensions::Int,
         unit_cell_vectors::Matrix{T},
         site_positions::Matrix{T},
-        L::Vector{Int}
+        L::Vector{Int},
     ) where {T}
         n_sites_unit_cell = size(site_positions, 1)
         n_sites_total = n_sites_unit_cell * prod(L)
@@ -84,7 +84,7 @@ struct LatticeGeometry{T<:Real}
             L,
             n_sites_total,
             neighbor_vectors,
-            neighbor_distances
+            neighbor_distances,
         )
     end
 end
@@ -115,13 +115,27 @@ mutable struct StdFaceConfig{T<:Union{Real,Complex}}
     boundary_conditions::Vector{Bool}  # true = periodic, false = open
     twist_angles::Vector{Float64}  # Twist angles for boundary conditions
 
-    function StdFaceConfig{T}(lattice_type::LatticeType, model_type::ModelType, L::Vector{Int}) where {T}
+    function StdFaceConfig{T}(
+        lattice_type::LatticeType,
+        model_type::ModelType,
+        L::Vector{Int},
+    ) where {T}
         n_dim = length(L)
         new{T}(
-            lattice_type, model_type, L,
-            zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T),
+            lattice_type,
+            model_type,
+            L,
+            zero(T),
+            zero(T),
+            zero(T),
+            zero(T),
+            zero(T),
+            zero(T),
+            zero(T),
+            zero(T),
+            zero(T),
             fill(true, n_dim),  # Default: periodic boundary conditions
-            zeros(Float64, n_dim)  # Default: no twist
+            zeros(Float64, n_dim),  # Default: no twist
         )
     end
 end
@@ -131,17 +145,11 @@ end
 
 Create a 1D chain lattice geometry.
 """
-function create_chain_lattice(L::Int; T=Float64)
+function create_chain_lattice(L::Int; T = Float64)
     unit_cell_vectors = reshape([1.0], 1, 1)
     site_positions = reshape([0.0], 1, 1)
 
-    geometry = LatticeGeometry{T}(
-        CHAIN_LATTICE,
-        1,
-        unit_cell_vectors,
-        site_positions,
-        [L]
-    )
+    geometry = LatticeGeometry{T}(CHAIN_LATTICE, 1, unit_cell_vectors, site_positions, [L])
 
     # Add nearest neighbor vectors
     push!(geometry.neighbor_vectors, [1.0])
@@ -157,17 +165,12 @@ end
 
 Create a 2D square lattice geometry.
 """
-function create_square_lattice(Lx::Int, Ly::Int; T=Float64)
+function create_square_lattice(Lx::Int, Ly::Int; T = Float64)
     unit_cell_vectors = T[1.0 0.0; 0.0 1.0]
     site_positions = reshape(T[0.0, 0.0], 1, 2)
 
-    geometry = LatticeGeometry{T}(
-        SQUARE_LATTICE,
-        2,
-        unit_cell_vectors,
-        site_positions,
-        [Lx, Ly]
-    )
+    geometry =
+        LatticeGeometry{T}(SQUARE_LATTICE, 2, unit_cell_vectors, site_positions, [Lx, Ly])
 
     # Add nearest neighbor vectors
     push!(geometry.neighbor_vectors, T[1.0, 0.0])   # +x
@@ -191,7 +194,7 @@ end
 
 Create a 2D triangular lattice geometry.
 """
-function create_triangular_lattice(Lx::Int, Ly::Int; T=Float64)
+function create_triangular_lattice(Lx::Int, Ly::Int; T = Float64)
     # Triangular lattice unit cell vectors
     a = 1.0
     unit_cell_vectors = T[a 0.0; a/2 a*sqrt(3)/2]
@@ -202,7 +205,7 @@ function create_triangular_lattice(Lx::Int, Ly::Int; T=Float64)
         2,
         unit_cell_vectors,
         site_positions,
-        [Lx, Ly]
+        [Lx, Ly],
     )
 
     # Add nearest neighbor vectors (6 neighbors)
@@ -222,7 +225,7 @@ end
 
 Create a 2D honeycomb lattice geometry.
 """
-function create_honeycomb_lattice(Lx::Int, Ly::Int; T=Float64)
+function create_honeycomb_lattice(Lx::Int, Ly::Int; T = Float64)
     # Honeycomb lattice unit cell vectors
     a = 1.0
     unit_cell_vectors = T[3*a/2 0.0; 3*a/4 a*sqrt(3)/2]
@@ -235,7 +238,7 @@ function create_honeycomb_lattice(Lx::Int, Ly::Int; T=Float64)
         2,
         unit_cell_vectors,
         site_positions,
-        [Lx, Ly]
+        [Lx, Ly],
     )
 
     # Add nearest neighbor vectors (3 neighbors per site)
@@ -253,7 +256,7 @@ end
 
 Create a 2D kagome lattice geometry.
 """
-function create_kagome_lattice(Lx::Int, Ly::Int; T=Float64)
+function create_kagome_lattice(Lx::Int, Ly::Int; T = Float64)
     # Kagome lattice unit cell vectors
     a = 1.0
     unit_cell_vectors = T[2*a 0.0; a a*sqrt(3)]
@@ -265,13 +268,8 @@ function create_kagome_lattice(Lx::Int, Ly::Int; T=Float64)
         3*a/2 a*sqrt(3)/2
     ]
 
-    geometry = LatticeGeometry{T}(
-        KAGOME_LATTICE,
-        2,
-        unit_cell_vectors,
-        site_positions,
-        [Lx, Ly]
-    )
+    geometry =
+        LatticeGeometry{T}(KAGOME_LATTICE, 2, unit_cell_vectors, site_positions, [Lx, Ly])
 
     # Add nearest neighbor vectors (complex connectivity)
     # Each site has 4 nearest neighbors
@@ -289,12 +287,12 @@ end
 
 Create a ladder lattice geometry.
 """
-function create_ladder_lattice(L::Int, W::Int=2; T=Float64)
+function create_ladder_lattice(L::Int, W::Int = 2; T = Float64)
     unit_cell_vectors = T[1.0 0.0; 0.0 1.0]
 
     # W sites per unit cell (rungs of the ladder)
     site_positions = zeros(T, W, 2)
-    for i in 1:W
+    for i = 1:W
         site_positions[i, :] = [0.0, (i-1)]
     end
 
@@ -303,7 +301,7 @@ function create_ladder_lattice(L::Int, W::Int=2; T=Float64)
         2,
         unit_cell_vectors,
         site_positions,
-        [L, 1]  # L rungs, 1 unit cell in y direction
+        [L, 1],  # L rungs, 1 unit cell in y direction
     )
 
     # Add nearest neighbor vectors
@@ -328,10 +326,10 @@ function generate_site_coordinates(geometry::LatticeGeometry{T}) where {T}
     site_idx = 1
 
     # Generate coordinates for each unit cell
-    for indices in Iterators.product([0:L-1 for L in geometry.L]...)
+    for indices in Iterators.product([0:(L-1) for L in geometry.L]...)
         unit_cell_origin = sum(collect(indices) .* eachrow(geometry.unit_cell_vectors))
 
-        for uc_site in 1:geometry.n_sites_unit_cell
+        for uc_site = 1:geometry.n_sites_unit_cell
             site_coord = unit_cell_origin + geometry.site_positions[uc_site, :]
             coords[site_idx, :] = site_coord
             site_idx += 1
@@ -346,14 +344,17 @@ end
 
 Generate neighbor list for all sites up to maximum distance.
 """
-function generate_neighbor_list(geometry::LatticeGeometry{T}, max_distance::T=2.0) where {T}
+function generate_neighbor_list(
+    geometry::LatticeGeometry{T},
+    max_distance::T = 2.0,
+) where {T}
     coords = generate_site_coordinates(geometry)
     neighbor_list = Vector{Vector{Int}}(undef, geometry.n_sites_total)
 
-    for i in 1:geometry.n_sites_total
+    for i = 1:geometry.n_sites_total
         neighbors = Int[]
 
-        for j in 1:geometry.n_sites_total
+        for j = 1:geometry.n_sites_total
             if i != j
                 distance = norm(coords[i, :] - coords[j, :])
                 if distance <= max_distance + 1e-10  # Small tolerance for numerical errors
@@ -373,7 +374,10 @@ end
 
 Create a Hamiltonian based on StdFace configuration and lattice geometry.
 """
-function create_stdface_hamiltonian(config::StdFaceConfig{T}, geometry::LatticeGeometry{T}) where {T}
+function create_stdface_hamiltonian(
+    config::StdFaceConfig{T},
+    geometry::LatticeGeometry{T},
+) where {T}
     ham = Hamiltonian{T}(geometry.n_sites_total, 0)  # Will set n_electrons later
     coords = generate_site_coordinates(geometry)
 
@@ -393,13 +397,17 @@ end
 
 Add Hubbard model terms to the Hamiltonian.
 """
-function add_hubbard_terms!(ham::Hamiltonian{T}, config::StdFaceConfig{T},
-                           geometry::LatticeGeometry{T}, coords::Matrix{T}) where {T}
+function add_hubbard_terms!(
+    ham::Hamiltonian{T},
+    config::StdFaceConfig{T},
+    geometry::LatticeGeometry{T},
+    coords::Matrix{T},
+) where {T}
     n_sites = geometry.n_sites_total
 
     # On-site Coulomb interaction
     if abs(config.U) > 1e-10
-        for i in 1:n_sites
+        for i = 1:n_sites
             add_coulomb_intra!(ham, config.U, i)
         end
     end
@@ -408,7 +416,7 @@ function add_hubbard_terms!(ham::Hamiltonian{T}, config::StdFaceConfig{T},
     if abs(config.t) > 1e-10
         neighbor_list = generate_neighbor_list(geometry, 1.1)  # Nearest neighbors
 
-        for i in 1:n_sites
+        for i = 1:n_sites
             for j in neighbor_list[i]
                 if i < j  # Avoid double counting
                     # Add hopping for both spins
@@ -424,7 +432,7 @@ function add_hubbard_terms!(ham::Hamiltonian{T}, config::StdFaceConfig{T},
         nnn_neighbor_list = generate_neighbor_list(geometry, 1.5)  # Next-nearest neighbors
         nn_neighbor_list = generate_neighbor_list(geometry, 1.1)   # Nearest neighbors
 
-        for i in 1:n_sites
+        for i = 1:n_sites
             for j in nnn_neighbor_list[i]
                 if i < j && !(j in nn_neighbor_list[i])  # Next-nearest but not nearest
                     add_transfer!(ham, -config.t_prime, i, 0, j, 0)  # spin up
@@ -438,7 +446,7 @@ function add_hubbard_terms!(ham::Hamiltonian{T}, config::StdFaceConfig{T},
     if abs(config.V) > 1e-10
         neighbor_list = generate_neighbor_list(geometry, 1.1)
 
-        for i in 1:n_sites
+        for i = 1:n_sites
             for j in neighbor_list[i]
                 if i < j
                     add_coulomb_inter!(ham, config.V, i, j)
@@ -454,13 +462,17 @@ end
 
 Add spin model terms to the Hamiltonian.
 """
-function add_spin_terms!(ham::Hamiltonian{T}, config::StdFaceConfig{T},
-                        geometry::LatticeGeometry{T}, coords::Matrix{T}) where {T}
+function add_spin_terms!(
+    ham::Hamiltonian{T},
+    config::StdFaceConfig{T},
+    geometry::LatticeGeometry{T},
+    coords::Matrix{T},
+) where {T}
     # Exchange interaction
     if abs(config.J) > 1e-10
         neighbor_list = generate_neighbor_list(geometry, 1.1)
 
-        for i in 1:geometry.n_sites_total
+        for i = 1:geometry.n_sites_total
             for j in neighbor_list[i]
                 if i < j
                     add_hund_coupling!(ham, config.J, i, j)
@@ -475,12 +487,19 @@ end
 
 Create a chain lattice with standard parameters.
 """
-function stdface_chain(L::Int, model::String="Hubbard";
-                      t=1.0, U=0.0, V=0.0, J=0.0, kwargs...)
+function stdface_chain(
+    L::Int,
+    model::String = "Hubbard";
+    t = 1.0,
+    U = 0.0,
+    V = 0.0,
+    J = 0.0,
+    kwargs...,
+)
     geometry = create_chain_lattice(L)
 
-    model_type = model == "Hubbard" ? HUBBARD_MODEL :
-                 model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
+    model_type =
+        model == "Hubbard" ? HUBBARD_MODEL : model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
 
     config = StdFaceConfig{typeof(t)}(CHAIN_LATTICE, model_type, [L])
     config.t = t
@@ -505,12 +524,20 @@ end
 
 Create a square lattice with standard parameters.
 """
-function stdface_square(Lx::Int, Ly::Int, model::String="Hubbard";
-                       t=1.0, U=0.0, V=0.0, t_prime=0.0, kwargs...)
+function stdface_square(
+    Lx::Int,
+    Ly::Int,
+    model::String = "Hubbard";
+    t = 1.0,
+    U = 0.0,
+    V = 0.0,
+    t_prime = 0.0,
+    kwargs...,
+)
     geometry = create_square_lattice(Lx, Ly)
 
-    model_type = model == "Hubbard" ? HUBBARD_MODEL :
-                 model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
+    model_type =
+        model == "Hubbard" ? HUBBARD_MODEL : model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
 
     config = StdFaceConfig{typeof(t)}(SQUARE_LATTICE, model_type, [Lx, Ly])
     config.t = t
@@ -535,12 +562,20 @@ end
 
 Create a triangular lattice with standard parameters.
 """
-function stdface_triangular(Lx::Int, Ly::Int, model::String="Hubbard";
-                           t=1.0, U=0.0, V=0.0, J=0.0, kwargs...)
+function stdface_triangular(
+    Lx::Int,
+    Ly::Int,
+    model::String = "Hubbard";
+    t = 1.0,
+    U = 0.0,
+    V = 0.0,
+    J = 0.0,
+    kwargs...,
+)
     geometry = create_triangular_lattice(Lx, Ly)
 
-    model_type = model == "Hubbard" ? HUBBARD_MODEL :
-                 model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
+    model_type =
+        model == "Hubbard" ? HUBBARD_MODEL : model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
 
     config = StdFaceConfig{typeof(t)}(TRIANGULAR_LATTICE, model_type, [Lx, Ly])
     config.t = t
@@ -565,12 +600,19 @@ end
 
 Create a honeycomb lattice with standard parameters.
 """
-function stdface_honeycomb(Lx::Int, Ly::Int, model::String="Hubbard";
-                          t=1.0, U=0.0, V=0.0, kwargs...)
+function stdface_honeycomb(
+    Lx::Int,
+    Ly::Int,
+    model::String = "Hubbard";
+    t = 1.0,
+    U = 0.0,
+    V = 0.0,
+    kwargs...,
+)
     geometry = create_honeycomb_lattice(Lx, Ly)
 
-    model_type = model == "Hubbard" ? HUBBARD_MODEL :
-                 model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
+    model_type =
+        model == "Hubbard" ? HUBBARD_MODEL : model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
 
     config = StdFaceConfig{typeof(t)}(HONEYCOMB_LATTICE, model_type, [Lx, Ly])
     config.t = t
@@ -594,12 +636,20 @@ end
 
 Create a kagome lattice with standard parameters.
 """
-function stdface_kagome(Lx::Int, Ly::Int, model::String="Hubbard";
-                       t=1.0, U=0.0, V=0.0, J=0.0, kwargs...)
+function stdface_kagome(
+    Lx::Int,
+    Ly::Int,
+    model::String = "Hubbard";
+    t = 1.0,
+    U = 0.0,
+    V = 0.0,
+    J = 0.0,
+    kwargs...,
+)
     geometry = create_kagome_lattice(Lx, Ly)
 
-    model_type = model == "Hubbard" ? HUBBARD_MODEL :
-                 model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
+    model_type =
+        model == "Hubbard" ? HUBBARD_MODEL : model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
 
     config = StdFaceConfig{typeof(t)}(KAGOME_LATTICE, model_type, [Lx, Ly])
     config.t = t
@@ -624,12 +674,20 @@ end
 
 Create a ladder lattice with standard parameters.
 """
-function stdface_ladder(L::Int, W::Int=2, model::String="Hubbard";
-                       t=1.0, t_perp=1.0, U=0.0, V=0.0, kwargs...)
+function stdface_ladder(
+    L::Int,
+    W::Int = 2,
+    model::String = "Hubbard";
+    t = 1.0,
+    t_perp = 1.0,
+    U = 0.0,
+    V = 0.0,
+    kwargs...,
+)
     geometry = create_ladder_lattice(L, W)
 
-    model_type = model == "Hubbard" ? HUBBARD_MODEL :
-                 model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
+    model_type =
+        model == "Hubbard" ? HUBBARD_MODEL : model == "Spin" ? SPIN_MODEL : HUBBARD_MODEL
 
     config = StdFaceConfig{typeof(t)}(LADDER_LATTICE, model_type, [L, 1])
     config.t = t
@@ -647,8 +705,8 @@ function stdface_ladder(L::Int, W::Int=2, model::String="Hubbard";
 
     # Add perpendicular hopping for ladder
     if abs(t_perp) > 1e-10 && W > 1
-        for i in 1:L
-            for w in 1:W-1
+        for i = 1:L
+            for w = 1:(W-1)
                 site1 = (i-1)*W + w
                 site2 = (i-1)*W + w + 1
                 add_transfer!(ham, -t_perp, site1, 0, site2, 0)  # spin up
@@ -675,7 +733,7 @@ function lattice_summary(geometry::LatticeGeometry{T}) where {T}
     println("  Neighbor vectors: $(length(geometry.neighbor_vectors))")
 
     if !isempty(geometry.neighbor_distances)
-        unique_distances = unique(round.(geometry.neighbor_distances, digits=6))
+        unique_distances = unique(round.(geometry.neighbor_distances, digits = 6))
         println("  Neighbor distances: $(unique_distances)")
     end
 end

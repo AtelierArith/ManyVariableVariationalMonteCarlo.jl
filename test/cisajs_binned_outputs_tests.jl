@@ -37,9 +37,14 @@
     @test isfile(joinpath(outdir, "zvo_cisajscktalt_002.dat"))
 
     # Basic content checks: each binned file should have header + at least one data line
-    for name in ("zvo_cisajs_001.dat", "zvo_cisajs_002.dat",
-                 "zvo_cisajscktaltex_001.dat", "zvo_cisajscktaltex_002.dat",
-                 "zvo_cisajscktalt_001.dat", "zvo_cisajscktalt_002.dat")
+    for name in (
+        "zvo_cisajs_001.dat",
+        "zvo_cisajs_002.dat",
+        "zvo_cisajscktaltex_001.dat",
+        "zvo_cisajscktaltex_002.dat",
+        "zvo_cisajscktalt_001.dat",
+        "zvo_cisajscktalt_002.dat",
+    )
         lines = readlines(joinpath(outdir, name))
         @test length(lines) >= 2
     end

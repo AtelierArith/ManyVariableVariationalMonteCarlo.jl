@@ -18,7 +18,7 @@
     # Test coordinate generation
     coords = generate_site_coordinates(geometry)
     @test size(coords) == (L, 1)
-    @test coords[:, 1] ≈ collect(0:L-1)
+    @test coords[:, 1] ≈ collect(0:(L-1))
 
     # Test neighbor list generation
     neighbors = generate_neighbor_list(geometry, 1.1)
@@ -133,7 +133,7 @@ end
     L = 4
     t = 1.0
     U = 2.0
-    ham, geometry, config = stdface_chain(L, "Hubbard"; t=t, U=U)
+    ham, geometry, config = stdface_chain(L, "Hubbard"; t = t, U = U)
 
     @test ham.n_sites == L
     @test length(ham.coulomb_intra_terms) == L  # U terms on each site
@@ -168,7 +168,8 @@ end
     t = 1.0
     U = 4.0
     t_prime = 0.2
-    ham, geometry, config = stdface_square(Lx, Ly, "Hubbard"; t=t, U=U, t_prime=t_prime)
+    ham, geometry, config =
+        stdface_square(Lx, Ly, "Hubbard"; t = t, U = U, t_prime = t_prime)
 
     @test ham.n_sites == Lx * Ly
     @test length(ham.coulomb_intra_terms) == Lx * Ly
@@ -190,7 +191,7 @@ end
     # Test triangular lattice spin model
     Lx, Ly = 3, 3
     J = 1.0
-    ham, geometry, config = stdface_triangular(Lx, Ly, "Spin"; J=J)
+    ham, geometry, config = stdface_triangular(Lx, Ly, "Spin"; J = J)
 
     @test ham.n_sites == Lx * Ly
     @test length(ham.hund_terms) > 0  # Exchange interactions
@@ -214,7 +215,7 @@ end
     Lx, Ly = 2, 2
     t = 1.0
     U = 3.0
-    ham, geometry, config = stdface_honeycomb(Lx, Ly, "Hubbard"; t=t, U=U)
+    ham, geometry, config = stdface_honeycomb(Lx, Ly, "Hubbard"; t = t, U = U)
 
     @test ham.n_sites == 2 * Lx * Ly  # 2 sites per unit cell
     @test length(ham.coulomb_intra_terms) == 2 * Lx * Ly
@@ -233,7 +234,7 @@ end
     t = 1.0
     t_perp = 0.8
     U = 2.0
-    ham, geometry, config = stdface_ladder(L, W, "Hubbard"; t=t, t_perp=t_perp, U=U)
+    ham, geometry, config = stdface_ladder(L, W, "Hubbard"; t = t, t_perp = t_perp, U = U)
 
     @test ham.n_sites == L * W
     @test length(ham.coulomb_intra_terms) == L * W
@@ -283,8 +284,8 @@ end
     @test size(coords) == (6, 2)
 
     # Check that all coordinates are unique
-    for i in 1:size(coords, 1)
-        for j in i+1:size(coords, 1)
+    for i = 1:size(coords, 1)
+        for j = (i+1):size(coords, 1)
             @test norm(coords[i, :] - coords[j, :]) > 1e-10
         end
     end
@@ -296,8 +297,7 @@ end
 
     # Test configuration with multiple parameters
     L = 6
-    ham, geometry, config = stdface_chain(L, "Hubbard";
-                                         t=1.5, U=3.0, V=0.5, mu=0.2)
+    ham, geometry, config = stdface_chain(L, "Hubbard"; t = 1.5, U = 3.0, V = 0.5, mu = 0.2)
 
     @test config.t == 1.5
     @test config.U == 3.0

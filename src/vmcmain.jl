@@ -77,11 +77,8 @@ mutable struct VMCSimulation{T<:Union{Float64,ComplexF64}}
     # Timing information
     timers::Dict{String,Float64}
 
-    function VMCSimulation{T}(
-        config::SimulationConfig,
-        layout::ParameterLayout
-    ) where {T}
-        parameters = ParameterSet(layout; T=T)
+    function VMCSimulation{T}(config::SimulationConfig, layout::ParameterLayout) where {T}
+        parameters = ParameterSet(layout; T = T)
 
         new{T}(
             config,
@@ -95,7 +92,7 @@ mutable struct VMCSimulation{T<:Union{Float64,ComplexF64}}
             nothing,  # sr_optimizer
             Dict{String,Any}[],  # optimization_results
             Dict{String,Any}(),  # physics_results
-            Dict{String,Float64}()  # timers
+            Dict{String,Float64}(),  # timers
         )
     end
 end
@@ -105,7 +102,7 @@ end
 
 Create a new VMC simulation with the specified configuration and parameter layout.
 """
-VMCSimulation(config::SimulationConfig, layout::ParameterLayout; T=ComplexF64) =
+VMCSimulation(config::SimulationConfig, layout::ParameterLayout; T = ComplexF64) =
     VMCSimulation{T}(config, layout)
 
 """
@@ -122,7 +119,7 @@ function initialize_simulation!(sim::VMCSimulation{T}) where {T}
         ne = sim.config.nelec,
         ngutzwiller = length(sim.parameters.proj),
         nrbm_hidden = div(length(sim.parameters.rbm), 2),  # Rough estimate
-        nrbm_visible = sim.config.nsites * 2  # spin up and down
+        nrbm_visible = sim.config.nsites * 2,  # spin up and down
     )
     # Provide a per-simulation scalar workspace so tests can verify presence
     sim.workspace = Workspace{T}()
@@ -133,8 +130,7 @@ function initialize_simulation!(sim::VMCSimulation{T}) where {T}
     # Set up initial electron configuration
     initial_positions = collect(1:2:min(2*sim.config.nelec, sim.config.nsites))
     if length(initial_positions) < sim.config.nelec
-        append!(initial_positions,
-                collect((length(initial_positions)+1):sim.config.nelec))
+        append!(initial_positions, collect((length(initial_positions)+1):sim.config.nelec))
     end
     initialize_vmc_state!(sim.vmc_state, initial_positions[1:sim.config.nelec])
 
@@ -171,9 +167,9 @@ function initialize_simulation!(sim::VMCSimulation{T}) where {T}
         length(sim.parameters.proj),
         length(sim.parameters.rbm),
         length(sim.parameters.slater),
-        length(sim.parameters.opttrans)
+        length(sim.parameters.opttrans),
     )
-    mask = ParameterMask(layout; default=true)  # All parameters active
+    mask = ParameterMask(layout; default = true)  # All parameters active
     flags = ParameterFlags(T <: Complex, length(sim.parameters.rbm) > 0)
     initialize_parameters!(sim.parameters, layout, mask, flags)
 
@@ -206,7 +202,7 @@ function initialize_wavefunction_components!(sim::VMCSimulation{T}) where {T}
     if length(sim.parameters.proj) > 0
         sim.jastrow_factor = JastrowFactor{T}(sim.config.nsites, sim.config.nelec)
         # Add basic Gutzwiller parameters for each site
-        for i in 1:sim.config.nsites
+        for i = 1:sim.config.nsites
             add_gutzwiller_parameter!(sim.jastrow_factor, i, T(0.1))
         end
     end
@@ -271,7 +267,7 @@ function run_parameter_optimization!(sim::VMCSimulation{T}) where {T}
     # optimizer will be created in compute_overlap_matrix! if needed
 
     # Optimization loop
-    for iter in 1:sim.config.nsr_opt_itr_step
+    for iter = 1:sim.config.nsr_opt_itr_step
         sim.timers["optimization_step_$(iter)"] = @elapsed begin
             # Sample configurations
             sample_results = sample_configurations!(sim, sim.config.nsr_opt_itr_smp)
@@ -299,14 +295,18 @@ function run_parameter_optimization!(sim::VMCSimulation{T}) where {T}
                 "energy" => sample_results.energy_mean,
                 "energy_error" => sample_results.energy_std,
                 "parameter_norm" => norm(parameter_update),
-                "overlap_condition" => cond(overlap_matrix)
+                "overlap_condition" => cond(overlap_matrix),
             )
             push!(sim.optimization_results, iter_results)
 
             # Progress reporting
             if iter % 10 == 0 || iter == sim.config.nsr_opt_itr_step
-                @info @sprintf("Optimization iter %d: E = %.6f ± %.6f",
-                              iter, real(sample_results.energy_mean), sample_results.energy_std)
+                @info @sprintf(
+                    "Optimization iter %d: E = %.6f ± %.6f",
+                    iter,
+                    real(sample_results.energy_mean),
+                    sample_results.energy_std
+                )
             end
         end
     end
@@ -352,14 +352,18 @@ function run_physics_calculation!(sim::VMCSimulation{T}) where {T}
             "energy_samples" => sample_results.energy_samples,
             "double_occupation" => get(observables, "double_occupation", 0.0),
             "spin_correlation" => get(observables, "spin_correlation", ComplexF64[]),
-            "density_correlation" => get(observables, "density_correlation", ComplexF64[]),
-            "spin_structure_factor" => get(observables, "spin_structure_factor", ComplexF64[]),
-            "density_structure_factor" => get(observables, "density_structure_factor", ComplexF64[]),
-            "momentum_distribution" => get(observables, "momentum_distribution", ComplexF64[]),
+            "density_correlation" =>
+                get(observables, "density_correlation", ComplexF64[]),
+            "spin_structure_factor" =>
+                get(observables, "spin_structure_factor", ComplexF64[]),
+            "density_structure_factor" =>
+                get(observables, "density_structure_factor", ComplexF64[]),
+            "momentum_distribution" =>
+                get(observables, "momentum_distribution", ComplexF64[]),
             "k_grid" => get(observables, "k_grid", Any[]),
             "acceptance_rate" => sample_results.acceptance_rate,
             "acceptance_series" => sample_results.acceptance_series,
-            "n_samples" => sample_results.n_samples
+            "n_samples" => sample_results.n_samples,
         )
     end
 
@@ -368,9 +372,11 @@ function run_physics_calculation!(sim::VMCSimulation{T}) where {T}
         run_lanczos!(sim)
     end
 
-    @info @sprintf("Physics calculation: E = %.6f ± %.6f",
-                   real(sim.physics_results["energy_mean"]),
-                   sim.physics_results["energy_std"])
+    @info @sprintf(
+        "Physics calculation: E = %.6f ± %.6f",
+        real(sim.physics_results["energy_mean"]),
+        sim.physics_results["energy_std"]
+    )
 end
 
 """
@@ -403,7 +409,7 @@ This routine does not construct the many-body Hamiltonian explicitly.
 It samples energies at several pseudo-Lanczos steps and records trends.
 Enable with `NLanczosMode > 0` in Face/SimulationConfig.
 """
-function run_lanczos!(sim::VMCSimulation{T}; nsteps::Int=5) where {T}
+function run_lanczos!(sim::VMCSimulation{T}; nsteps::Int = 5) where {T}
     outdir = "output"
     try
         outdir = sim.config.face[:CDataFileHead]
@@ -419,7 +425,7 @@ function run_lanczos!(sim::VMCSimulation{T}; nsteps::Int=5) where {T}
     energies = Float64[]
     variances = Float64[]
 
-    for step in 1:nsteps
+    for step = 1:nsteps
         # Sample a reduced number of configurations
         result = sample_configurations!(sim, base_samples)
         push!(energies, real(result.energy_mean))
@@ -440,7 +446,7 @@ function run_lanczos!(sim::VMCSimulation{T}; nsteps::Int=5) where {T}
     # Write zvo_ls_alpha_beta.dat with simple finite-difference placeholders
     open(joinpath(outdir, "zvo_ls_alpha_beta.dat"), "w") do f
         println(f, "# step  alpha  beta")
-        for i in 1:length(energies)
+        for i = 1:length(energies)
             alpha = energies[i]
             beta = i > 1 ? abs(energies[i] - energies[i-1]) : 0.0
             @printf(f, "%6d  %16.10f  %16.10f\n", i, alpha, beta)
@@ -455,9 +461,27 @@ function run_lanczos!(sim::VMCSimulation{T}; nsteps::Int=5) where {T}
         open(joinpath(outdir, "zvo_ls_cisajs.dat"), "w") do f
             println(f, "# i  s  j  t   Re[G]   Im[G]")
             n = size(Gup, 1)
-            for i in 1:n, j in 1:n
-                @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
-                @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+            for i = 1:n, j = 1:n
+                @printf(
+                    f,
+                    "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                    i,
+                    1,
+                    j,
+                    1,
+                    real(Gup[i, j]),
+                    imag(Gup[i, j])
+                )
+                @printf(
+                    f,
+                    "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                    i,
+                    2,
+                    j,
+                    2,
+                    real(Gdn[i, j]),
+                    imag(Gdn[i, j])
+                )
                 maybe_flush_interval(f, sim, (i-1)*n + j)
             end
             maybe_flush(f, sim)
@@ -476,7 +500,7 @@ function compute_parameter_gradients!(sim::VMCSimulation{T}, sample_results) whe
     gradients = zeros(T, n_params, sample_results.n_samples)
 
     # For now, return random gradients as placeholder
-    for i in 1:n_params, j in 1:sample_results.n_samples
+    for i = 1:n_params, j = 1:sample_results.n_samples
         gradients[i, j] = T(0.1 * randn())
     end
 
@@ -494,28 +518,28 @@ function update_parameters!(params::ParameterSet, delta::Vector{T}) where {T}
     # Update projection parameters
     n_proj = length(params.proj)
     if n_proj > 0
-        params.proj .+= delta[offset+1:offset+n_proj]
+        params.proj .+= delta[(offset+1):(offset+n_proj)]
         offset += n_proj
     end
 
     # Update RBM parameters
     n_rbm = length(params.rbm)
     if n_rbm > 0
-        params.rbm .+= delta[offset+1:offset+n_rbm]
+        params.rbm .+= delta[(offset+1):(offset+n_rbm)]
         offset += n_rbm
     end
 
     # Update Slater parameters
     n_slater = length(params.slater)
     if n_slater > 0
-        params.slater .+= delta[offset+1:offset+n_slater]
+        params.slater .+= delta[(offset+1):(offset+n_slater)]
         offset += n_slater
     end
 
     # Update OptTrans parameters
     n_opttrans = length(params.opttrans)
     if n_opttrans > 0
-        params.opttrans .+= delta[offset+1:offset+n_opttrans]
+        params.opttrans .+= delta[(offset+1):(offset+n_opttrans)]
         offset += n_opttrans
     end
 end
@@ -568,7 +592,8 @@ function update_wavefunction_parameters!(sim::VMCSimulation{T}) where {T}
 
     # Update Jastrow parameters
     if sim.jastrow_factor !== nothing && length(sim.parameters.proj) > 0
-        n_proj = min(length(sim.parameters.proj), jastrow_parameter_count(sim.jastrow_factor))
+        n_proj =
+            min(length(sim.parameters.proj), jastrow_parameter_count(sim.jastrow_factor))
         if n_proj > 0
             jastrow_params = sim.parameters.proj[1:n_proj]
             set_jastrow_parameters!(sim.jastrow_factor, jastrow_params)
@@ -629,11 +654,19 @@ function measure_physics_observables!(sim::VMCSimulation{T}, sample_results) whe
     if sim.vmc_state !== nothing
         max_d = max(0, min(5, sim.vmc_state.n_sites - 1))
         geometry = get_lattice_geometry(sim)
-        corrs = compute_equal_time_correlations(sim.vmc_state; max_distance=max_d, geometry=geometry)
+        corrs = compute_equal_time_correlations(
+            sim.vmc_state;
+            max_distance = max_d,
+            geometry = geometry,
+        )
         observables["spin_correlation"] = corrs[:spin]
         observables["density_correlation"] = corrs[:density]
         # s-wave onsite pairing correlation (equal-time, snapshot-based)
-        paircorr = compute_pair_correlation(sim.vmc_state; max_distance=max_d, geometry=geometry)
+        paircorr = compute_pair_correlation(
+            sim.vmc_state;
+            max_distance = max_d,
+            geometry = geometry,
+        )
         observables["pair_correlation"] = paircorr
     else
         observables["spin_correlation"] = ComplexF64[]
@@ -654,9 +687,13 @@ function measure_double_occupation(state::VMCState{T}) where {T}
     double_occ = 0.0
 
     # Count double occupancy
-    for site in 1:n_sites
-        n_up = count(pos -> pos == site, state.electron_positions[1:div(state.n_electrons, 2)])
-        n_down = count(pos -> pos == site, state.electron_positions[div(state.n_electrons, 2)+1:end])
+    for site = 1:n_sites
+        n_up =
+            count(pos -> pos == site, state.electron_positions[1:div(state.n_electrons, 2)])
+        n_down = count(
+            pos -> pos == site,
+            state.electron_positions[(div(state.n_electrons, 2)+1):end],
+        )
         double_occ += n_up * n_down
     end
 
@@ -691,13 +728,13 @@ function compute_equal_time_correlations(
     n_tot = n_up .+ n_dn
 
     if geometry === nothing
-        spin_corr = ComplexF64[0.0 + 0.0im for _ in 0:maxd]
-        dens_corr = ComplexF64[0.0 + 0.0im for _ in 0:maxd]
-        for d in 0:maxd
+        spin_corr = ComplexF64[0.0 + 0.0im for _ = 0:maxd]
+        dens_corr = ComplexF64[0.0 + 0.0im for _ = 0:maxd]
+        for d = 0:maxd
             cs = 0.0
             cd = 0.0
             cnt = 0
-            for i in 1:n, j in 1:n
+            for i = 1:n, j = 1:n
                 if abs(i - j) == d
                     szi = (n_up[i] - n_dn[i]) / 2
                     szj = (n_up[j] - n_dn[j]) / 2
@@ -717,8 +754,8 @@ function compute_equal_time_correlations(
         sums_spin = Dict{Float64,Float64}()
         sums_dens = Dict{Float64,Float64}()
         counts = Dict{Float64,Int}()
-        for i in 1:n, j in 1:n
-            d = round(norm(coords[i, :] .- coords[j, :]), digits=6)
+        for i = 1:n, j = 1:n
+            d = round(norm(coords[i, :] .- coords[j, :]), digits = 6)
             szi = (n_up[i] - n_dn[i]) / 2
             szj = (n_up[j] - n_dn[j]) / 2
             sums_spin[d] = get(sums_spin, d, 0.0) + szi * szj
@@ -729,7 +766,7 @@ function compute_equal_time_correlations(
         spin_corr = ComplexF64[]
         dens_corr = ComplexF64[]
         nmax = min(length(keys_sorted), maxd + 1)
-        for k in 1:nmax
+        for k = 1:nmax
             key = keys_sorted[k]
             cnt = counts[key]
             push!(spin_corr, (sums_spin[key] / cnt) + 0.0im)
@@ -747,7 +784,9 @@ Returns `nothing` when geometry construction is not supported.
 """
 function get_lattice_geometry(sim::VMCSimulation)
     face = sim.config.face
-    L = haskey(face, :L) ? facevalue(face, :L, Int; default = sim.config.nsites) : sim.config.nsites
+    L =
+        haskey(face, :L) ? facevalue(face, :L, Int; default = sim.config.nsites) :
+        sim.config.nsites
     W = haskey(face, :W) ? facevalue(face, :W, Int; default = 1) : 1
     lat = sim.config.lattice
     try
@@ -776,7 +815,7 @@ end
 
 Output simulation results in mVMC-compatible format.
 """
-function output_results(sim::VMCSimulation{T}, output_dir::String="output") where {T}
+function output_results(sim::VMCSimulation{T}, output_dir::String = "output") where {T}
     mkpath(output_dir)
 
     if sim.mode == PARAMETER_OPTIMIZATION
@@ -798,12 +837,15 @@ function output_optimization_results(sim::VMCSimulation{T}, output_dir::String) 
         println(f, "# Iteration  Energy  Error  ParameterNorm  Condition")
 
         for result in sim.optimization_results
-            @printf(f, "%8d  %12.6f  %12.6f  %12.6e  %12.6e\n",
-                   result["iteration"],
-                   real(result["energy"]),
-                   result["energy_error"],
-                   result["parameter_norm"],
-                   result["overlap_condition"])
+            @printf(
+                f,
+                "%8d  %12.6f  %12.6f  %12.6e  %12.6e\n",
+                result["iteration"],
+                real(result["energy"]),
+                result["energy_error"],
+                result["parameter_norm"],
+                result["overlap_condition"]
+            )
         end
     end
 
@@ -812,8 +854,12 @@ function output_optimization_results(sim::VMCSimulation{T}, output_dir::String) 
         println(f, "# Optimized Variational Parameters")
         println(f, "# Index  Real  Imaginary")
 
-        all_params = [sim.parameters.proj; sim.parameters.rbm;
-                     sim.parameters.slater; sim.parameters.opttrans]
+        all_params = [
+            sim.parameters.proj;
+            sim.parameters.rbm;
+            sim.parameters.slater;
+            sim.parameters.opttrans
+        ]
 
         for (i, param) in enumerate(all_params)
             @printf(f, "%6d  %16.10f  %16.10f\n", i, real(param), imag(param))
@@ -827,9 +873,15 @@ function output_optimization_results(sim::VMCSimulation{T}, output_dir::String) 
         open(joinpath(output_dir, "zvo_SRinfo.dat"), "w") do f
             println(f, "# iter  Energy  Error  ParamNorm  Cond(S)")
             for result in sim.optimization_results
-                @printf(f, "%6d  %16.10f  %12.6f  %12.6e  %12.6e\n",
-                       Int(result["iteration"]), real(result["energy"]),
-                       result["energy_error"], result["parameter_norm"], result["overlap_condition"])
+                @printf(
+                    f,
+                    "%6d  %16.10f  %12.6f  %12.6e  %12.6e\n",
+                    Int(result["iteration"]),
+                    real(result["energy"]),
+                    result["energy_error"],
+                    result["parameter_norm"],
+                    result["overlap_condition"]
+                )
             end
         end
     end
@@ -844,7 +896,10 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
     # Main results
     open(joinpath(output_dir, "zvo_result.dat"), "w") do f
         println(f, "# VMC Physics Calculation Results")
-        println(f, "# Energy: $(real(sim.physics_results["energy_mean"])) ± $(sim.physics_results["energy_std"])")
+        println(
+            f,
+            "# Energy: $(real(sim.physics_results["energy_mean"])) ± $(sim.physics_results["energy_std"])",
+        )
         println(f, "# Double Occupation: $(sim.physics_results["double_occupation"])")
         println(f, "# Acceptance Rate: $(sim.physics_results["acceptance_rate"])")
         println(f, "# Number of Samples: $(sim.physics_results["n_samples"])")
@@ -862,9 +917,16 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         if sim.vmc_state !== nothing
             n = sim.vmc_state.n_sites
             nup = div(sim.vmc_state.n_electrons, 2)
-            n_up = zeros(Int, n); n_dn = zeros(Int, n)
+            n_up = zeros(Int, n);
+            n_dn = zeros(Int, n)
             for (k, pos) in enumerate(sim.vmc_state.electron_positions)
-                if k <= nup; n_up[pos] += 1; else; n_dn[pos] += 1; end
+                if k <= nup
+                    ;
+                    n_up[pos] += 1;
+                else
+                    ;
+                    n_dn[pos] += 1;
+                end
             end
             szt = 0.5 * (sum(n_up) - sum(n_dn))
         end
@@ -879,13 +941,26 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         if sim.vmc_state !== nothing
             n = sim.vmc_state.n_sites
             nup = div(sim.vmc_state.n_electrons, 2)
-            n_up = zeros(Int, n); n_dn = zeros(Int, n)
+            n_up = zeros(Int, n);
+            n_dn = zeros(Int, n)
             for (k, pos) in enumerate(sim.vmc_state.electron_positions)
-                if k <= nup; n_up[pos] += 1; else; n_dn[pos] += 1; end
+                if k <= nup
+                    ;
+                    n_up[pos] += 1;
+                else
+                    ;
+                    n_dn[pos] += 1;
+                end
             end
             szt = 0.5 * (sum(n_up) - sum(n_dn))
-            @printf(f, "%s  %16.10f  %16.10f
-", "magnetization", szt, 0.0)
+            @printf(
+                f,
+                "%s  %16.10f  %16.10f
+",
+                "magnetization",
+                szt,
+                0.0
+            )
         end
         maybe_flush(f, sim)
     end
@@ -894,16 +969,29 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
     let spin = get(sim.physics_results, "spin_correlation", ComplexF64[]),
         dens = get(sim.physics_results, "density_correlation", ComplexF64[]),
         pair = get(sim.physics_results, "pair_correlation", ComplexF64[])
+
         if !isempty(spin) || !isempty(dens) || !isempty(pair)
             open(joinpath(output_dir, "zvo_corr.dat"), "w") do f
-                println(f, "# distance  Re[Cspin(d)]  Im[Cspin(d)]  Re[Cdens(d)]  Im[Cdens(d)]  Re[Cpair_s(d)]  Im[Cpair_s(d)]")
+                println(
+                    f,
+                    "# distance  Re[Cspin(d)]  Im[Cspin(d)]  Re[Cdens(d)]  Im[Cdens(d)]  Re[Cpair_s(d)]  Im[Cpair_s(d)]",
+                )
                 nd = maximum([length(spin), length(dens), length(pair), 0])
-                for d in 0:nd-1
+                for d = 0:(nd-1)
                     s = d < length(spin) ? spin[d+1] : 0.0 + 0.0im
                     n = d < length(dens) ? dens[d+1] : 0.0 + 0.0im
                     p = d < length(pair) ? pair[d+1] : 0.0 + 0.0im
-                    @printf(f, "%6d  %16.10f %16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
-                           d, real(s), imag(s), real(n), imag(n), real(p), imag(p))
+                    @printf(
+                        f,
+                        "%6d  %16.10f %16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
+                        d,
+                        real(s),
+                        imag(s),
+                        real(n),
+                        imag(n),
+                        real(p),
+                        imag(p)
+                    )
                     maybe_flush_interval(f, sim, d+1)
                 end
                 maybe_flush(f, sim)
@@ -945,7 +1033,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
 
         energies = Float64[]
         variances = Float64[]
-        for step in 1:nsteps
+        for step = 1:nsteps
             result = sample_configurations!(sim, base_samples)
             push!(energies, real(result.energy_mean))
             push!(variances, result.energy_std^2)
@@ -962,7 +1050,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
 
         open(joinpath(output_dir, "zvo_ls_alpha_beta.dat"), "w") do f
             println(f, "# step  alpha  beta")
-            for i in 1:length(energies)
+            for i = 1:length(energies)
                 alpha = energies[i]
                 beta = i > 1 ? abs(energies[i] - energies[i-1]) : 0.0
                 @printf(f, "%6d  %16.10f  %16.10f\n", i, alpha, beta)
@@ -977,9 +1065,27 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             open(joinpath(output_dir, "zvo_ls_cisajs.dat"), "w") do f
                 println(f, "# i  s  j  t   Re[G]   Im[G]")
                 n = size(Gup, 1)
-                for i in 1:n, j in 1:n
-                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
-                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+                for i = 1:n, j = 1:n
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        1,
+                        j,
+                        1,
+                        real(Gup[i, j]),
+                        imag(Gup[i, j])
+                    )
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        2,
+                        j,
+                        2,
+                        real(Gdn[i, j]),
+                        imag(Gdn[i, j])
+                    )
                     maybe_flush_interval(f, sim, (i-1)*n + j)
                 end
                 maybe_flush(f, sim)
@@ -992,37 +1098,67 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         ssf = get(sim.physics_results, "spin_structure_factor", ComplexF64[]),
         dsf = get(sim.physics_results, "density_structure_factor", ComplexF64[]),
         nk = get(sim.physics_results, "momentum_distribution", ComplexF64[])
+
         if !isempty(ssf) || !isempty(dsf)
             open(joinpath(output_dir, "zvo_struct.dat"), "w") do f
                 if !isempty(ks) && ks[1] isa Tuple
                     nd = length(ks[1])
                     if nd == 1
                         println(f, "# k  Re[Ss] Im[Ss]  Re[Sn] Im[Sn]")
-                        for i in 1:length(ssf)
-                            @printf(f, "%16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
-                                   ks[i][1], real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                        for i = 1:length(ssf)
+                            @printf(
+                                f,
+                                "%16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
+                                ks[i][1],
+                                real(ssf[i]),
+                                imag(ssf[i]),
+                                real(dsf[i]),
+                                imag(dsf[i])
+                            )
                             maybe_flush_interval(f, sim, i)
                         end
                     elseif nd == 2
                         println(f, "# kx ky  Re[Ss] Im[Ss]  Re[Sn] Im[Sn]")
-                        for i in 1:length(ssf)
-                            @printf(f, "%16.10f %16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
-                                   ks[i][1], ks[i][2], real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                        for i = 1:length(ssf)
+                            @printf(
+                                f,
+                                "%16.10f %16.10f  %16.10f %16.10f  %16.10f %16.10f\n",
+                                ks[i][1],
+                                ks[i][2],
+                                real(ssf[i]),
+                                imag(ssf[i]),
+                                real(dsf[i]),
+                                imag(dsf[i])
+                            )
                             maybe_flush_interval(f, sim, i)
                         end
                     else
                         println(f, "# k-vector  Re[Ss] Im[Ss]  Re[Sn] Im[Sn]")
-                        for i in 1:length(ssf)
-                            @printf(f, "%s  %16.10f %16.10f  %16.10f %16.10f\n",
-                                   string(ks[i]), real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                        for i = 1:length(ssf)
+                            @printf(
+                                f,
+                                "%s  %16.10f %16.10f  %16.10f %16.10f\n",
+                                string(ks[i]),
+                                real(ssf[i]),
+                                imag(ssf[i]),
+                                real(dsf[i]),
+                                imag(dsf[i])
+                            )
                             maybe_flush_interval(f, sim, i)
                         end
                     end
                 else
                     println(f, "# idx  Re[Ss] Im[Ss]  Re[Sn] Im[Sn]")
-                    for i in 1:length(ssf)
-                        @printf(f, "%6d  %16.10f %16.10f  %16.10f %16.10f\n",
-                               i, real(ssf[i]), imag(ssf[i]), real(dsf[i]), imag(dsf[i]))
+                    for i = 1:length(ssf)
+                        @printf(
+                            f,
+                            "%6d  %16.10f %16.10f  %16.10f %16.10f\n",
+                            i,
+                            real(ssf[i]),
+                            imag(ssf[i]),
+                            real(dsf[i]),
+                            imag(dsf[i])
+                        )
                         maybe_flush_interval(f, sim, i)
                     end
                 end
@@ -1035,26 +1171,45 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                     nd = length(ks[1])
                     if nd == 1
                         println(f, "# k  Re[nk] Im[nk]")
-                        for i in 1:length(nk)
-                            @printf(f, "%16.10f  %16.10f %16.10f\n", ks[i][1], real(nk[i]), imag(nk[i]))
+                        for i = 1:length(nk)
+                            @printf(
+                                f,
+                                "%16.10f  %16.10f %16.10f\n",
+                                ks[i][1],
+                                real(nk[i]),
+                                imag(nk[i])
+                            )
                             maybe_flush_interval(f, sim, i)
                         end
                     elseif nd == 2
                         println(f, "# kx ky  Re[nk] Im[nk]")
-                        for i in 1:length(nk)
-                            @printf(f, "%16.10f %16.10f  %16.10f %16.10f\n", ks[i][1], ks[i][2], real(nk[i]), imag(nk[i]))
+                        for i = 1:length(nk)
+                            @printf(
+                                f,
+                                "%16.10f %16.10f  %16.10f %16.10f\n",
+                                ks[i][1],
+                                ks[i][2],
+                                real(nk[i]),
+                                imag(nk[i])
+                            )
                             maybe_flush_interval(f, sim, i)
                         end
                     else
                         println(f, "# k-vector  Re[nk] Im[nk]")
-                        for i in 1:length(nk)
-                            @printf(f, "%s  %16.10f %16.10f\n", string(ks[i]), real(nk[i]), imag(nk[i]))
+                        for i = 1:length(nk)
+                            @printf(
+                                f,
+                                "%s  %16.10f %16.10f\n",
+                                string(ks[i]),
+                                real(nk[i]),
+                                imag(nk[i])
+                            )
                             maybe_flush_interval(f, sim, i)
                         end
                     end
                 else
                     println(f, "# idx  Re[nk] Im[nk]")
-                    for i in 1:length(nk)
+                    for i = 1:length(nk)
                         @printf(f, "%6d  %16.10f %16.10f\n", i, real(nk[i]), imag(nk[i]))
                         maybe_flush_interval(f, sim, i)
                     end
@@ -1092,9 +1247,27 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             println(f, "# i  s  j  t   Re[G]   Im[G]")
             n = size(Gup, 1)
             # spin index: 1 => up, 2 => down
-            for i in 1:n, j in 1:n
-                @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
-                @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+            for i = 1:n, j = 1:n
+                @printf(
+                    f,
+                    "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                    i,
+                    1,
+                    j,
+                    1,
+                    real(Gup[i, j]),
+                    imag(Gup[i, j])
+                )
+                @printf(
+                    f,
+                    "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                    i,
+                    2,
+                    j,
+                    2,
+                    real(Gdn[i, j]),
+                    imag(Gdn[i, j])
+                )
                 maybe_flush_interval(f, sim, (i-1)*n + j)
             end
             maybe_flush(f, sim)
@@ -1107,14 +1280,32 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             1
         end
         nstore = max(1, nstore)
-        for b in 1:nstore
+        for b = 1:nstore
             suffix = @sprintf("_%03d", b)
             open(joinpath(output_dir, "zvo_cisajs" * suffix * ".dat"), "w") do f
                 println(f, "# i  s  j  t   Re[G]   Im[G]")
                 n = size(Gup, 1)
-                for i in 1:n, j in 1:n
-                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
-                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+                for i = 1:n, j = 1:n
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        1,
+                        j,
+                        1,
+                        real(Gup[i, j]),
+                        imag(Gup[i, j])
+                    )
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        2,
+                        j,
+                        2,
+                        real(Gdn[i, j]),
+                        imag(Gdn[i, j])
+                    )
                     maybe_flush_interval(f, sim, (i-1)*n + j)
                 end
                 maybe_flush(f, sim)
@@ -1133,15 +1324,28 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
                 n = sim.vmc_state.n_sites
                 count = 0
-                wick4 = function (G::AbstractMatrix{<:Complex}, i::Int,j::Int,k::Int,l::Int)
-                    δ = (j == k) ? one(eltype(G)) : zero(eltype(G))
-                    return δ * G[i,l] - G[i,k] * G[j,l]
-                end
-                for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                wick4 =
+                    function (G::AbstractMatrix{<:Complex}, i::Int, j::Int, k::Int, l::Int)
+                        δ = (j == k) ? one(eltype(G)) : zero(eltype(G))
+                        return δ * G[i, l] - G[i, k] * G[j, l]
+                    end
+                for i = 1:n, j = 1:n, k = 1:n, l = 1:n
                     # spin-up block
                     z1 = wick4(Gup, i, j, k, l)
-                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                           i, 1, j, 1, k, 1, l, 1, real(z1), imag(z1))
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        1,
+                        j,
+                        1,
+                        k,
+                        1,
+                        l,
+                        1,
+                        real(z1),
+                        imag(z1)
+                    )
                     count += 1
                     maybe_flush_interval(f, sim, count)
                     if count >= maxrows
@@ -1149,8 +1353,20 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                     end
                     # spin-down block
                     z2 = wick4(Gdn, i, j, k, l)
-                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                           i, 2, j, 2, k, 2, l, 2, real(z2), imag(z2))
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        2,
+                        j,
+                        2,
+                        k,
+                        2,
+                        l,
+                        2,
+                        real(z2),
+                        imag(z2)
+                    )
                     count += 1
                     maybe_flush_interval(f, sim, count)
                     if count >= maxrows
@@ -1164,20 +1380,44 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
                 n = sim.vmc_state.n_sites
                 count = 0
-                for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                for i = 1:n, j = 1:n, k = 1:n, l = 1:n
                     # spin-up DC = G_up[i,k] * G_up[j,l]
-                    z1dc = Gup[i,k] * Gup[j,l]
-                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                           i, 1, j, 1, k, 1, l, 1, real(z1dc), imag(z1dc))
+                    z1dc = Gup[i, k] * Gup[j, l]
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        1,
+                        j,
+                        1,
+                        k,
+                        1,
+                        l,
+                        1,
+                        real(z1dc),
+                        imag(z1dc)
+                    )
                     count += 1
                     maybe_flush_interval(f, sim, count)
                     if count >= maxrows
                         break
                     end
                     # spin-down DC = G_dn[i,k] * G_dn[j,l]
-                    z2dc = Gdn[i,k] * Gdn[j,l]
-                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                           i, 2, j, 2, k, 2, l, 2, real(z2dc), imag(z2dc))
+                    z2dc = Gdn[i, k] * Gdn[j, l]
+                    @printf(
+                        f,
+                        "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                        i,
+                        2,
+                        j,
+                        2,
+                        k,
+                        2,
+                        l,
+                        2,
+                        real(z2dc),
+                        imag(z2dc)
+                    )
                     count += 1
                     maybe_flush_interval(f, sim, count)
                     if count >= maxrows
@@ -1193,7 +1433,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 1
             end
             nstore = max(1, nstore)
-            for b in 1:nstore
+            for b = 1:nstore
                 suffix = @sprintf("_%03d", b)
                 # Equal-time 4-body (Wick)
                 open(joinpath(output_dir, "zvo_cisajscktaltex" * suffix * ".dat"), "w") do f
@@ -1201,22 +1441,52 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                     println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
                     n = sim.vmc_state.n_sites
                     count = 0
-                    wick4 = function (G::AbstractMatrix{<:Complex}, i::Int,j::Int,k::Int,l::Int)
+                    wick4 = function (
+                        G::AbstractMatrix{<:Complex},
+                        i::Int,
+                        j::Int,
+                        k::Int,
+                        l::Int,
+                    )
                         δ = (j == k) ? one(eltype(G)) : zero(eltype(G))
-                        return δ * G[i,l] - G[i,k] * G[j,l]
+                        return δ * G[i, l] - G[i, k] * G[j, l]
                     end
-                    for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                    for i = 1:n, j = 1:n, k = 1:n, l = 1:n
                         z1 = wick4(Gup, i, j, k, l)
-                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                               i, 1, j, 1, k, 1, l, 1, real(z1), imag(z1))
+                        @printf(
+                            f,
+                            "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                            i,
+                            1,
+                            j,
+                            1,
+                            k,
+                            1,
+                            l,
+                            1,
+                            real(z1),
+                            imag(z1)
+                        )
                         count += 1
                         maybe_flush_interval(f, sim, count)
                         if count >= maxrows
                             break
                         end
                         z2 = wick4(Gdn, i, j, k, l)
-                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                               i, 2, j, 2, k, 2, l, 2, real(z2), imag(z2))
+                        @printf(
+                            f,
+                            "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                            i,
+                            2,
+                            j,
+                            2,
+                            k,
+                            2,
+                            l,
+                            2,
+                            real(z2),
+                            imag(z2)
+                        )
                         count += 1
                         maybe_flush_interval(f, sim, count)
                         if count >= maxrows
@@ -1231,18 +1501,42 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                     println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
                     n = sim.vmc_state.n_sites
                     count = 0
-                    for i in 1:n, j in 1:n, k in 1:n, l in 1:n
-                        z1dc = Gup[i,k] * Gup[j,l]
-                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                               i, 1, j, 1, k, 1, l, 1, real(z1dc), imag(z1dc))
+                    for i = 1:n, j = 1:n, k = 1:n, l = 1:n
+                        z1dc = Gup[i, k] * Gup[j, l]
+                        @printf(
+                            f,
+                            "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                            i,
+                            1,
+                            j,
+                            1,
+                            k,
+                            1,
+                            l,
+                            1,
+                            real(z1dc),
+                            imag(z1dc)
+                        )
                         count += 1
                         maybe_flush_interval(f, sim, count)
                         if count >= maxrows
                             break
                         end
-                        z2dc = Gdn[i,k] * Gdn[j,l]
-                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                               i, 2, j, 2, k, 2, l, 2, real(z2dc), imag(z2dc))
+                        z2dc = Gdn[i, k] * Gdn[j, l]
+                        @printf(
+                            f,
+                            "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                            i,
+                            2,
+                            j,
+                            2,
+                            k,
+                            2,
+                            l,
+                            2,
+                            real(z2dc),
+                            imag(z2dc)
+                        )
                         count += 1
                         maybe_flush_interval(f, sim, count)
                         if count >= maxrows
@@ -1270,7 +1564,7 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 1
             end
             nstore = max(1, nstore)
-            for b in 1:nstore
+            for b = 1:nstore
                 suffix = @sprintf("_%03d", b)
                 open(joinpath(output_dir, "zvo_cisajscktaltex" * suffix * ".dat"), "w") do f
                     println(f, "# 4-body Green function (placeholder)")
@@ -1310,9 +1604,9 @@ function compute_onebody_green(state::VMCState{T}) where {T}
     end
     Gup = zeros(ComplexF64, n, n)
     Gdn = zeros(ComplexF64, n, n)
-    for i in 1:n
-        Gup[i,i] = n_up[i]
-        Gdn[i,i] = n_dn[i]
+    for i = 1:n
+        Gup[i, i] = n_up[i]
+        Gdn[i, i] = n_dn[i]
     end
     return Gup, Gdn
 end
@@ -1339,7 +1633,7 @@ function compute_onebody_green_local(sim::VMCSimulation{T}) where {T}
 
     nup = div(ne, 2)
     # Fill spin-up electrons
-    for k in 1:nup
+    for k = 1:nup
         pos = sim.vmc_state.electron_positions[k]
         gf.ele_idx[k] = pos
         rsi = pos + (1 - 1) * n
@@ -1347,9 +1641,9 @@ function compute_onebody_green_local(sim::VMCSimulation{T}) where {T}
         gf.ele_num[rsi] = 1
     end
     # Fill spin-down electrons
-    for k in 1:(ne - nup)
-        pos = sim.vmc_state.electron_positions[nup + k]
-        gf.ele_idx[nup + k] = pos
+    for k = 1:(ne-nup)
+        pos = sim.vmc_state.electron_positions[nup+k]
+        gf.ele_idx[nup+k] = pos
         rsi = pos + (2 - 1) * n
         gf.ele_cfg[rsi] = 1
         gf.ele_num[rsi] = 1
@@ -1359,11 +1653,31 @@ function compute_onebody_green_local(sim::VMCSimulation{T}) where {T}
     Gdn = zeros(ComplexF64, n, n)
     # ip is a placeholder parameter for the local green call; set to 1
     ip = one(ComplexF64)
-    for i in 1:n, j in 1:n
+    for i = 1:n, j = 1:n
         # spin up = 1
-        Gup[i, j] = green_function_1body!(gf, i, j, 1, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
+        Gup[i, j] = green_function_1body!(
+            gf,
+            i,
+            j,
+            1,
+            ip,
+            gf.ele_idx,
+            gf.ele_cfg,
+            gf.ele_num,
+            gf.proj_cnt,
+        )
         # spin down = 2
-        Gdn[i, j] = green_function_1body!(gf, i, j, 2, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
+        Gdn[i, j] = green_function_1body!(
+            gf,
+            i,
+            j,
+            2,
+            ip,
+            gf.ele_idx,
+            gf.ele_cfg,
+            gf.ele_num,
+            gf.proj_cnt,
+        )
     end
     return Gup, Gdn
 end
@@ -1429,11 +1743,11 @@ function compute_pair_correlation(
     D = n_up .* n_dn
 
     if geometry === nothing
-        corr = ComplexF64[0.0 + 0.0im for _ in 0:maxd]
-        for d in 0:maxd
+        corr = ComplexF64[0.0 + 0.0im for _ = 0:maxd]
+        for d = 0:maxd
             s = 0.0
             c = 0
-            for i in 1:n, j in 1:n
+            for i = 1:n, j = 1:n
                 if abs(i - j) == d
                     s += D[i] * D[j]
                     c += 1
@@ -1448,15 +1762,15 @@ function compute_pair_correlation(
         coords = generate_site_coordinates(geometry)
         sums = Dict{Float64,Float64}()
         counts = Dict{Float64,Int}()
-        for i in 1:n, j in 1:n
-            d = round(norm(coords[i, :] .- coords[j, :]), digits=6)
+        for i = 1:n, j = 1:n
+            d = round(norm(coords[i, :] .- coords[j, :]), digits = 6)
             sums[d] = get(sums, d, 0.0) + D[i] * D[j]
             counts[d] = get(counts, d, 0) + 1
         end
         keys_sorted = sort(collect(keys(counts)))
         nm = min(length(keys_sorted), maxd + 1)
         corr = ComplexF64[]
-        for k in 1:nm
+        for k = 1:nm
             key = keys_sorted[k]
             push!(corr, (sums[key] / counts[key]) + 0.0im)
         end
@@ -1484,9 +1798,13 @@ function print_simulation_summary(sim::VMCSimulation{T}) where {T}
 
     if sim.mode == PARAMETER_OPTIMIZATION && !isempty(sim.optimization_results)
         final_result = sim.optimization_results[end]
-        println("Final Energy: $(real(final_result["energy"])) ± $(final_result["energy_error"])")
+        println(
+            "Final Energy: $(real(final_result["energy"])) ± $(final_result["energy_error"])",
+        )
     elseif sim.mode == PHYSICS_CALCULATION && !isempty(sim.physics_results)
-        println("Final Energy: $(real(sim.physics_results["energy_mean"])) ± $(sim.physics_results["energy_std"])")
+        println(
+            "Final Energy: $(real(sim.physics_results["energy_mean"])) ± $(sim.physics_results["energy_std"])",
+        )
     end
 
     println("="^60)
@@ -1504,12 +1822,12 @@ function get_reciprocal_grid(geometry)
     end
     if geometry.dimensions == 1 || (length(geometry.L) == 2 && geometry.L[2] == 1)
         L = geometry.n_sites_total
-        ks = Tuple{Float64}[(2π * n / L,) for n in 0:(L-1)]
+        ks = Tuple{Float64}[(2π * n / L,) for n = 0:(L-1)]
         return ks
     elseif geometry.dimensions == 2
         Lx, Ly = geometry.L[1], geometry.L[2]
         ks = Tuple{Float64,Float64}[]
-        for nx in 0:(Lx-1), ny in 0:(Ly-1)
+        for nx = 0:(Lx-1), ny = 0:(Ly-1)
             push!(ks, (2π * nx / Lx, 2π * ny / Ly))
         end
         return ks
@@ -1524,7 +1842,7 @@ end
 Compute equal-time spin and density structure factors S(q) from snapshot
 occupations using geometry-aware k-grid when available.
 """
-function compute_structure_factors(state::VMCState{T}; geometry=nothing) where {T}
+function compute_structure_factors(state::VMCState{T}; geometry = nothing) where {T}
     n = state.n_sites
     # Build occupations and spin-z
     nup = div(state.n_electrons, 2)
@@ -1545,7 +1863,7 @@ function compute_structure_factors(state::VMCState{T}; geometry=nothing) where {
     ks = get_reciprocal_grid(geometry)
     if isempty(ks)
         # Fallback: simple index-based grid
-        ks = [(2π * i / n,) for i in 0:(n-1)]
+        ks = [(2π * i / n,) for i = 0:(n-1)]
     end
 
     spin_sf = ComplexF64[]
@@ -1553,15 +1871,20 @@ function compute_structure_factors(state::VMCState{T}; geometry=nothing) where {
     for k in ks
         sum_s = 0.0 + 0.0im
         sum_n = 0.0 + 0.0im
-        for i in 1:n, j in 1:n
+        for i = 1:n, j = 1:n
             if coords === nothing
                 # 1D fallback: r = i-1, j-1
                 phase = exp(-1im * k[1] * ((i-1) - (j-1)))
             else
                 if length(k) == 1
-                    phase = exp(-1im * k[1] * (coords[i,1] - coords[j,1]))
+                    phase = exp(-1im * k[1] * (coords[i, 1] - coords[j, 1]))
                 else
-                    phase = exp(-1im * (k[1]*(coords[i,1]-coords[j,1]) + k[2]*(coords[i,2]-coords[j,2])))
+                    phase = exp(
+                        -1im * (
+                            k[1]*(coords[i, 1]-coords[j, 1]) +
+                            k[2]*(coords[i, 2]-coords[j, 2])
+                        ),
+                    )
                 end
             end
             sum_s += s_z[i] * s_z[j] * phase
@@ -1579,7 +1902,7 @@ end
 Compute a simple momentum distribution n(k) from real-space densities as
 the Fourier transform of n_i (snapshot-based, approximate).
 """
-function compute_momentum_distribution(state::VMCState{T}; geometry=nothing) where {T}
+function compute_momentum_distribution(state::VMCState{T}; geometry = nothing) where {T}
     n = state.n_sites
     n_tot = zeros(Int, n)
     for pos in state.electron_positions
@@ -1588,19 +1911,19 @@ function compute_momentum_distribution(state::VMCState{T}; geometry=nothing) whe
     coords = geometry === nothing ? nothing : generate_site_coordinates(geometry)
     ks = get_reciprocal_grid(geometry)
     if isempty(ks)
-        ks = [(2π * i / n,) for i in 0:(n-1)]
+        ks = [(2π * i / n,) for i = 0:(n-1)]
     end
     nk = ComplexF64[]
     for k in ks
         sum_n = 0.0 + 0.0im
-        for i in 1:n
+        for i = 1:n
             if coords === nothing
                 phase = exp(-1im * k[1] * (i-1))
             else
                 if length(k) == 1
-                    phase = exp(-1im * k[1] * coords[i,1])
+                    phase = exp(-1im * k[1] * coords[i, 1])
                 else
-                    phase = exp(-1im * (k[1]*coords[i,1] + k[2]*coords[i,2]))
+                    phase = exp(-1im * (k[1]*coords[i, 1] + k[2]*coords[i, 2]))
                 end
             end
             sum_n += n_tot[i] * phase

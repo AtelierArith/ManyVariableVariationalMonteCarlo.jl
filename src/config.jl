@@ -405,7 +405,8 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
     twist_y = facevalue(face, :TwistY, Float64; default = 0.0)
     flush_file = facevalue(face, :FlushFile, Bool; default = false)
     flush_interval = facevalue(face, :NFileFlushInterval, Int; default = 0)
-    nvmc_warm_up = facevalue(face, :NVMCWarmUp, Int; default = max(50, div(nvmc_sample, 10)))
+    nvmc_warm_up =
+        facevalue(face, :NVMCWarmUp, Int; default = max(50, div(nvmc_sample, 10)))
     nvmc_interval = facevalue(face, :NVMCInterval, Int; default = 1)
 
     return SimulationConfig(

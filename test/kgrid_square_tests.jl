@@ -22,14 +22,20 @@
     output_results(sim, outdir)
 
     # Read struct lines
-    data_struct = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_struct.dat")))
+    data_struct = filter(
+        l -> !isempty(l) && !startswith(l, "#"),
+        readlines(joinpath(outdir, "zvo_struct.dat")),
+    )
     @test length(data_struct) == Lx * Ly
     # Each data line: kx ky ReSs ImSs ReSn ImSn (6 tokens)
     parts = split(strip(first(data_struct)))
     @test length(parts) == 6
 
     # Read momentum lines
-    data_nk = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_momentum.dat")))
+    data_nk = filter(
+        l -> !isempty(l) && !startswith(l, "#"),
+        readlines(joinpath(outdir, "zvo_momentum.dat")),
+    )
     @test length(data_nk) == Lx * Ly
     parts_nk = split(strip(first(data_nk)))
     @test length(parts_nk) == 4  # kx ky Re nk Im nk

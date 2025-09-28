@@ -22,10 +22,16 @@
     # Expect L k-points for chain
     L = 6
     # zvo_struct.dat
-    lines_struct = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_struct.dat")))
+    lines_struct = filter(
+        l -> !isempty(l) && !startswith(l, "#"),
+        readlines(joinpath(outdir, "zvo_struct.dat")),
+    )
     @test length(lines_struct) == L
     # zvo_momentum.dat
-    lines_nk = filter(l -> !isempty(l) && !startswith(l, "#"), readlines(joinpath(outdir, "zvo_momentum.dat")))
+    lines_nk = filter(
+        l -> !isempty(l) && !startswith(l, "#"),
+        readlines(joinpath(outdir, "zvo_momentum.dat")),
+    )
     @test length(lines_nk) == L
 end
 
@@ -43,7 +49,7 @@ end
     config = SimulationConfig(face)
     layout = ParameterLayout(2, 0, 2, 0)
 
-    sim = VMCSimulation(config, layout; T=ComplexF64)
+    sim = VMCSimulation(config, layout; T = ComplexF64)
     initialize_simulation!(sim)
     run_physics_calculation!(sim)
 
@@ -67,7 +73,10 @@ end
     Gup = zeros(Float64, n, n)
     Gdn = zeros(Float64, n, n)
     for line in eachline(joinpath(outdir, "zvo_cisajs.dat"))
-        if isempty(line) || startswith(line, "#"); continue; end
+        if isempty(line) || startswith(line, "#")
+            ;
+            continue;
+        end
         parts = split(strip(line))
         # i s j t Re Im
         i = parse(Int, parts[1])
@@ -77,22 +86,22 @@ end
         re = parse(Float64, parts[5])
         # im = parse(Float64, parts[6])
         if s == 1 && t == 1
-            Gup[i,j] = re
+            Gup[i, j] = re
         elseif s == 2 && t == 2
-            Gdn[i,j] = re
+            Gdn[i, j] = re
         end
     end
 
     # Diagonals match occupancies
-    for i in 1:n
-        @test isapprox(Gup[i,i], n_up[i]; atol=1e-12)
-        @test isapprox(Gdn[i,i], n_dn[i]; atol=1e-12)
+    for i = 1:n
+        @test isapprox(Gup[i, i], n_up[i]; atol = 1e-12)
+        @test isapprox(Gdn[i, i], n_dn[i]; atol = 1e-12)
     end
     # Off-diagonals are ~0
-    for i in 1:n, j in 1:n
+    for i = 1:n, j = 1:n
         if i != j
-            @test isapprox(Gup[i,j], 0.0; atol=1e-12)
-            @test isapprox(Gdn[i,j], 0.0; atol=1e-12)
+            @test isapprox(Gup[i, j], 0.0; atol = 1e-12)
+            @test isapprox(Gdn[i, j], 0.0; atol = 1e-12)
         end
     end
 end
