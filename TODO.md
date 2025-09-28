@@ -4,6 +4,12 @@ ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
 
 最終更新: 2025-09-28
 
+進捗サマリ（現状の実装）
+- zvo_* 出力: `zvo_result/energy/accept/struct/momentum/corr/cisajs` を実装。4 体系（`cisajscktaltex/cktalt`）とビン分割（`_001` 等）も生成（物理の厳密性は要強化）。
+- Lanczos: `NLanczosMode>0` で `zvo_ls_*`（result/alpha_beta/cisajs）を最小統合。
+- Twist: `TwistX/TwistY` を設定から受け取り、基本的位相を考慮。
+- 機能モジュール: FSZ/Backflow/Advanced Projections（点群・時間反転・粒子正孔）を追加（要検証/最適化）。
+
 未実装（または部分実装）の機能一覧
 - Wannier90 連携（StdFace_W90）
   - *_hr.dat 読み込み、格子/軌道情報の統合、二重カウント補正（Hartree/Hartree-U/Full）
@@ -16,9 +22,9 @@ ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
   - MPI 分散サンプリング/通信最適化（現在は Threads/Distributed ベースの簡易分散のみ）
   - ScaLAPACK を用いた大規模 SR/固有値処理パス
 
-- zvo_cisajs 系出力の完全化
-  - `zvo_cisajs_*.dat` の各バリアント（スナップショット/ビン/後処理対応）
-  - `zvo_cisajscktaltex_*.dat`（4 体）と `zvo_cisajscktalt_*.dat`（4 体 DC）の本実装（現状はプレースホルダ/制限付き）
+- zvo_cisajs/4体 系の厳密化
+  - 既存ファイル出力の物理厳密化：Wick 展開、DC 項、平均化スキーム、見出し/単位の mVMC 完全互換
+  - 大規模系向けの計算負荷削減（メモリ/時間最適化）
 
 - Lanczos の本格統合
   - VMC サンプルからの Krylov 構築、物理量投影、スペクトル/動的相関の出力整備
@@ -29,25 +35,26 @@ ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
   - 大規模ローカルグリーン関数の効率的更新（lslocgrn 系）
 
 - 1 体/4 体グリーン関数の厳密化
-  - 等時 1 体 G をスレーター逆行列等から厳密計算（現状は対角近似の経路あり）
+  - 等時 1 体 G の厳密計算（逆行列更新・数値安定化、境界条件/Twist を反映）
   - 4 体 G と DC 項の計算/平均化/出力の mVMC 互換
 
 - 反周期境界/ツイスト角の一般化
-  - 任意格子での APBC/Twist、トポロジカル量の計測支援
+  - 任意格子での APBC/Twist、k-グリッド平均、トポロジカル量の計測支援
 
 - SR/最適化制御の高度化
   - 固有値カット、対角カット、パラメータ縮退方向の除去、数値安定化オプション
   - 実数/複素数混在パラメータ最適化の統合
 
 - 出力/I/O の拡張
-  - バイナリ出力（`FlagBinary` 系）、チェックポイント/リスタート（RNG 以外のフル状態）
+  - HDF5/JSON 既存 I/O のスキーマ整備、バイナリ出力（`FlagBinary` 系）
+  - チェックポイント/リスタート（RNG を含むフル状態）
   - 見出し/単位/整合性の厳密化、後方互換を保った schema テスト
 
 - 多軌道・実材料系
   - 一般軌道モデル、軌道間相互作用、Wannier90 との端到端ワークフロー
 
 - タイマー/プロファイリング
-  - 詳細タイマー、段階別集計（サンプリング/計算/最適化/出力）、メモリ監視
+  - 詳細タイマー/集計（TimerOutputs 等）、段階別レポート、メモリ監視
 
 - RBM 拡張/連携
   - ニューロン分類（General/Charge/Spin）、階層 RBM、RBM-Lanczos 連携
@@ -57,10 +64,14 @@ ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
 - 小系での物理量再現（既知の基底エネルギー/相関）
 - FSZ 更新/グリーン関数の整合性テスト
 - Lanczos の固有値回帰/スペクトル形状のスモークテスト
-- APBC/Twist の幾何別サニティチェック
+- APBC/Twist の幾何別サニティチェック、k-平均の数値安定性
+
+開発運用（TODO）
+- CI: GitHub Actions で `julia-actions/setup-julia@v1` + `Pkg.instantiate`/`Pkg.test` を追加
+- フォーマッタ: `JuliaFormatter` を CI に組み込み（差分チェック）
+- 大きな出力（`zvo_*.dat`）は成果物として収集し、VCS には含めない
 
 作業の指針
-- 作業場所: `ManyVariableVariationalMonteCarlo.jl/`
 - 依存関係: `julia --project -e 'using Pkg; Pkg.instantiate()'`
 - テスト: `julia --project -e 'using Pkg; Pkg.test()'`
 - 絞り込み: `julia --project -e 'using ReTestItems; ReTestItems.runtests(filter="lanczos|output|greens")'`
