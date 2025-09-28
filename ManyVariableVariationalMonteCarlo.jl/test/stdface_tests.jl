@@ -329,4 +329,5 @@ end
 
     geometry = create_honeycomb_lattice(2, 3)
     lattice_summary(geometry)  # Multi-site unit cell
+    @test true
 end

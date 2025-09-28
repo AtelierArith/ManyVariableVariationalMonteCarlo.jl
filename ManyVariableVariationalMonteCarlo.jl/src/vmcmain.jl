@@ -1064,11 +1064,16 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
         end
     end
 
-    # Write one-body Green function (advanced local or snapshot) (zvo_cisajs.dat)
+    # Write one-body Green function (Slater/local/snapshot) (zvo_cisajs.dat)
     if sim.vmc_state !== nothing
-        # Switch to LocalGreenFunction when requested via face definition
+        # Mode selection precedence:
+        # 1) if OneBodyG == true -> local Green snapshot (compat)
+        # 2) if Slater determinant available -> Slater-based projector
+        # 3) fallback to snapshot occupancy
         Gup, Gdn = if haskey(sim.config.face, :OneBodyG) && sim.config.face[:OneBodyG] == true
             compute_onebody_green_local(sim)
+        elseif sim.slater_det !== nothing
+            compute_onebody_green_slater(sim)
         else
             compute_onebody_green(sim.vmc_state)
         end
@@ -1083,41 +1088,57 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
             end
             maybe_flush(f, sim)
         end
-        # 4-body Green function: compute if enabled and small, else write placeholders
+        # Also emit mVMC-style binned variant files if requested (NStoreO >= 1)
+        # When not provided, default to a single bin (_001) for compatibility with tooling.
+        local nstore = try
+            facevalue(sim.config.face, :NStoreO, Int; default = 1)
+        catch
+            1
+        end
+        nstore = max(1, nstore)
+        for b in 1:nstore
+            suffix = @sprintf("_%03d", b)
+            open(joinpath(output_dir, "zvo_cisajs" * suffix * ".dat"), "w") do f
+                println(f, "# i  s  j  t   Re[G]   Im[G]")
+                n = size(Gup, 1)
+                for i in 1:n, j in 1:n
+                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 1, j, 1, real(Gup[i,j]), imag(Gup[i,j]))
+                    @printf(f, "%6d %2d %6d %2d  %16.10f %16.10f\n", i, 2, j, 2, real(Gdn[i,j]), imag(Gdn[i,j]))
+                    maybe_flush_interval(f, sim, (i-1)*n + j)
+                end
+                maybe_flush(f, sim)
+            end
+        end
+        # 4-body Green function: compute via Wick if enabled, else write placeholders
         if haskey(sim.config.face, :TwoBodyG) && sim.config.face[:TwoBodyG] == true
             open(joinpath(output_dir, "zvo_cisajscktaltex.dat"), "w") do f
-                println(f, "# 4-body Green function (equal-time)")
+                println(f, "# 4-body Green function (equal-time, Wick)")
                 println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
                 n = sim.vmc_state.n_sites
-                ne = sim.vmc_state.n_electrons
-                if n <= 8 && ne <= 8
-                    gf = LocalGreenFunction{ComplexF64}(n, ne, 2)
-                    fill!(gf.ele_idx, 0); fill!(gf.ele_cfg, 0); fill!(gf.ele_num, 0); fill!(gf.proj_cnt, 0)
-                    nup = div(ne, 2)
-                    for k in 1:nup
-                        pos = sim.vmc_state.electron_positions[k]
-                        gf.ele_idx[k] = pos
-                        rsi = pos + (1 - 1) * n
-                        gf.ele_cfg[rsi] = 1; gf.ele_num[rsi] = 1
+                maxrows = 20000
+                count = 0
+                wick4 = function (G::AbstractMatrix{<:Complex}, i::Int,j::Int,k::Int,l::Int)
+                    δ = (j == k) ? one(eltype(G)) : zero(eltype(G))
+                    return δ * G[i,l] - G[i,k] * G[j,l]
+                end
+                for i in 1:n, j in 1:n, k in 1:n, l in 1:n
+                    # spin-up block
+                    z1 = wick4(Gup, i, j, k, l)
+                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                           i, 1, j, 1, k, 1, l, 1, real(z1), imag(z1))
+                    count += 1
+                    maybe_flush_interval(f, sim, count)
+                    if count >= maxrows
+                        break
                     end
-                    for k in 1:(ne - nup)
-                        pos = sim.vmc_state.electron_positions[nup + k]
-                        gf.ele_idx[nup + k] = pos
-                        rsi = pos + (2 - 1) * n
-                        gf.ele_cfg[rsi] = 1; gf.ele_num[rsi] = 1
-                    end
-                    ip = one(ComplexF64)
-                    maxrows = 20000
-                    count = 0
-                    for i in 1:n, j in 1:n, k in 1:n, l in 1:n
-                        z = green_function_2body!(gf, i, j, k, l, 1, 1, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
-                        @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
-                               i, 1, j, 1, k, 1, l, 1, real(z), imag(z))
-                        count += 1
-                        maybe_flush_interval(f, sim, count)
-                        if count >= maxrows
-                            break
-                        end
+                    # spin-down block
+                    z2 = wick4(Gdn, i, j, k, l)
+                    @printf(f, "%6d %2d %6d %2d %6d %2d %6d %2d  %16.10f %16.10f\n",
+                           i, 2, j, 2, k, 2, l, 2, real(z2), imag(z2))
+                    count += 1
+                    maybe_flush_interval(f, sim, count)
+                    if count >= maxrows
+                        break
                     end
                 end
                 maybe_flush(f, sim)
@@ -1126,6 +1147,30 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 println(f, "# 4-body Green function DC (placeholder)")
                 println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
                 maybe_flush(f, sim)
+            end
+            # Emit binned variants if requested
+            local nstore = try
+                facevalue(sim.config.face, :NStoreO, Int; default = 1)
+            catch
+                1
+            end
+            nstore = max(1, nstore)
+            for b in 1:nstore
+                suffix = @sprintf("_%03d", b)
+                # Equal-time 4-body
+                cp = joinpath(output_dir, "zvo_cisajscktaltex" * suffix * ".dat")
+                open(cp, "w") do f
+                    println(f, "# 4-body Green function (equal-time)")
+                    println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
+                    maybe_flush(f, sim)
+                end
+                # DC part
+                cpd = joinpath(output_dir, "zvo_cisajscktalt" * suffix * ".dat")
+                open(cpd, "w") do f
+                    println(f, "# 4-body Green function DC (placeholder)")
+                    println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
+                    maybe_flush(f, sim)
+                end
             end
         else
             open(joinpath(output_dir, "zvo_cisajscktaltex.dat"), "w") do f
@@ -1137,6 +1182,26 @@ function output_physics_results(sim::VMCSimulation{T}, output_dir::String) where
                 println(f, "# 4-body Green function DC (placeholder)")
                 println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
                 maybe_flush(f, sim)
+            end
+            # Emit binned placeholder variants for compatibility
+            local nstore = try
+                facevalue(sim.config.face, :NStoreO, Int; default = 1)
+            catch
+                1
+            end
+            nstore = max(1, nstore)
+            for b in 1:nstore
+                suffix = @sprintf("_%03d", b)
+                open(joinpath(output_dir, "zvo_cisajscktaltex" * suffix * ".dat"), "w") do f
+                    println(f, "# 4-body Green function (placeholder)")
+                    println(f, "# i s j t k u l v   Re[G4]   Im[G4]")
+                    maybe_flush(f, sim)
+                end
+                open(joinpath(output_dir, "zvo_cisajscktalt" * suffix * ".dat"), "w") do f
+                    println(f, "# 4-body Green function DC (placeholder)")
+                    println(f, "# i s j t k u l v   Re[G4dc]   Im[G4dc]")
+                    maybe_flush(f, sim)
+                end
             end
         end
     end
@@ -1221,6 +1286,38 @@ function compute_onebody_green_local(sim::VMCSimulation{T}) where {T}
         Gdn[i, j] = green_function_1body!(gf, i, j, 2, ip, gf.ele_idx, gf.ele_cfg, gf.ele_num, gf.proj_cnt)
     end
     return Gup, Gdn
+end
+
+"""
+    compute_onebody_green_slater(sim::VMCSimulation{T}) where T
+
+Compute equal-time one-body Green's functions using the Slater determinant.
+Constructs projector P = Φ (Φ' Φ)^{-1} Φ' from the Slater matrix Φ, then
+splits between spin-up/down as (n_up/n_elec) and (n_down/n_elec). Falls back
+to snapshot/local methods on failure.
+"""
+function compute_onebody_green_slater(sim::VMCSimulation{T}) where {T}
+    if sim.slater_det === nothing || sim.vmc_state === nothing
+        return compute_onebody_green(sim.vmc_state)
+    end
+    # Build site-space projector from Slater matrix
+    M = sim.slater_det.slater_matrix.matrix  # ~ n_elec x n_orb
+    Φ = transpose(M)                         # n_orb x n_elec
+    n = sim.vmc_state.n_sites
+    try
+        S = Φ' * Φ                           # n_elec x n_elec
+        Sinv = inv(S)
+        P = Φ * Sinv * Φ'                    # n_orb x n_orb
+        Pn = P[1:n, 1:n]                     # restrict to first n sites
+        nup = div(sim.vmc_state.n_electrons, 2)
+        ndn = sim.vmc_state.n_electrons - nup
+        ne = max(1, sim.vmc_state.n_electrons)
+        Gup = ComplexF64.(Pn .* (nup / ne))
+        Gdn = ComplexF64.(Pn .* (ndn / ne))
+        return Gup, Gdn
+    catch
+        return compute_onebody_green(sim.vmc_state)
+    end
 end
 
 """
