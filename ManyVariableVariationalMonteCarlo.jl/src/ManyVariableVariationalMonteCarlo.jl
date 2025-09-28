@@ -28,9 +28,14 @@ include("observables.jl")
 # Optimization
 include("optimization.jl")
 
-# Advanced features (commented out due to missing dependencies)
+# Main workflow and Hamiltonian (after all dependencies)
+include("hamiltonian.jl")
+include("stdface.jl")
+include("vmcmain.jl")
+
+# Advanced features
+include("io_advanced.jl")   # HDF5 and JSON dependencies now available
 # include("parallel.jl")      # Requires Distributed
-# include("io_advanced.jl")   # Requires HDF5
 # include("visualization.jl") # Requires Plots
 # include("benchmarking.jl")  # Requires BenchmarkTools
 
@@ -42,6 +47,70 @@ export SimulationConfig,
     facevalue,
     load_face_definition,
     push_definition!,
+    # Main VMC workflow exports
+    VMCMode,
+    PARAMETER_OPTIMIZATION,
+    PHYSICS_CALCULATION,
+    VMCSimulation,
+    initialize_simulation!,
+    run_simulation!,
+    run_parameter_optimization!,
+    run_physics_calculation!,
+    output_results,
+    print_simulation_summary,
+    # Hamiltonian exports
+    Hamiltonian,
+    TransferTerm,
+    CoulombIntraTerm,
+    CoulombInterTerm,
+    HundTerm,
+    PairHoppingTerm,
+    ExchangeTerm,
+    InterAllTerm,
+    add_transfer!,
+    add_coulomb_intra!,
+    add_coulomb_inter!,
+    add_hund_coupling!,
+    add_pair_hopping!,
+    add_exchange!,
+    add_interall!,
+    calculate_hamiltonian,
+    calculate_double_occupation,
+    create_hubbard_hamiltonian,
+    create_heisenberg_hamiltonian,
+    hamiltonian_summary,
+    # StdFace exports
+    LatticeType,
+    ModelType,
+    LatticeGeometry,
+    StdFaceConfig,
+    CHAIN_LATTICE,
+    SQUARE_LATTICE,
+    TRIANGULAR_LATTICE,
+    HONEYCOMB_LATTICE,
+    KAGOME_LATTICE,
+    LADDER_LATTICE,
+    PYROCHLORE_LATTICE,
+    ORTHORHOMBIC_LATTICE,
+    HUBBARD_MODEL,
+    SPIN_MODEL,
+    KONDO_MODEL,
+    create_chain_lattice,
+    create_square_lattice,
+    create_triangular_lattice,
+    create_honeycomb_lattice,
+    create_kagome_lattice,
+    create_ladder_lattice,
+    generate_site_coordinates,
+    generate_neighbor_list,
+    create_stdface_hamiltonian,
+    stdface_chain,
+    stdface_square,
+    stdface_triangular,
+    stdface_honeycomb,
+    stdface_kagome,
+    stdface_ladder,
+    lattice_summary,
     ParameterLayout,
     ParameterFlags,
     ParameterMask,
@@ -334,8 +403,44 @@ export SimulationConfig,
     optimize_parameters!,
     get_optimization_statistics,
     reset_optimization!,
-    benchmark_optimization
-# Note: Advanced features exports commented out due to missing dependencies
-# (parallel computing, advanced I/O, visualization, benchmarking)
+    benchmark_optimization,
+    # VMC main workflow exports
+    VMCSimulation,
+    VMCMode,
+    PARAMETER_OPTIMIZATION,
+    PHYSICS_CALCULATION,
+    initialize_simulation!,
+    run_simulation!,
+    run_parameter_optimization!,
+    run_physics_calculation!,
+    measure_double_occupation,
+    # Hamiltonian analysis exports
+    build_kinetic_matrix!,
+    calculate_coulomb_intra_energy,
+    calculate_coulomb_inter_energy,
+    calculate_hund_energy,
+    # Advanced I/O exports
+    IOMode,
+    READ_ONLY,
+    WRITE_ONLY,
+    READ_WRITE,
+    APPEND,
+    DataFormat,
+    HDF5_FORMAT,
+    JSON_FORMAT,
+    BINARY_FORMAT,
+    TEXT_FORMAT,
+    ConfigurationIO,
+    ResultsIO,
+    DataExporter,
+    save_configuration,
+    load_configuration,
+    validate_configuration,
+    save_results,
+    load_results,
+    export_data,
+    benchmark_io_system
+# Note: Other advanced features exports commented out due to missing dependencies
+# (parallel computing, visualization, benchmarking)
 
 end # module ManyVariableVariationalMonteCarlo

@@ -35,40 +35,6 @@ julia --project -e 'using Pkg; Pkg.test()'
 julia --project -e 'using ReTestItems; ReTestItems.runtests(filter="sampler")'
 ```
 
-## Code Architecture
+## TODOs
 
-### Module Structure
-The main module `ManyVariableVariationalMonteCarlo` is organized into focused submodules:
-
-- `src/types.jl`: Core data structures including `FaceDefinition` for config file parsing
-- `src/config.jl`: Configuration file parsing and simulation setup (`SimulationConfig`)
-- `src/parameters.jl`: Variational parameter management (`ParameterLayout`, `ParameterSet`)
-- `src/io.jl`: File I/O operations including Green function data reading
-
-### Key Types
-- `FaceDefinition`: Represents `StdFace.def` configuration files with ordered key-value pairs
-- `SimulationConfig`: Main simulation configuration parsed from input files
-- `ParameterLayout`/`ParameterSet`: Manages variational parameters (RBM, Slater, OptTrans)
-- `GreenFunctionTable`: Handles initial Green function data from `initial.def`
-
-### Testing Framework
-Uses ReTestItems with `@testitem` blocks instead of traditional `@test` macros. Test files must have `_tests.jl` suffix to be recognized. All stochastic tests should use `StableRNGs` for reproducibility.
-
-## Development Guidelines
-
-### File Organization
-- Mirror the C reference implementation structure where possible
-- Group related functionality by physical concepts (lattice, sampler, optimizer)
-- Place temporary translation code in `src/legacy/` if immediate modernization isn't possible
-
-### Performance Considerations
-- Use preallocated buffers for hot loops
-- Apply `@inbounds`/`@simd` only with safety comments
-- Benchmark with `BenchmarkTools.@benchmark` and track performance regressions > 5%
-- Prefer `StaticArrays` for small vectors
-
-### Code Style
-- 4-space indentation, lines < 92 characters
-- `CamelCase` for types/modules, `snake_case` for functions/variables
-- Use multiple dispatch over conditional type branches
-- Document exported functions with concise docstrings
+Refer ./TODO.md to learn more.

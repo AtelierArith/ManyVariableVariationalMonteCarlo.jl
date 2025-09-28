@@ -64,6 +64,9 @@ mutable struct ConfigurationIO
     strict_mode::Bool
     error_on_missing::Bool
 
+    # Metadata
+    include_metadata::Bool
+
     function ConfigurationIO(;
         config_file::String = "config.json",
         output_dir::String = "output",
@@ -72,6 +75,7 @@ mutable struct ConfigurationIO
         validate_on_write::Bool = true,
         strict_mode::Bool = false,
         error_on_missing::Bool = true,
+        include_metadata::Bool = true,
     )
         new(
             config_file,
@@ -81,6 +85,7 @@ mutable struct ConfigurationIO
             validate_on_write,
             strict_mode,
             error_on_missing,
+            include_metadata,
         )
     end
 end

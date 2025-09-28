@@ -44,6 +44,10 @@ mutable struct OptimizationConfig
     beta1::Float64  # For Adam
     beta2::Float64  # For Adam
     epsilon::Float64  # For Adam/RMSprop
+    # SR-CG options
+    use_sr_cg::Bool
+    sr_cg_max_iter::Int
+    sr_cg_tol::Float64
 
     function OptimizationConfig(;
         method::OptimizationMethod = STOCHASTIC_RECONFIGURATION,
@@ -55,6 +59,9 @@ mutable struct OptimizationConfig
         beta1::Float64 = 0.9,
         beta2::Float64 = 0.999,
         epsilon::Float64 = 1e-8,
+        use_sr_cg::Bool = false,
+        sr_cg_max_iter::Int = 0,
+        sr_cg_tol::Float64 = 1e-6,
     )
         new(
             method,
@@ -66,6 +73,9 @@ mutable struct OptimizationConfig
             beta1,
             beta2,
             epsilon,
+            use_sr_cg,
+            sr_cg_max_iter,
+            sr_cg_tol,
         )
     end
 end
@@ -250,6 +260,82 @@ function solve_sr_equations!(
         # Fallback to least squares if matrix is singular
         println("Warning: SR matrix is singular, using least squares solution")
         sr.parameter_delta .= sr.work_matrix \ sr.force_vector
+    end
+end
+
+"""
+    solve_sr_equations_cg!(sr::StochasticReconfiguration{T}, config::OptimizationConfig) where T
+
+Solve the SR equations S * δp = F using a simple conjugate gradient on the
+regularized system (S + λI) δp = F with diagonal preconditioning.
+"""
+function solve_sr_equations_cg!(
+    sr::StochasticReconfiguration{T},
+    config::OptimizationConfig,
+) where {T}
+    n = sr.n_parameters
+    # Regularized matrix-vector product closure: y = (S+λI) x
+    λ = config.regularization_parameter
+    function matvec!(y::AbstractVector{T}, x::AbstractVector{T})
+        @inbounds begin
+            for i in 1:n
+                acc = λ * x[i]
+                @simd for j in 1:n
+                    acc += sr.overlap_matrix[i, j] * x[j]
+                end
+                y[i] = acc
+            end
+        end
+        return y
+    end
+
+    # Diagonal preconditioner M ≈ diag(S+λI)
+    Mdiag = similar(sr.work_vector)
+    @inbounds for i in 1:n
+        Mdiag[i] = sr.overlap_matrix[i, i] + λ
+        if Mdiag[i] == 0
+            Mdiag[i] = one(T)
+        end
+    end
+    function precond!(z::AbstractVector{T}, r::AbstractVector{T})
+        @inbounds for i in 1:n
+            z[i] = r[i] / Mdiag[i]
+        end
+        return z
+    end
+
+    x = sr.parameter_delta
+    r = sr.work_vector; fill!(r, zero(T))
+    Ap = similar(r)
+    z = similar(r)
+    p = similar(r)
+
+    # r0 = F - A x0 (x0 initially zeros)
+    copyto!(r, sr.force_vector)
+    precond!(z, r)
+    copyto!(p, z)
+    rz_old = dot(conj.(r), z)
+
+    itmax = max(1, config.sr_cg_max_iter)
+    tol2 = config.sr_cg_tol^2
+    for it in 1:itmax
+        matvec!(Ap, p)
+        α = rz_old / dot(conj.(p), Ap)
+        @inbounds @simd for i in 1:n
+            x[i] += α * p[i]
+            r[i] -= α * Ap[i]
+        end
+        # Check convergence ||r||^2
+        if real(dot(conj.(r), r)) <= tol2
+            break
+        end
+        precond!(z, r)
+        rz_new = dot(conj.(r), z)
+        β = rz_new / rz_old
+        @inbounds @simd for i in 1:n
+            p[i] = z[i] + β * p[i]
+        end
+        rz_old = rz_new
     end
 end
 

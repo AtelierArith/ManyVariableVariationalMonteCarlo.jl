@@ -82,6 +82,14 @@ struct SimulationConfig
     nsp_gauss_leg::Int
     # Calculation mode
     nvmc_cal_mode::Int
+    # Boundary conditions
+    apbc::Bool
+    # Optional twist angles (radians) for boundary wraps in x/y
+    twist_x::Float64
+    twist_y::Float64
+    # Output flush control
+    flush_file::Bool
+    flush_interval::Int
 end
 
 """
@@ -160,6 +168,9 @@ function Base.copy(params::ParameterSet)
         copy(params.opttrans),
     )
 end
+
+Base.length(params::ParameterSet) =
+    length(params.proj) + length(params.rbm) + length(params.slater) + length(params.opttrans)
 
 function Base.show(io::IO, params::ParameterSet)
     print(

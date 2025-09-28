@@ -4,6 +4,13 @@ mVMC-tutorial のハンズオン資料を参考に、Julia 実装で最小限の
 
 - 01_1D_Hubbard.jl: 1 次元 Hubbard 鎖（簡素化デモ）
 - 02_2D_Heisenberg.jl: 2 次元 Heisenberg 格子（簡素化デモ）
+- 03_basic_workflow.jl: 基本的な VMC ワークフローの説明
+- 04_stdface_lattices.jl: StdFace 格子ライブラリの使用例
+- 05_stdface_vmc_integration.jl: StdFace と VMC の統合例
+- 06_1D_Kondo.jl: 1 次元近藤 (Kondo) モデル（伝導電子-局在スピン相互作用）
+- 07_2D_ExHubbard.jl: 2 次元拡張 Hubbard モデル（最近接クーロン相互作用付き）
+- 08_2D_J1J2_Heisenberg.jl: 2 次元 J1-J2 Heisenberg モデル（競合する交換相互作用）
+- 09_2D_AttractiveHubbard.jl: 2 次元引力 Hubbard モデル（超伝導状態）
 - 10_from_namelist.jl: mVMC が出力した `namelist.def` から読み込み（mVMC-tutorial の生成物を利用）
 
 注意: 現段階の Julia 実装は C 参照実装の I/O と流れを模した骨格であり、ハミルトニアンや波動関数構成の物理的厳密さは最小限です。サンプルは API の使い方の雰囲気とワークフローを掴むことを目的にしています。
@@ -19,6 +26,10 @@ mVMC-tutorial のハンズオン資料を参考に、Julia 実装で最小限の
   ```bash
   julia --project examples/01_1D_Hubbard.jl
   julia --project examples/02_2D_Heisenberg.jl
+  julia --project examples/06_1D_Kondo.jl
+  julia --project examples/07_2D_ExHubbard.jl
+  julia --project examples/08_2D_J1J2_Heisenberg.jl
+  julia --project examples/09_2D_AttractiveHubbard.jl
   ```
 
 ## mVMC-tutorial の設定ファイルを使う (10_from_namelist)

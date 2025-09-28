@@ -39,6 +39,66 @@ Enumeration of different Monte Carlo update types.
 end
 
 """
+    PairCreationAnnihilationUpdate{T}
+
+Simplified pair creation/annihilation-like update that attempts to move two
+electrons to two empty sites within a given range (number-conserving variant).
+"""
+mutable struct PairCreationAnnihilationUpdate{T<:Union{Float64,ComplexF64}}
+    n_site::Int
+    n_elec::Int
+    max_hop_distance::Int
+    update_probability::Float64
+    candidate_pairs::Vector{Tuple{Int,Int}}
+    ratio_buffer::Vector{T}
+    total_attempts::Int
+    total_accepted::Int
+    acceptance_rate::Float64
+    function PairCreationAnnihilationUpdate{T}(n_site::Int, n_elec::Int; max_hop_distance::Int=1, update_probability::Float64=0.05) where {T}
+        candidate_pairs = Vector{Tuple{Int,Int}}(undef, n_site * n_site)
+        ratio_buffer = Vector{T}(undef, n_elec)
+        new{T}(n_site, n_elec, max_hop_distance, update_probability, candidate_pairs, ratio_buffer, 0, 0, 0.0)
+    end
+end
+
+function propose_pair_creation_annihilation(
+    update::PairCreationAnnihilationUpdate{T},
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    rng::AbstractRNG,
+) where {T}
+    if length(ele_idx) < 2
+        return UpdateResult{T}(false, zero(T), PAIR_CREATION_ANNIHILATION)
+    end
+    # Choose two electrons and two empty target sites in range
+    e1, e2 = rand(rng, 1:length(ele_idx), 2)
+    if e1 == e2
+        return UpdateResult{T}(false, zero(T), PAIR_CREATION_ANNIHILATION)
+    end
+    s1, s2 = ele_idx[e1], ele_idx[e2]
+    n_candidates = 0
+    for t1 in 1:update.n_site, t2 in 1:update.n_site
+        if t1 != t2 && ele_cfg[t1] == 0 && ele_cfg[t2] == 0
+            if _pbc_distance(t1, s1, update.n_site) <= update.max_hop_distance &&
+               _pbc_distance(t2, s2, update.n_site) <= update.max_hop_distance
+                n_candidates += 1
+                update.candidate_pairs[n_candidates] = (t1, t2)
+            end
+        end
+    end
+    if n_candidates == 0
+        return UpdateResult{T}(false, zero(T), PAIR_CREATION_ANNIHILATION)
+    end
+    new_sites = update.candidate_pairs[rand(rng, 1:n_candidates)]
+    ratio = one(T)
+    res = UpdateResult{T}(true, ratio, PAIR_CREATION_ANNIHILATION)
+    res.electron_indices = [e1, e2]
+    res.site_indices = [s1, s2, new_sites[1], new_sites[2]]
+    res.acceptance_probability = min(1.0, abs(ratio)^2)
+    return res
+end
+
+"""
     UpdateResult{T}
 
 Result of a Monte Carlo update operation.
@@ -385,11 +445,14 @@ mutable struct UpdateManager{T<:Union{Float64,ComplexF64}}
     single_electron::SingleElectronUpdate{T}
     two_electron::TwoElectronUpdate{T}
     exchange_hopping::ExchangeHoppingUpdate{T}
+    # Optional advanced updates
+    pair_creation::Union{Nothing,Any}
 
     # Update probabilities
     single_electron_prob::Float64
     two_electron_prob::Float64
     exchange_hopping_prob::Float64
+    pair_creation_prob::Float64
 
     # Statistics
     total_attempts::Int
@@ -400,19 +463,23 @@ mutable struct UpdateManager{T<:Union{Float64,ComplexF64}}
         single_electron = SingleElectronUpdate{T}(n_site, n_elec)
         two_electron = TwoElectronUpdate{T}(n_site, n_elec)
         exchange_hopping = ExchangeHoppingUpdate{T}(n_site, n_elec)
+        pair_creation = nothing
 
         # Default probabilities
         single_electron_prob = 0.7
         two_electron_prob = 0.2
         exchange_hopping_prob = 0.1
+        pair_creation_prob = 0.0
 
         new{T}(
             single_electron,
             two_electron,
             exchange_hopping,
+            pair_creation,
             single_electron_prob,
             two_electron_prob,
             exchange_hopping_prob,
+            pair_creation_prob,
             0,
             0,
             0.0,
@@ -434,13 +501,19 @@ function propose_update(
 ) where {T}
     # Select update type based on probabilities
     rand_val = rand(rng)
-
-    if rand_val < manager.single_electron_prob
+    p1 = manager.single_electron_prob
+    p2 = p1 + manager.two_electron_prob
+    p3 = p2 + manager.exchange_hopping_prob
+    if rand_val < p1
         return propose_single_electron_move(manager.single_electron, ele_idx, ele_cfg, rng)
-    elseif rand_val < manager.single_electron_prob + manager.two_electron_prob
+    elseif rand_val < p2
         return propose_two_electron_move(manager.two_electron, ele_idx, ele_cfg, rng)
-    else
+    elseif rand_val < p3
         return propose_exchange_hopping(manager.exchange_hopping, ele_idx, ele_cfg, rng)
+    elseif manager.pair_creation !== nothing && manager.pair_creation_prob > 0
+        return propose_pair_creation_annihilation(manager.pair_creation, ele_idx, ele_cfg, rng)
+    else
+        return UpdateResult{T}(false, zero(T), SINGLE_ELECTRON)
     end
 end
 
@@ -464,6 +537,9 @@ function accept_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
         elseif result.update_type == EXCHANGE_HOPPING
             manager.exchange_hopping.total_attempts += 1
             manager.exchange_hopping.total_accepted += 1
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+            manager.pair_creation.total_attempts += 1
+            manager.pair_creation.total_accepted += 1
         end
 
         # Update acceptance rates
@@ -479,6 +555,9 @@ function accept_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
             manager.exchange_hopping.acceptance_rate =
                 manager.exchange_hopping.total_accepted /
                 manager.exchange_hopping.total_attempts
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+            manager.pair_creation.acceptance_rate =
+                manager.pair_creation.total_accepted / manager.pair_creation.total_attempts
         end
     end
 end
@@ -499,6 +578,8 @@ function reject_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
             manager.two_electron.total_attempts += 1
         elseif result.update_type == EXCHANGE_HOPPING
             manager.exchange_hopping.total_attempts += 1
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+            manager.pair_creation.total_attempts += 1
         end
 
         # Update acceptance rates
@@ -514,6 +595,9 @@ function reject_update!(manager::UpdateManager{T}, result::UpdateResult{T}) wher
             manager.exchange_hopping.acceptance_rate =
                 manager.exchange_hopping.total_accepted /
                 manager.exchange_hopping.total_attempts
+        elseif result.update_type == PAIR_CREATION_ANNIHILATION && manager.pair_creation !== nothing
+            manager.pair_creation.acceptance_rate =
+                manager.pair_creation.total_accepted / manager.pair_creation.total_attempts
         end
     end
 end

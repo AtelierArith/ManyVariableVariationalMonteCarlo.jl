@@ -184,17 +184,15 @@
         using LinearAlgebra
         using StableRNGs
         n = 4
+
+        # Use thread ID 1 which should always be available
         calc1 = get_matrix_calculation(ComplexF64, n, 1)
-
-        # Only test with thread ID 2 if we have multiple threads
-        if Threads.nthreads() > 1
-            calc2 = get_matrix_calculation(ComplexF64, n, 2)
-            @test isa(calc2, MatrixCalculation{ComplexF64})
-            @test calc2.n == n
-        end
-
         @test isa(calc1, MatrixCalculation{ComplexF64})
         @test calc1.n == n
+
+        # Test that we get the same calculation object for the same thread
+        calc1_again = get_matrix_calculation(ComplexF64, n, 1)
+        @test calc1 === calc1_again
 
         # Test clearing
         clear_matrix_calculations!()

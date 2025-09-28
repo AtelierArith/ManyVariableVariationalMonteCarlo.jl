@@ -170,6 +170,7 @@
             energy_samples,
             observables,
             0.6,
+            [0.6, 0.7, 0.5],  # acceptance_series
             3,
             10,
             3,

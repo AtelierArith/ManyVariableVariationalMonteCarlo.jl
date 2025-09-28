@@ -400,6 +400,11 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
     nlanczos_mode = facevalue(face, :NLanczosMode, Int; default = 0)
     nsp_gauss_leg = facevalue(face, :NSPGaussLeg, Int; default = 1)
     nvmc_cal_mode = facevalue(face, :NVMCCalMode, Int; default = 0)
+    apbc = facevalue(face, :APFlag, Bool; default = false)
+    twist_x = facevalue(face, :TwistX, Float64; default = 0.0)
+    twist_y = facevalue(face, :TwistY, Float64; default = 0.0)
+    flush_file = facevalue(face, :FlushFile, Bool; default = false)
+    flush_interval = facevalue(face, :NFileFlushInterval, Int; default = 0)
 
     return SimulationConfig(
         face,
@@ -422,6 +427,11 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
         nlanczos_mode,
         nsp_gauss_leg,
         nvmc_cal_mode,
+        apbc,
+        twist_x,
+        twist_y,
+        flush_file,
+        flush_interval,
     )
 end
 

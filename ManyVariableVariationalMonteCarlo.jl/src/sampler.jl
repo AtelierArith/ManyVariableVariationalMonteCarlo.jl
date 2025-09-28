@@ -71,6 +71,7 @@ mutable struct VMCState{T<:Union{Float64,ComplexF64}}
     rbm_network::Union{Nothing,Any}  # Will be RBMNetwork{T}
     jastrow_factor::Union{Nothing,Any}  # Will be JastrowFactor{T}
     quantum_projection::Union{Nothing,Any}  # Will be QuantumProjection{T}
+    hamiltonian::Union{Nothing,Any}  # Will be Hamiltonian{T}
 
     # Current wavefunction value
     wavefunction_value::T
@@ -102,6 +103,7 @@ mutable struct VMCState{T<:Union{Float64,ComplexF64}}
             nothing,
             nothing,
             nothing,
+            nothing,
             zero(T),
             0.0,
             0,
@@ -129,6 +131,7 @@ struct VMCResults{T<:Union{Float64,ComplexF64}}
 
     # Sampling statistics
     acceptance_rate::Float64
+    acceptance_series::Vector{Float64}
     n_samples::Int
     n_thermalization::Int
     n_measurement::Int
@@ -509,9 +512,28 @@ end
 Measure energy for current state.
 """
 function measure_energy(state::VMCState{T}) where {T}
-    # This would compute the energy for the current electron configuration
-    # For now, return a placeholder value
-    return zero(T)
+    # Compute Hamiltonian energy if available; otherwise zero
+    if state.hamiltonian === nothing
+        return zero(T)
+    end
+
+    n = state.n_sites
+    # Build occupancy from positions (first half up, second half down)
+    nup = div(state.n_electrons, 2)
+    n_up = zeros(Int, n)
+    n_dn = zeros(Int, n)
+    for (k, pos) in enumerate(state.electron_positions)
+        if k <= nup
+            n_up[pos] += 1
+        else
+            n_dn[pos] += 1
+        end
+    end
+    # Total occupancy per site
+    occ = n_up .+ n_dn
+    # Concatenate up/down occupation vector for engine
+    ele_numbers = vcat(n_up, n_dn)
+    return calculate_hamiltonian(state.hamiltonian, occ, ele_numbers)
 end
 
 """
@@ -551,6 +573,12 @@ function run_vmc_sampling!(
     energy_samples = Vector{T}()
     observable_samples = Dict{String,Vector{T}}()
 
+    acceptance_series = Float64[]
+
+    # Keep track of per-iteration acceptance
+    prev_accepted = state.n_accepted
+    prev_updates = state.n_updates
+
     for i = 1:config.n_measurement
         for j = 1:config.n_update_per_sample
             metropolis_step!(state, config, rng)
@@ -559,6 +587,13 @@ function run_vmc_sampling!(
         # Measure observables
         observables = measure_observables(state)
         push!(energy_samples, observables["energy"])
+
+        # Record acceptance for this measurement window
+        dacc = state.n_accepted - prev_accepted
+        dupd = state.n_updates - prev_updates
+        push!(acceptance_series, dupd > 0 ? dacc / dupd : 0.0)
+        prev_accepted = state.n_accepted
+        prev_updates = state.n_updates
 
         for (key, value) in observables
             if !haskey(observable_samples, key)
@@ -583,6 +618,7 @@ function run_vmc_sampling!(
         energy_samples,
         observable_samples,
         acceptance_rate,
+        acceptance_series,
         config.n_measurement,
         config.n_thermalization,
         config.n_measurement,
