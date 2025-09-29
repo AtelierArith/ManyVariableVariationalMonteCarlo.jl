@@ -1,10 +1,9 @@
 @testitem "config" begin
     using ManyVariableVariationalMonteCarlo
     @testset "StdFace.def parsing" begin
-        repo_root = normpath(joinpath(@__DIR__, "..", ".."))
         package_root = normpath(joinpath(@__DIR__, ".."))
         face_path = joinpath(
-            repo_root,
+            package_root,
             "mVMC",
             "samples",
             "Standard",
@@ -26,9 +25,9 @@
 
     @testset "Green function loader" begin
         using Base: Set
-        repo_root = normpath(joinpath(@__DIR__, "..", ".."))
+        package_root = normpath(joinpath(@__DIR__, ".."))
         green_path = joinpath(
-            repo_root,
+            package_root,
             "mVMC",
             "samples",
             "Standard",
@@ -95,10 +94,9 @@
     end
 
     @testset "SimulationConfig creation" begin
-        repo_root = normpath(joinpath(@__DIR__, "..", ".."))
         package_root = normpath(joinpath(@__DIR__, ".."))
         face_path = joinpath(
-            repo_root,
+            package_root,
             "mVMC",
             "samples",
             "Standard",
