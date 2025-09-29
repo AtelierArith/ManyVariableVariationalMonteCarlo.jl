@@ -223,6 +223,34 @@ end
     @test length(ham.transfer_terms) > 0
 end
 
+@testitem "Square lattice with explicit Lx,Ly" begin
+    using ManyVariableVariationalMonteCarlo
+    # Choose a non-square-friendly n_sites = 15; set Lx=3, Ly=5
+    n_sites = 15
+    Lx, Ly = 3, 5
+    ham = create_hubbard_hamiltonian(n_sites, 6, 1.0, 2.0; lattice_type = :square, Lx=Lx, Ly=Ly)
+
+    @test ham.n_sites == n_sites
+    # One U term per site
+    @test length(ham.coulomb_intra_terms) == n_sites
+    # For square with PBC: number of undirected NN bonds = 2*Lx*Ly; per bond 2 spins x 2 directions = 4
+    @test length(ham.transfer_terms) == 8 * Lx * Ly
+end
+
+@testitem "Honeycomb with explicit Lx,Ly" begin
+    using ManyVariableVariationalMonteCarlo
+    # Honeycomb has 2 sites per unit cell; pick Lx=2, Ly=3 -> n_sites=12
+    Lx, Ly = 2, 3
+    n_sites = 2 * Lx * Ly
+    J = 1.0
+    ham = create_heisenberg_hamiltonian(n_sites, J; lattice_type = :honeycomb, Lx=Lx, Ly=Ly)
+
+    @test ham.n_sites == n_sites
+    @test ham.n_electrons == n_sites
+    # Should have Hund terms added; basic sanity
+    @test length(ham.hund_terms) > 0
+end
+
 @testitem "Complex coefficient handling" begin
     ham = Hamiltonian{ComplexF64}(2, 2)
 

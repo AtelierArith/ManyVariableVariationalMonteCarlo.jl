@@ -6,7 +6,7 @@
 	"image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
 	"features": {
 	    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
-			"packages": "nano,git,tig,openssh-server,build-essential,cmake,gfortran,libopenblas-dev,liblapack-dev,libopenmpi-dev,openmpi-bin,"
+			"packages": "nano,git,tig,openssh-server,gnuplot,build-essential,cmake,gfortran,libopenblas-dev,liblapack-dev,libopenmpi-dev,openmpi-bin,"
 		},
 		"ghcr.io/julialang/devcontainer-features/julia:1": {
 			"channel": "release"

@@ -45,6 +45,13 @@ include("backflow.jl")       # Backflow corrections for wavefunction
 include("advanced_sampling.jl") # Advanced sampling controls (Burn-in, splitting)
 include("lanczos.jl")        # Lanczos method integration
 
+# Enhanced implementation modules for C-compatibility
+include("stdface_parser.jl")
+include("wavefunction_detailed.jl")
+include("stochastic_reconfiguration_precise.jl")
+include("mvmc_output_format.jl")
+include("mvmc_integration.jl")
+
 # Import functions from included modules
 import .get_workspace, .reset_all_workspaces!
 
@@ -117,6 +124,11 @@ export SimulationConfig,
     stdface_kagome,
     stdface_ladder,
     lattice_summary,
+    # StdFace parser + integration (enhanced route)
+    parse_stdface_def,
+    parse_stdface_and_create_config,
+    print_stdface_summary,
+    run_mvmc_from_stdface,
     ParameterLayout,
     ParameterFlags,
     ParameterMask,
@@ -491,6 +503,49 @@ export SimulationConfig,
     run_lanczos_calculation!,
     calculate_energy_lanczos,
     calculate_energy_by_alpha,
-    integrate_lanczos_with_vmc!
+    integrate_lanczos_with_vmc!,
+
+    # Enhanced implementation exports for C-compatibility
+    # StdFace parser exports
+    StdFaceParameters,
+    parse_stdface_def,
+    parse_stdface_and_create_config,
+    print_mvmc_header,
+
+    # Detailed wavefunction exports
+    GutzwillerProjector,
+    EnhancedJastrowFactor,
+    EnhancedRBMNetwork,
+    CombinedWavefunction,
+    initialize_rbm_random!,
+
+    # Precise stochastic reconfiguration exports
+    PreciseStochasticReconfiguration,
+    compute_overlap_matrix_precise!,
+    compute_force_vector_precise!,
+    solve_sr_equations_precise!,
+    compute_energy_variance!,
+    configure_optimization!,
+
+    # mVMC output format exports
+    MVMCOutputManager,
+    open_output_files!,
+    write_optimization_header!,
+    write_optimization_step!,
+    write_final_parameters!,
+    write_timing_info!,
+    open_physics_files!,
+    write_physics_header!,
+    write_physics_step!,
+    write_green_functions!,
+    write_two_body_green_functions!,
+    write_lanczos_files!,
+    finalize_output!,
+
+    # Integration module exports
+    EnhancedVMCSimulation,
+    run_mvmc_from_stdface,
+    print_simulation_summary,
+    print_progress_mvmc_style
 
 end # module ManyVariableVariationalMonteCarlo

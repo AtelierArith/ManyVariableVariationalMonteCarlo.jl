@@ -125,16 +125,43 @@ function initialize_simulation!(sim::VMCSimulation{T}) where {T}
     sim.workspace = Workspace{T}()
 
     # Initialize VMC state
-    sim.vmc_state = VMCState{T}(sim.config.nelec, sim.config.nsites)
+    # Allow Spin StdFace (Heisenberg) definitions that omit Ne: default to one spin-1/2 per site
+    local n_elec::Int
+    if sim.config.model == :Spin
+        n_elec = sim.config.nelec > 0 ? sim.config.nelec : sim.config.nsites
+    else
+        n_elec = sim.config.nelec
+    end
+    sim.vmc_state = VMCState{T}(n_elec, sim.config.nsites)
 
     # Set up initial electron configuration
-    initial_positions = collect(1:2:min(2*sim.config.nelec, sim.config.nsites))
-    if length(initial_positions) < sim.config.nelec
-        append!(initial_positions, collect((length(initial_positions)+1):sim.config.nelec))
+    local initial_positions::Vector{Int}
+    if sim.config.model == :Spin && n_elec > 0
+        # Place half of electrons (↑) on odd sites and the other half (↓) on even sites
+        n_up = div(n_elec, 2)
+        n_dn = n_elec - n_up
+        up_sites = collect(1:2:sim.config.nsites)
+        dn_sites = collect(2:2:sim.config.nsites)
+        initial_positions = vcat(up_sites[1:min(n_up, length(up_sites))],
+                                 dn_sites[1:min(n_dn, length(dn_sites))])
+        # If system size is very small, pad remaining positions sequentially
+        if length(initial_positions) < n_elec
+            # fallback padding with sequential sites
+            next_site = 1
+            while length(initial_positions) < n_elec
+                push!(initial_positions, next_site)
+                next_site = next_site % sim.config.nsites + 1
+            end
+        end
+    else
+        initial_positions = collect(1:2:min(2*n_elec, sim.config.nsites))
+        if length(initial_positions) < n_elec
+            append!(initial_positions, collect((length(initial_positions)+1):n_elec))
+        end
     end
-    initialize_vmc_state!(sim.vmc_state, initial_positions[1:sim.config.nelec])
+    initialize_vmc_state!(sim.vmc_state, initial_positions[1:n_elec])
 
-    # Initialize a simple Hamiltonian for energy evaluation (Hubbard model)
+    # Initialize a simple Hamiltonian for energy evaluation
     local lattice_sym = sim.config.lattice
     local hub_lattice::Symbol
     if lattice_sym in (:chain, :CHAIN_LATTICE)
@@ -145,16 +172,36 @@ function initialize_simulation!(sim::VMCSimulation{T}) where {T}
         hub_lattice = :chain
     end
     try
-        sim.vmc_state.hamiltonian = create_hubbard_hamiltonian(
-            sim.config.nsites,
-            sim.config.nelec,
-            T(sim.config.t),
-            T(sim.config.u);
-            lattice_type = hub_lattice,
-            apbc = sim.config.apbc,
-            twist_x = sim.config.twist_x,
-            twist_y = sim.config.twist_y,
-        )
+        if sim.config.model == :Spin
+            # Heisenberg model from StdFace.def (e.g., J parameter)
+            local Jval = try
+                facevalue(sim.config.face, :J, Float64; default = 1.0)
+            catch
+                1.0
+            end
+            # Prefer geometry-based construction when available
+            local geom = get_lattice_geometry(sim)
+            if geom !== nothing
+                sim.vmc_state.hamiltonian = create_heisenberg_hamiltonian(geom, T(Jval))
+            else
+                sim.vmc_state.hamiltonian = create_heisenberg_hamiltonian(
+                    sim.config.nsites,
+                    T(Jval);
+                    lattice_type = hub_lattice,
+                )
+            end
+        else
+            sim.vmc_state.hamiltonian = create_hubbard_hamiltonian(
+                sim.config.nsites,
+                n_elec,
+                T(sim.config.t),
+                T(sim.config.u);
+                lattice_type = hub_lattice,
+                apbc = sim.config.apbc,
+                twist_x = sim.config.twist_x,
+                twist_y = sim.config.twist_y,
+            )
+        end
     catch
         sim.vmc_state.hamiltonian = nothing
     end

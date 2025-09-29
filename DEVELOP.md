@@ -6,6 +6,30 @@
 
 mVMCは量子格子模型に対する高精度な変分モンテカルロ計算を実行するためのソフトウェアです。Hubbard模型、Heisenberg模型、近藤格子模型などの強相関電子系の従来模型に対応しており、シンプルで柔軟なユーザーインターフェースと大規模並列化をサポートしています。
 
+## ドキュメント構成
+
+本プロジェクトには以下のドキュメントが含まれています：
+
+### 公式マニュアル
+- **英語版マニュアル**: `doc/mVMC-1.3.0_en.pdf` - 最新版の英語マニュアル
+- **日本語版マニュアル**: `doc/mVMC-1.3.0_ja.pdf` - 最新版の日本語マニュアル
+- **HTML版マニュアル**: `doc/userguide.html` - ブラウザで閲覧可能なマニュアル
+
+### ソース形式ドキュメント
+- **英語版ソース**: `doc/en/source/` - reStructuredText形式の英語ドキュメント
+- **日本語版ソース**: `doc/ja/source/` - reStructuredText形式の日本語ドキュメント
+
+### 主要セクション
+- `intro.rst` - mVMCの概要と特徴
+- `start.rst` - インストールと基本的な使用方法
+- `tutorial.rst` - チュートリアル
+- `standard.rst` - 標準モードの使用方法
+- `expert.rst` - エキスパートモードの詳細
+- `output.rst` - 出力ファイルの説明
+- `algorithm.rst` - アルゴリズムの詳細
+- `fourier/` - フーリエ変換関連の機能
+- `wannier/` - Wannier関数との連携
+
 ## 必要な環境
 
 mVMCのコンパイル・使用には以下が必要です：
@@ -159,6 +183,34 @@ python3 VMCcor.py input.toml
 - `Ene.dat`: エネルギーの時系列データ
 - `greenone.def`, `greentwo.def`: Green関数の設定ファイル
 
+## サンプル計算とチュートリアル
+
+### 利用可能なサンプル
+
+`mVMC/samples/` ディレクトリには以下のサンプル計算が含まれています：
+
+#### 基本チュートリアル
+- **tutorial_1.1**: 基本的なmVMC計算の入門
+- **tutorial_1.2**: 相関関数計算の実例
+- **tutorial_1.3**: UHF（非制限Hartree-Fock）計算との比較
+
+#### 応用チュートリアル
+- **tutorial_2.1**: より高度な計算手法
+- **tutorial_2.2**: 専門的な解析手法
+
+#### 標準模型とWannier関数
+- **Standard/**: 標準的な格子模型のサンプル
+  - `Hubbard/`: Hubbard模型
+  - `Kondo/`: 近藤格子模型
+  - `Spin/`: スピン模型
+- **Wannier/**: Wannier関数を用いた実材料計算
+  - `Sr2CuO3/`: Sr2CuO3の計算例
+  - `Sr2VO4/`: Sr2VO4の計算例
+
+### チュートリアルの実行例
+
+詳細なチュートリアル手順については、各サンプルディレクトリ内のREADMEファイルを参照してください。
+
 ## 高度な使用方法
 
 ### 並列計算
@@ -206,9 +258,19 @@ srun vmc.out namelist.def
 
 ## 参考資料
 
+### 公式リソース
 - [mVMC公式リポジトリ](https://github.com/issp-center-dev/mVMC)
 - [mVMCチュートリアル](https://github.com/issp-center-dev/mVMC-tutorial)
-- ドキュメント: `doc/en/` または `doc/ja/` ディレクトリ
+
+### ローカルドキュメント
+- **マニュアル（PDF）**: `doc/mVMC-1.3.0_en.pdf` (英語) / `doc/mVMC-1.3.0_ja.pdf` (日本語)
+- **ソースドキュメント**: `doc/en/source/` (英語) / `doc/ja/source/` (日本語)
+- **HTML版**: `doc/userguide.html` からブラウザでアクセス可能
+
+### 専門トピック
+- **フーリエ変換機能**: `doc/en/source/fourier/` または `doc/ja/source/fourier/`
+- **Wannier関数連携**: `doc/en/source/wannier/`
+- **アルゴリズム詳細**: `doc/en/source/algorithm.rst` または `doc/ja/source/algorithm.rst`
 
 ## 引用
 

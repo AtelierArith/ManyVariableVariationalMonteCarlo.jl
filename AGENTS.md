@@ -27,11 +27,6 @@
 - Determinism: use `StableRNGs` for seeded randomness when relevant.
 - Coverage: keep or improve; include edge cases for lattice/model constructors and I/O paths.
 
-## Commit & Pull Request Guidelines
-- Commit style: imperative, scoped if useful (Conventional Commits preferred).
-  Examples: `feat(stdface): add ladder lattice`, `fix(vmc): handle zero samples`, `docs: improve README examples`.
-- PRs must: describe changes and rationale, link issues, include tests for behavior changes, update examples/docs when APIs change, and pass `Pkg.test()` locally. Add screenshots/log snippets for CLI or output changes when helpful.
-
 ## Tips & Notes
 - Examples may write `zvo_*.dat` and other outputs; run them in a scratch directory and do not commit generated data.
 - HDF5/JSON I/O is supported; large files should be ignored in VCS.

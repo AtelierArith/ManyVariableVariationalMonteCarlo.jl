@@ -483,6 +483,32 @@ function add_spin_terms!(
 end
 
 """
+    create_heisenberg_hamiltonian(geometry::LatticeGeometry{S}, J::T) where {S,T}
+
+Construct a Heisenberg Hamiltonian from a lattice `geometry` using
+nearest-neighbor bonds inferred from the geometry's coordinates.
+This supports arbitrary lattices for which `generate_neighbor_list`
+returns sensible nearest neighbors (chain, square, triangular, honeycomb,
+ladder, kagome, ...).
+"""
+function create_heisenberg_hamiltonian(
+    geometry::LatticeGeometry{S},
+    J::T,
+) where {S<:Real,T<:Number}
+    n = geometry.n_sites_total
+    ham = Hamiltonian{T}(n, n)
+    neighbors = generate_neighbor_list(geometry, S(1.1))
+    for i = 1:n
+        for j in neighbors[i]
+            if i < j
+                add_hund_coupling!(ham, J, i, j)
+            end
+        end
+    end
+    return ham
+end
+
+"""
     stdface_chain(L::Int, model::String; kwargs...)
 
 Create a chain lattice with standard parameters.

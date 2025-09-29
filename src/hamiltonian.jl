@@ -471,9 +471,16 @@ end
 
 """
     create_hubbard_hamiltonian(n_sites::Int, n_electrons::Int, t::T, U::T;
-                              lattice_type::Symbol=:chain) where {T}
+                              lattice_type::Symbol=:chain,
+                              Lx::Union{Nothing,Int}=nothing,
+                              Ly::Union{Nothing,Int}=nothing) where {T}
 
 Create a standard Hubbard model Hamiltonian.
+
+For 2D lattices (e.g. `:square`), you may optionally provide `Lx` and `Ly`
+to factor `n_sites` explicitly. This removes ambiguity when `n_sites` is
+not a perfect square or has multiple factorizations. If omitted, a near-square
+factorization is chosen heuristically.
 """
 function create_hubbard_hamiltonian(
     n_sites::Int,
@@ -481,6 +488,8 @@ function create_hubbard_hamiltonian(
     t::T,
     U::T;
     lattice_type::Symbol = :chain,
+    Lx::Union{Nothing,Int} = nothing,
+    Ly::Union{Nothing,Int} = nothing,
     apbc::Bool = false,
     twist_x::Float64 = 0.0,
     twist_y::Float64 = 0.0,
@@ -519,8 +528,23 @@ function create_hubbard_hamiltonian(
 
     elseif lattice_type == :square
         # 2D square lattice (assuming n_sites = Lx * Ly)
-        Lx = Int(sqrt(n_sites))
-        Ly = n_sites ÷ Lx
+        if (Lx !== nothing) ⊻ (Ly !== nothing)
+            error("Both Lx and Ly must be provided together if specified")
+        end
+        if Lx === nothing
+            # Heuristic near-square factorization
+            local Lx_local = max(Int(round(sqrt(n_sites))), 1)
+            while n_sites % Lx_local != 0 && Lx_local > 1
+                Lx_local -= 1
+            end
+            local Ly_local = max(n_sites ÷ Lx_local, 1)
+            @assert Lx_local * Ly_local == n_sites "n_sites must be factorizable as Lx*Ly for square lattice"
+            Lx = Lx_local
+            Ly = Ly_local
+        else
+            @assert Lx > 0 && Ly > 0 "Lx and Ly must be positive"
+            @assert Lx * Ly == n_sites "Provided Lx*Ly must equal n_sites"
+        end
 
         for i = 1:n_sites
             ix = (i - 1) % Lx + 1
@@ -568,14 +592,22 @@ function create_hubbard_hamiltonian(
 end
 
 """
-    create_heisenberg_hamiltonian(n_sites::Int, J::T; lattice_type::Symbol=:chain) where {T}
+    create_heisenberg_hamiltonian(n_sites::Int, J::T; lattice_type::Symbol=:chain,
+                                  Lx::Union{Nothing,Int}=nothing,
+                                  Ly::Union{Nothing,Int}=nothing) where {T}
 
 Create a standard Heisenberg model Hamiltonian.
+
+For 2D lattices (e.g. `:square`, `:triangular`, `:honeycomb`, `:kagome`), you may
+optionally provide `Lx` and `Ly` to set the system dimensions explicitly. For
+multi-site unit cells, `n_sites` must equal `nsites_per_cell * Lx * Ly`.
 """
 function create_heisenberg_hamiltonian(
     n_sites::Int,
     J::T;
     lattice_type::Symbol = :chain,
+    Lx::Union{Nothing,Int} = nothing,
+    Ly::Union{Nothing,Int} = nothing,
 ) where {T}
     ham = Hamiltonian{T}(n_sites, n_sites)  # One electron per site for spin-1/2
 
@@ -589,6 +621,183 @@ function create_heisenberg_hamiltonian(
         if n_sites > 2
             add_hund_coupling!(ham, J, 1, n_sites)
         end
+    elseif lattice_type == :square
+        # 2D square lattice assumed to be Lx*Ly
+        if (Lx !== nothing) ⊻ (Ly !== nothing)
+            error("Both Lx and Ly must be provided together if specified")
+        end
+        if Lx === nothing
+            Lx_local = max(Int(round(sqrt(n_sites))), 1)
+            while n_sites % Lx_local != 0 && Lx_local > 1
+                Lx_local -= 1
+            end
+            Ly_local = max(n_sites ÷ Lx_local, 1)
+            @assert Lx_local * Ly_local == n_sites "n_sites must be factorizable as Lx*Ly for square lattice"
+            Lx, Ly = Lx_local, Ly_local
+        else
+            @assert Lx > 0 && Ly > 0 "Lx and Ly must be positive"
+            @assert Lx * Ly == n_sites "Provided Lx*Ly must equal n_sites"
+        end
+
+        # Add bonds without double counting
+        for i = 1:n_sites
+            ix = (i - 1) % Lx + 1
+            iy = (i - 1) ÷ Lx + 1
+            # +x neighbor (no wrap here)
+            if ix < Lx
+                add_hund_coupling!(ham, J, i, i + 1)
+            end
+            # +y neighbor (no wrap here)
+            if iy < Ly
+                add_hund_coupling!(ham, J, i, i + Lx)
+            end
+        end
+        # periodic wraps along x for each row
+        for iy = 1:Ly
+            i_end = (iy - 1) * Lx + Lx
+            i_start = (iy - 1) * Lx + 1
+            add_hund_coupling!(ham, J, i_end, i_start)
+        end
+        # periodic wraps along y for each column
+        for ix = 1:Lx
+            i_top = (Ly - 1) * Lx + ix
+            i_bottom = ix
+            add_hund_coupling!(ham, J, i_top, i_bottom)
+        end
+    elseif lattice_type == :triangular
+        # 2D triangular lattice on Lx x Ly grid, neighbors: +x, +y, +x+y with PBC
+        if (Lx !== nothing) ⊻ (Ly !== nothing)
+            error("Both Lx and Ly must be provided together if specified")
+        end
+        if Lx === nothing
+            Lx_local = max(Int(round(sqrt(n_sites))), 1)
+            while n_sites % Lx_local != 0 && Lx_local > 1
+                Lx_local -= 1
+            end
+            Ly_local = max(n_sites ÷ Lx_local, 1)
+            @assert Lx_local * Ly_local == n_sites "n_sites must be factorizable as Lx*Ly for triangular lattice"
+            Lx, Ly = Lx_local, Ly_local
+        else
+            @assert Lx > 0 && Ly > 0 "Lx and Ly must be positive"
+            @assert Lx * Ly == n_sites "Provided Lx*Ly must equal n_sites"
+        end
+
+        for i = 1:n_sites
+            ix = (i - 1) % Lx + 1
+            iy = (i - 1) ÷ Lx + 1
+            # +x neighbor (no wrap here)
+            if ix < Lx
+                add_hund_coupling!(ham, J, i, i + 1)
+            end
+            # +y neighbor (no wrap here)
+            if iy < Ly
+                add_hund_coupling!(ham, J, i, i + Lx)
+            end
+            # +x + y diagonal (no wrap here)
+            if ix < Lx && iy < Ly
+                add_hund_coupling!(ham, J, i, i + 1 + Lx)
+            end
+        end
+        # periodic wraps along x
+        for iy = 1:Ly
+            i_end = (iy - 1) * Lx + Lx
+            i_start = (iy - 1) * Lx + 1
+            add_hund_coupling!(ham, J, i_end, i_start)
+        end
+        # periodic wraps along y
+        for ix = 1:Lx
+            i_top = (Ly - 1) * Lx + ix
+            i_bottom = ix
+            add_hund_coupling!(ham, J, i_top, i_bottom)
+        end
+        # periodic wraps for the diagonal bonds: connect (ix=Lx,iy) to (ix=1,iy+1), and (iy=Ly,ix) to (ix+1,1)
+        for iy = 1:Ly-1
+            i = (iy - 1) * Lx + Lx
+            j = iy * Lx + 1
+            add_hund_coupling!(ham, J, i, j)
+        end
+        # wrap across y for diagonal from last row to first row
+        for ix = 1:Lx-1
+            i = (Ly - 1) * Lx + ix
+            j = ix + 1
+            add_hund_coupling!(ham, J, i, j)
+        end
+        # corner wrap (Lx, Ly) -> (1,1)
+        add_hund_coupling!(ham, J, n_sites, 1)
+    elseif lattice_type == :honeycomb
+        # Honeycomb: 2 sites per unit cell; factor n_sites = 2 * Lx * Ly
+        @assert n_sites % 2 == 0 "Honeycomb lattice requires even n_sites"
+        ncell = n_sites ÷ 2
+        if (Lx !== nothing) ⊻ (Ly !== nothing)
+            error("Both Lx and Ly must be provided together if specified")
+        end
+        if Lx === nothing
+            # Choose near-square Lx * Ly = ncell
+            Lx_local = max(Int(round(sqrt(ncell))), 1)
+            while ncell % Lx_local != 0 && Lx_local > 1
+                Lx_local -= 1
+            end
+            Ly_local = max(ncell ÷ Lx_local, 1)
+            @assert Lx_local * Ly_local == ncell "n_sites/2 must be factorizable as Lx*Ly for honeycomb lattice"
+            Lx, Ly = Lx_local, Ly_local
+        else
+            @assert Lx > 0 && Ly > 0 "Lx and Ly must be positive"
+            @assert 2 * Lx * Ly == n_sites "Provided 2*Lx*Ly must equal n_sites for honeycomb lattice"
+        end
+
+        # Index mapping: A=1, B=2 sublattice
+        idx = (x, y, s) -> begin
+            xx = ((x - 1) % Lx) + 1
+            yy = ((y - 1) % Ly) + 1
+            base = (yy - 1) * Lx + xx
+            return 2 * (base - 1) + s
+        end
+
+        # For each cell, connect A(i,j) to three B neighbors
+        for y = 1:Ly, x = 1:Lx
+            a = idx(x, y, 1)
+            b1 = idx(x, y, 2)
+            b2 = idx(x - 1, y, 2)
+            b3 = idx(x, y - 1, 2)
+            add_hund_coupling!(ham, J, a, b1)
+            add_hund_coupling!(ham, J, a, b2)
+            add_hund_coupling!(ham, J, a, b3)
+        end
+    elseif lattice_type == :ladder
+        # Two-leg ladder: n_sites = 2 * L
+        @assert n_sites % 2 == 0 "Ladder lattice requires n_sites divisible by 2"
+        L = n_sites ÷ 2
+        leg = (l, w) -> (l - 1) * 2 + w # w=1,2
+        # Along legs with PBC
+        for l = 1:L
+            lnext = l < L ? l + 1 : 1
+            add_hund_coupling!(ham, J, leg(l, 1), leg(lnext, 1))
+            add_hund_coupling!(ham, J, leg(l, 2), leg(lnext, 2))
+            # Rung
+            add_hund_coupling!(ham, J, leg(l, 1), leg(l, 2))
+        end
+    elseif lattice_type == :kagome
+        # Kagome: 3 sites per unit cell; factor n_sites = 3 * Lx * Ly
+        @assert n_sites % 3 == 0 "Kagome lattice requires n_sites divisible by 3"
+        ncell = n_sites ÷ 3
+        if (Lx !== nothing) ⊻ (Ly !== nothing)
+            error("Both Lx and Ly must be provided together if specified")
+        end
+        if Lx === nothing
+            Lx_local = max(Int(round(sqrt(ncell))), 1)
+            while ncell % Lx_local != 0 && Lx_local > 1
+                Lx_local -= 1
+            end
+            Ly_local = max(ncell ÷ Lx_local, 1)
+            @assert Lx_local * Ly_local == ncell "n_sites/3 must be factorizable as Lx*Ly for kagome lattice"
+            Lx, Ly = Lx_local, Ly_local
+        else
+            @assert Lx > 0 && Ly > 0 "Lx and Ly must be positive"
+            @assert 3 * Lx * Ly == n_sites "Provided 3*Lx*Ly must equal n_sites for kagome lattice"
+        end
+        # Use StdFace geometry to define NN bonds robustly
+        local geom = create_kagome_lattice(Lx, Ly)
+        return create_heisenberg_hamiltonian(geom, J)
     else
         error("Unsupported lattice type for Heisenberg model: $lattice_type")
     end
