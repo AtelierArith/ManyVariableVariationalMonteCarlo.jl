@@ -298,9 +298,10 @@ function compute_force_vector_precise!(sr::PreciseStochasticReconfiguration{T}, 
     end
 
     # Compute force vector F_i = ⟨O_i* H⟩ - ⟨O_i*⟩⟨H⟩
+    # Following C implementation: g[si] = -DSROptStepDt*2.0*(creal(SROptHO[pi+2]) - creal(SROptHO[0]) * creal(SROptOO[pi+2]))
     fill!(sr.force_vector, zero(T))
 
-    # First compute ⟨O_i* H⟩
+    # First compute ⟨O_i* H⟩ (SROptHO)
     for i in 1:n_params
         force_i = zero(T)
         for k in 1:n_samples
@@ -309,9 +310,16 @@ function compute_force_vector_precise!(sr::PreciseStochasticReconfiguration{T}, 
         sr.force_vector[i] = force_i
     end
 
-    # Subtract ⟨O_i*⟩⟨H⟩
+    # Compute ⟨H⟩ (SROptHO[0])
+    weighted_energy_ho = zero(T)
+    for k in 1:n_samples
+        weighted_energy_ho += sr.sample_weights[k] * energies[k]
+    end
+
+    # Apply C implementation formula: g[i] = -step_size * 2.0 * (HO[i] - HO[0] * OO[i])
+    # Note: C uses -DSROptStepDt factor and 2.0 scaling
     for i in 1:n_params
-        sr.force_vector[i] -= conj(sr.temp_vector[i]) * weighted_energy
+        sr.force_vector[i] = T(-sr.optimization_step_size * 2.0) * (sr.force_vector[i] - weighted_energy_ho * conj(sr.temp_vector[i]))
     end
 end
 
@@ -330,8 +338,8 @@ function solve_sr_equations_direct!(sr::PreciseStochasticReconfiguration{T}) whe
             solve_with_lu!(sr)
         end
 
-        # Apply step size
-        sr.parameter_delta .*= T(-sr.optimization_step_size)
+        # Note: step size already applied in force vector computation (C implementation style)
+        # No additional scaling needed
 
         # Limit parameter changes for stability
         limit_parameter_changes!(sr)
