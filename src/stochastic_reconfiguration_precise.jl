@@ -62,6 +62,11 @@ mutable struct PreciseStochasticReconfiguration{T<:Union{Float64,ComplexF64}}
     temp_vector::Vector{T}
     temp_matrix::Matrix{T}
 
+    # Weighted accumulators (OO and HO) for C-compatible SR stats
+    wc::Float64
+    ho_accum::Vector{T}
+    oo_accum::Matrix{T}
+
     function PreciseStochasticReconfiguration{T}(n_parameters::Int, n_samples::Int) where {T}
         new{T}(
             n_parameters, n_samples,
@@ -87,6 +92,9 @@ mutable struct PreciseStochasticReconfiguration{T<:Union{Float64,ComplexF64}}
             zeros(Float64, n_parameters),
             1.0,   # overlap_condition_number
             0.02,  # optimization_step_size
+            zeros(T, n_parameters),
+            zeros(T, n_parameters, n_parameters),
+            0.0,
             zeros(T, n_parameters),
             zeros(T, n_parameters, n_parameters)
         )
@@ -127,6 +135,11 @@ function configure_optimization!(sr::PreciseStochasticReconfiguration{T}, config
         sr.energy_samples = zeros(T, sr.n_samples)
         sr.sample_weights = ones(Float64, sr.n_samples)
     end
+
+    # Reset weighted accumulators each (re)configure
+    sr.wc = 0.0
+    sr.ho_accum .= zero(T)
+    fill!(sr.oo_accum, zero(T))
 end
 
 """
@@ -251,10 +264,29 @@ function compute_force_vector_precise!(sr::PreciseStochasticReconfiguration{T}, 
     # Store energy samples
     sr.energy_samples .= energies
 
-    # Compute weighted average energy ⟨H⟩
+    # Compute weighted average energy ⟨H⟩ (also accumulate OO/HO like C's vmccal.c)
     weighted_energy = zero(T)
     for k in 1:n_samples
         weighted_energy += sr.sample_weights[k] * energies[k]
+    end
+
+    # Accumulate OO and HO moments with the same normalized weights
+    # HO_i = ⟨O_i* H⟩_w, OO_ij = ⟨O_i* O_j⟩_w
+    fill!(sr.ho_accum, zero(T))
+    fill!(sr.oo_accum, zero(T))
+    for k in 1:n_samples
+        wk = T(sr.sample_weights[k])
+        ek = T(energies[k])
+        gk = view(gradients, :, k)
+        # HO
+        sr.ho_accum .+= wk .* conj.(gk) .* ek
+        # OO rank-1
+        @inbounds for i in 1:n_params
+            ci = wk * conj(gk[i])
+            @inbounds for j in 1:n_params
+                sr.oo_accum[i, j] += ci * gk[j]
+            end
+        end
     end
 
     # Compute average gradients ⟨O_i*⟩ (already computed in overlap matrix)

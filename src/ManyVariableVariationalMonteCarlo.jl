@@ -47,6 +47,7 @@ include("lanczos.jl")        # Lanczos method integration
 
 # Enhanced implementation modules for C-compatibility
 include("stdface_parser.jl")
+include("stdface_expert_mode.jl")
 include("wavefunction_detailed.jl")
 include("stochastic_reconfiguration_precise.jl")
 include("mvmc_output_format.jl")
@@ -512,6 +513,7 @@ export SimulationConfig,
     parse_stdface_def,
     parse_stdface_and_create_config,
     print_mvmc_header,
+    generate_expert_mode_files,
 
     # Detailed wavefunction exports
     GutzwillerProjector,

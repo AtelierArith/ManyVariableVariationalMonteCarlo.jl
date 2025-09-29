@@ -508,12 +508,17 @@ mutable struct CombinedWavefunction{T<:Union{Float64,ComplexF64}}
     # Spin singlet pairing support (StdFace orbital mapping)
     pair_params::Vector{T}
     orbital_map::Union{Nothing,Matrix{Int}}
+    pair_M::Union{Nothing,Matrix{T}}
+    pair_inv::Union{Nothing,Matrix{T}}
+    pair_det::T
+    pair_up_sites::Vector{Int}
+    pair_dn_sites::Vector{Int}
 
     # Current wavefunction amplitude
     current_amplitude::T
 
     function CombinedWavefunction{T}() where {T}
-        new{T}(nothing, nothing, nothing, nothing, T[], nothing, one(T))
+        new{T}(nothing, nothing, nothing, nothing, T[], nothing, nothing, nothing, one(T), Int[], Int[], one(T))
     end
 end
 
@@ -567,7 +572,12 @@ function compute_wavefunction_amplitude!(wf::CombinedWavefunction{T}, state::VMC
                 end
             end
             try
-                wf.current_amplitude *= det(M)
+                wf.pair_det = det(M)
+                wf.pair_M = M
+                wf.pair_inv = inv(M)
+                wf.pair_up_sites = copy(up_pos)
+                wf.pair_dn_sites = copy(dn_pos)
+                wf.current_amplitude *= wf.pair_det
             catch
                 wf.current_amplitude *= T(0)
             end
@@ -603,6 +613,104 @@ function update_wavefunction_parameters!(wf::CombinedWavefunction{T}, params::Pa
     if !isempty(params.slater)
         wf.pair_params = copy(params.slater)
     end
+end
+
+"""
+    pair_swap_ratio!(wf::CombinedWavefunction{T}, up_index::Int, dn_index::Int, new_up_site::Int, new_dn_site::Int, dn_sites::Vector{Int})
+
+Compute determinant ratio for swapping one up-site row and one down-site column.
+Updates internal pair_M/pair_inv/pair_det in-place; returns ratio.
+"""
+function pair_swap_ratio!(
+    wf::CombinedWavefunction{T},
+    up_index::Int,
+    dn_index::Int,
+    new_up_site::Int,
+    new_dn_site::Int,
+    dn_sites::Vector{Int},
+) where {T}
+    M = wf.pair_M; Minv = wf.pair_inv; detM = wf.pair_det
+    if M === nothing || Minv === nothing
+        return one(T)
+    end
+    n = size(M, 1)
+    # Build new row for up_index
+    r_new = zeros(T, n)
+    for (b, j_site) in enumerate(dn_sites)
+        idx = wf.orbital_map[new_up_site, j_site]
+        r_new[b] = (idx >= 1 && idx <= length(wf.pair_params)) ? wf.pair_params[idx] : zero(T)
+    end
+    # Row replacement delta
+    delta_row = r_new .- view(M, up_index, :)
+    # Row ratio: 1 + delta_row * Minv[:, up_index]
+    ratio_row = one(T) + dot(delta_row, view(Minv, :, up_index))
+    # Update inverse for row replacement (rank-1 update)
+    Au = Minv * (delta_row')
+    col_i = view(Minv, :, up_index)
+    denom = ratio_row
+    Minv .= Minv .- (col_i * Au) ./ denom
+    view(M, up_index, :) .= r_new
+
+    # Column replacement: build new column for dn_index
+    c_new = zeros(T, n)
+    # For each up row a (site index tracked in pair_up_sites)
+    for a in 1:n
+        up_site = wf.pair_up_sites[a]
+        idx = wf.orbital_map[up_site, new_dn_site]
+        c_new[a] = (idx >= 1 && idx <= length(wf.pair_params)) ? wf.pair_params[idx] : M[a, dn_index]
+    end
+    delta_col = c_new .- view(M, :, dn_index)
+    # Column ratio: 1 + Minv[dn_index, :] * delta_col
+    ratio_col = one(T) + dot(view(Minv, dn_index, :), delta_col)
+    # Update inverse for column replacement
+    v = Minv * delta_col
+    row_j = view(Minv, dn_index, :)
+    denom2 = ratio_col
+    Minv .= Minv .- (v * row_j) ./ denom2
+    view(M, :, dn_index) .= c_new
+
+    total_ratio = ratio_row * ratio_col
+    wf.pair_det *= total_ratio
+    wf.pair_up_sites[up_index] = new_up_site
+    wf.pair_dn_sites[dn_index] = new_dn_site
+    return total_ratio
+end
+
+"""
+    pair_swap_ratio_predict(wf, up_index, dn_index, new_up_site, new_dn_site)
+
+Compute determinant ratio for the proposed swap without mutating internal matrices.
+"""
+function pair_swap_ratio_predict(
+    wf::CombinedWavefunction{T},
+    up_index::Int,
+    dn_index::Int,
+    new_up_site::Int,
+    new_dn_site::Int,
+) where {T}
+    M = wf.pair_M; Minv = wf.pair_inv
+    if M === nothing || Minv === nothing
+        return one(T)
+    end
+    n = size(M, 1)
+    # New row
+    r_new = zeros(T, n)
+    for (b, j_site) in enumerate(wf.pair_dn_sites)
+        idx = wf.orbital_map[new_up_site, j_site]
+        r_new[b] = (idx >= 1 && idx <= length(wf.pair_params)) ? wf.pair_params[idx] : zero(T)
+    end
+    delta_row = r_new .- view(M, up_index, :)
+    ratio_row = one(T) + dot(delta_row, view(Minv, :, up_index))
+    # New column
+    c_new = zeros(T, n)
+    for a in 1:n
+        up_site = wf.pair_up_sites[a]
+        idx = wf.orbital_map[up_site, new_dn_site]
+        c_new[a] = (idx >= 1 && idx <= length(wf.pair_params)) ? wf.pair_params[idx] : M[a, dn_index]
+    end
+    delta_col = c_new .- view(M, :, dn_index)
+    ratio_col = one(T) + dot(view(Minv, dn_index, :), delta_col)
+    return ratio_row * ratio_col
 end
 
 """

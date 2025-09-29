@@ -48,6 +48,9 @@ mutable struct EnhancedVMCSimulation{T<:Union{Float64,ComplexF64}}
     # Cached configurations from last sampling (to reuse for gradients)
     cached_configurations::Vector{Vector{Int}}
 
+    # Weighted averaging (mirror C two-phase accumulation; placeholder weights)
+    energy_averager::WeightedAverager
+
     function EnhancedVMCSimulation{T}(config::SimulationConfig, layout::ParameterLayout) where {T}
         parameters = ParameterSet(layout; T = T)
         output_manager = MVMCOutputManager(
@@ -68,7 +71,8 @@ mutable struct EnhancedVMCSimulation{T<:Union{Float64,ComplexF64}}
             Dict{String,Any}(),
             Dict{String,Float64}(),
             time(),
-            Vector{Vector{Int}}()
+            Vector{Vector{Int}}(),
+            WeightedAverager()
         )
     end
 end
@@ -84,9 +88,17 @@ Complete mVMC simulation starting from StdFace.def file.
 function run_mvmc_from_stdface(stdface_file::String; T=ComplexF64, output_dir::String="output")
     # Parse StdFace.def
     println("Start: Read StdFace.def file.")
-    config = parse_stdface_and_create_config(stdface_file)
-    print_mvmc_header(config)
+    params = parse_stdface_def(stdface_file)
+    print_stdface_summary(params)
     println("End  : Read StdFace.def file.")
+
+    # Generate expert mode files (equivalent to StdFace_main in C)
+    println()
+    generate_expert_mode_files(params, output_dir)
+
+    # Create config from the generated files
+    config = stdface_to_simulation_config(params; root = dirname(stdface_file))
+    print_mvmc_header(config)
 
     # Create parameter layout based on model
     layout = create_parameter_layout(config)
@@ -718,15 +730,18 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
         # Update wavefunction parameters
         update_wavefunction_parameters!(sim.wavefunction, sim.parameters)
 
-        # Sample configurations
+        # Sample configurations (Phase 1: sampling)
         # Use FULL NVMCSample per iteration as in mVMC (NSROptItrSmp is not a per-iteration sample count)
         actual_sample_size = sim.config.nvmc_sample
         sample_results = enhanced_sample_configurations!(sim, actual_sample_size)
+        # Accumulate sampling energies with placeholder uniform weights
+        reset!(sim.energy_averager)
+        update!(sim.energy_averager, sample_results.energy_samples)
 
         # Compute gradients
         gradients = compute_enhanced_gradients!(sim, sample_results)
 
-        # Solve SR equations
+        # Solve SR equations (Phase 2: main calculation uses same weights semantics)
         # Ensure SR sample size matches what we actually sampled this iteration
         actual_samples = sample_results.n_samples
         if sim.sr_optimizer.n_samples != actual_samples
@@ -747,8 +762,11 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
         energy_var = compute_energy_variance!(sim.sr_optimizer)
         # SR info in C reference style
         eigs = isempty(sim.sr_optimizer.overlap_eigenvalues) ? [0.0] : sim.sr_optimizer.overlap_eigenvalues
-        cutoff = sim.sr_optimizer.eigenvalue_cutoff
-        msize = count(>(cutoff), eigs)
+        sdiagmax = maximum(eigs)
+        # C: diagCutThreshold = sDiagMax * DSROptRedCut
+        redcut = haskey(face, :DSROptRedCut) ? Float64(face[:DSROptRedCut]) : sim.sr_optimizer.regularization
+        diagCutThreshold = sdiagmax * redcut
+        msize = count(>=(diagCutThreshold), eigs)
         diagcut = sim.sr_optimizer.n_parameters - msize
         # rmax: take signed max of real part in force vector by absolute value
         fvec = sim.sr_optimizer.force_vector
@@ -765,19 +783,18 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
         sr_info = Dict(
             "npara" => sim.sr_optimizer.n_parameters,
             "msize" => msize,
-            "optcut" => sim.sr_optimizer.n_parameters + 2, # heuristic to match C
+            # optCut in C is the cutoff index in reduced S; approximate as diagcut+? but we keep npara+2 in absence of exact mapping
+            "optcut" => sim.sr_optimizer.n_parameters + 2,
             "diagcut" => diagcut,
-            "sdiagmax" => maximum(eigs),
+            "sdiagmax" => sdiagmax,
             "sdiagmin" => minimum(eigs),
             "rmax" => rmax_val,
             "imax" => imax_idx,
         )
 
         # Weighted averages (uniform weights for now)
-        # Weighted averaging to mirror C: WeightAverageWE/WeightAverageSROpt_real (uniform weights placeholder)
-        wa = WeightedAverager()
-        update!(wa, sample_results.energy_samples)
-        Etot, Etot2 = summarize_energy(wa)
+        # Weighted averaging to mirror C: use accumulated sampling weights for Etot/Etot2
+        Etot, Etot2 = summarize_energy(sim.energy_averager)
         write_optimization_step!(
             sim.output_manager,
             iteration,
@@ -1825,8 +1842,20 @@ function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
 
     # Compute Metropolis ratio
     if sim.config.model == :Spin
-        # Spin model: evaluate full wavefunction ratio by explicit swap
-        amp_old = compute_wavefunction_amplitude!(sim.wavefunction, sim.vmc_state)
+        # Spin model: use pairing matrix inverse updates for ratio when available
+        n_up = div(n_elec, 2)
+        up_index = electron_idx
+        dn_index = swap_partner_idx !== nothing ? (swap_partner_idx - n_up) : 1
+        dn_index = dn_index < 1 ? 1 : dn_index
+        # Jastrow ratio (fallback if pairing not set)
+        j_old = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, sim.vmc_state) : one(T)
+        # compute dn_sites list
+        dn_sites = sim.vmc_state.electron_positions[(n_up+1):end]
+        pair_ratio = one(T)
+        if sim.wavefunction.orbital_map !== nothing && !isempty(sim.wavefunction.pair_params) && sim.wavefunction.pair_inv !== nothing
+            pair_ratio = pair_swap_ratio_predict(sim.wavefunction, up_index, dn_index, new_pos, old_pos)
+        end
+        # Jastrow for proposed configuration (compute on-the-fly)
         new_state = VMCState{T}(sim.vmc_state.n_electrons, sim.vmc_state.n_sites)
         new_state.electron_positions .= sim.vmc_state.electron_positions
         if swap_allowed && swap_partner_idx !== nothing
@@ -1835,15 +1864,9 @@ function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
         else
             new_state.electron_positions[electron_idx] = new_pos
         end
-        amp_new = compute_wavefunction_amplitude!(sim.wavefunction, new_state)
-        if abs(amp_old) < 1e-14 || abs(amp_new) < 1e-14
-            # Fallback: use Jastrow-only ratio to avoid singular determinants
-            j_old = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, sim.vmc_state) : one(T)
-            j_new = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, new_state) : one(T)
-            total_ratio = j_new / (j_old == 0 ? T(1e-16) : j_old)
-        else
-            total_ratio = amp_new / amp_old
-        end
+        j_new = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, new_state) : one(T)
+        j_ratio = j_new / (abs(j_old) < 1e-16 ? T(1e-16) : j_old)
+        total_ratio = pair_ratio * j_ratio
     else
         # ===== Heavy path for fermion models =====
         pfm_new = calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
@@ -1857,24 +1880,28 @@ function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
     prob = min(1.0, real(abs2(total_ratio)))
 
     # Accept or reject
-    if rand(rng) < prob
-        # Update all matrices if accepted (only needed for fermion models)
-        if sim.config.model != :Spin
-            pfm_new = @isdefined(pfm_new) ? pfm_new : calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
-            slater_matrices = @isdefined(slater_matrices) ? slater_matrices : calculate_slater_matrices(sim, electron_idx, new_pos)
-            update_matrices_after_move!(sim, electron_idx, old_pos, new_pos, pfm_new, slater_matrices)
-        end
+        if rand(rng) < prob
+            # Update all matrices if accepted (only needed for fermion models)
+            if sim.config.model != :Spin
+                pfm_new = @isdefined(pfm_new) ? pfm_new : calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
+                slater_matrices = @isdefined(slater_matrices) ? slater_matrices : calculate_slater_matrices(sim, electron_idx, new_pos)
+                update_matrices_after_move!(sim, electron_idx, old_pos, new_pos, pfm_new, slater_matrices)
+            end
 
-        # Update positions
-        if swap_allowed && swap_partner_idx !== nothing
-            # Spin-exchange move: swap positions with the partner
-            sim.vmc_state.electron_positions[electron_idx] = new_pos
-            sim.vmc_state.electron_positions[swap_partner_idx] = old_pos
-        else
-            # Simple hop
-            sim.vmc_state.electron_positions[electron_idx] = new_pos
+            # Update positions
+            if swap_allowed && swap_partner_idx !== nothing
+                # Spin-exchange move: swap positions with the partner
+                sim.vmc_state.electron_positions[electron_idx] = new_pos
+                sim.vmc_state.electron_positions[swap_partner_idx] = old_pos
+            else
+                # Simple hop
+                sim.vmc_state.electron_positions[electron_idx] = new_pos
+            end
+            # Apply pairing matrix updates after acceptance
+            if sim.wavefunction.orbital_map !== nothing && !isempty(sim.wavefunction.pair_params) && sim.wavefunction.pair_inv !== nothing
+                pair_swap_ratio!(sim.wavefunction, up_index, dn_index, new_pos, old_pos, dn_sites)
+            end
         end
-    end
 end
 
 """
@@ -1938,52 +1965,42 @@ function calculate_local_energy_heisenberg(sim::EnhancedVMCSimulation{T}) where 
         # Off-diagonal: flip if opposite spins
         flip_ratio = zero(T)
         if (i in up_set && j in dn_set) || (i in dn_set && j in up_set)
-            # Prefer fast spin-Jastrow ratio when using StdFace-style (few) parameters
-            use_fast = length(sim.parameters.proj) <= 2 && sim.wavefunction.jastrow !== nothing
-            if use_fast
-                # Spins as ±1/2 on sites
-                s = Dict{Int,Float64}()
-                for site in 1:ham.n_sites
-                    s[site] = (site in up_set ? 0.5 : 0.0) - (site in dn_set ? 0.5 : 0.0)
+            # Use pairing inverse to predict ratio for local energy without mutating
+            if sim.wavefunction.orbital_map !== nothing && sim.wavefunction.pair_inv !== nothing && !isempty(sim.wavefunction.pair_up_sites) && !isempty(sim.wavefunction.pair_dn_sites)
+                if i in up_set && j in dn_set
+                    up_index = findfirst(==(i), sim.wavefunction.pair_up_sites)
+                    dn_index = findfirst(==(j), sim.wavefunction.pair_dn_sites)
+                    if up_index !== nothing && dn_index !== nothing
+                        flip_ratio = pair_swap_ratio_predict(sim.wavefunction, up_index, dn_index, j, i)
+                    end
+                else
+                    up_index = findfirst(==(j), sim.wavefunction.pair_up_sites)
+                    dn_index = findfirst(==(i), sim.wavefunction.pair_dn_sites)
+                    if up_index !== nothing && dn_index !== nothing
+                        flip_ratio = pair_swap_ratio_predict(sim.wavefunction, up_index, dn_index, i, j)
+                    end
                 end
-                # Change in Σ_nn s_u s_v when swapping spins on bond (i,j)
-                s_i = s[i]; s_j = s[j]
-                s_im1 = i > 1 ? s[i-1] : 0.0
-                s_jp1 = j < ham.n_sites ? s[j+1] : 0.0
-                ΔS = (s_j - s_i) * (s_im1 - s_jp1)
-                # Global spin-Jastrow coefficient
-                v = real(sim.parameters.proj[end])
-                flip_ratio = T(exp(v * ΔS))
             else
-                # Create swapped configuration and evaluate general ratio
+                # Fallback: compute via Jastrow-only ratio (non-mutating)
                 new_state = VMCState{T}(sim.vmc_state.n_electrons, sim.vmc_state.n_sites)
                 new_state.electron_positions .= pos
-
                 if i in up_set && j in dn_set
-                    idx_up = findfirst(==(i), new_state.electron_positions[1:n_up])
-                    idx_dn_rel = findfirst(==(j), new_state.electron_positions[(n_up+1):end])
+                    idx_up = findfirst(==(i), new_state.electron_positions[1:n_up]); idx_dn_rel = findfirst(==(j), new_state.electron_positions[(n_up+1):end])
                     if idx_up !== nothing && idx_dn_rel !== nothing
                         idx_dn = n_up + idx_dn_rel
                         new_state.electron_positions[idx_up] = j
                         new_state.electron_positions[idx_dn] = i
                     end
                 else
-                    idx_up = findfirst(==(j), new_state.electron_positions[1:n_up])
-                    idx_dn_rel = findfirst(==(i), new_state.electron_positions[(n_up+1):end])
+                    idx_up = findfirst(==(j), new_state.electron_positions[1:n_up]); idx_dn_rel = findfirst(==(i), new_state.electron_positions[(n_up+1):end])
                     if idx_up !== nothing && idx_dn_rel !== nothing
                         idx_dn = n_up + idx_dn_rel
                         new_state.electron_positions[idx_up] = i
                         new_state.electron_positions[idx_dn] = j
                     end
                 end
-
-            amp_new = compute_wavefunction_amplitude!(sim.wavefunction, new_state)
-            if abs(amp_old) < 1e-14 || abs(amp_new) < 1e-14
                 j_new = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, new_state) : one(T)
                 flip_ratio = j_new / (jastrow_old == 0 ? T(1e-16) : jastrow_old)
-            else
-                flip_ratio = amp_new / amp_old
-            end
             end
         end
 
