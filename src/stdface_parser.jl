@@ -120,7 +120,7 @@ mutable struct StdFaceParameters
             # Lattice geometry
             1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0,
             # VMC parameters (matching C implementation defaults)
-            0, 1000, 30, 10, 1, 1000, 0.001, 0.02, 0.02, 123456789, 1, 0, 100, 1e-10,
+            0, 1000, 100, 10, 1, 10, 0.001, 0.02, 0.02, 11272, 1, 0, 100, 1e-10,
             # Lanczos
             0,
             # Data output
