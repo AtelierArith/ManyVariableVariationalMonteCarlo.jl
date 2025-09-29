@@ -255,12 +255,11 @@ function VMCParameters()
         0,
         0,
         1000,  # nsr_opt_itr_step (matches C implementation)
-        100,   # nsr_opt_itr_smp (matches C implementation)
+        30,    # nsr_opt_itr_smp (matches C implementation)
         1,
         1e-3,  # dsr_opt_red_cut (matches C implementation)
         2e-2,  # dsr_opt_sta_del (matches C implementation)
         2e-2,  # dsr_opt_step_dt (matches C implementation)
-        100,
         1e-10, # dsr_opt_cg_tol (matches C implementation)
         10,    # nvmc_warm_up (matches C implementation)
         1,
