@@ -47,21 +47,28 @@ end
 Open files for parameter optimization output.
 """
 function open_optimization_files!(manager::MVMCOutputManager)
+    # mVMC naming: use _001 suffix for per-run files
     # Main result file
-    manager.file_handles["zvo_out"] = open(joinpath(manager.output_dir, "zvo_out.dat"), "w")
+    manager.file_handles["zvo_out"] = open(joinpath(manager.output_dir, "zvo_out_001.dat"), "w")
 
     # Parameter variation file
     if manager.binary_mode
-        manager.file_handles["zvo_var"] = open(joinpath(manager.output_dir, "zvo_var.dat"), "wb")
+        manager.file_handles["zvo_var"] = open(joinpath(manager.output_dir, "zvo_var_001.dat"), "wb")
     else
-        manager.file_handles["zvo_var"] = open(joinpath(manager.output_dir, "zvo_var.dat"), "w")
+        manager.file_handles["zvo_var"] = open(joinpath(manager.output_dir, "zvo_var_001.dat"), "w")
     end
 
-    # SR information file
+    # SR information file (no suffix in C)
     manager.file_handles["zvo_SRinfo"] = open(joinpath(manager.output_dir, "zvo_SRinfo.dat"), "w")
 
-    # Timer information
-    manager.file_handles["zvo_time"] = open(joinpath(manager.output_dir, "zvo_time.dat"), "w")
+    # Timer information (with _001)
+    manager.file_handles["zvo_time"] = open(joinpath(manager.output_dir, "zvo_time_001.dat"), "w")
+
+    # Calculation timer summary
+    manager.file_handles["zvo_CalcTimer"] = open(joinpath(manager.output_dir, "zvo_CalcTimer.dat"), "w")
+    f = manager.file_handles["zvo_CalcTimer"]
+    println(f, "# Calc timer (placeholder)")
+    println(f, "# Section  Time[s]")
 end
 
 """
@@ -112,11 +119,10 @@ end
 Write header information for optimization run.
 """
 function write_optimization_header!(manager::MVMCOutputManager, config::SimulationConfig)
-    # SR info header
+    # SR info header (C reference style)
     if haskey(manager.file_handles, "zvo_SRinfo")
         f = manager.file_handles["zvo_SRinfo"]
-        println(f, "# Stochastic Reconfiguration Information")
-        println(f, "# Iteration  Energy_Real  Energy_Imag  Energy_Variance  Force_Norm  Overlap_Condition")
+        println(f, "#Npara Msize optCut diagCut sDiagMax  sDiagMin    absRmax       imax")
         flush_if_needed!(manager, f)
     end
 
@@ -176,14 +182,11 @@ function write_optimization_step!(manager::MVMCOutputManager, iteration::Int, en
     # Main output (zvo_out.dat)
     if haskey(manager.file_handles, "zvo_out")
         f = manager.file_handles["zvo_out"]
-        etot = energy
-        etot2 = abs2(energy)  # Simplified for single sample
-        sztot = get(sr_info, "sztot", 0.0)
-        sztot2 = abs2(sztot)
-
+        etot = real(energy)
+        varE = energy_var
+        # Output columns aligned (at least) for E and Var(E); remaining zeros as placeholders
         @printf(f, "%.18e %.18e %.18e %.18e %.18e %.18e\n",
-                real(etot), imag(etot), real(etot2), real((etot2 - etot*etot)/(etot*etot)),
-                real(sztot), real(sztot2))
+                etot, 0.0, varE, 0.0, 0.0, 0.0)
         flush_if_needed!(manager, f)
     end
 
@@ -214,11 +217,17 @@ function write_optimization_step!(manager::MVMCOutputManager, iteration::Int, en
     # SR information (zvo_SRinfo.dat)
     if haskey(manager.file_handles, "zvo_SRinfo")
         f = manager.file_handles["zvo_SRinfo"]
-        condition_num = get(sr_info, "condition_number", 1.0)
-        force_norm = get(sr_info, "force_norm", 0.0)
+        npara   = get(sr_info, "npara", 0)
+        msize   = get(sr_info, "msize", 0)
+        optcut  = get(sr_info, "optcut", 0)
+        diagcut = get(sr_info, "diagcut", 0)
+        smax    = get(sr_info, "sdiagmax", 0.0)
+        smin    = get(sr_info, "sdiagmin", 0.0)
+        rmax    = get(sr_info, "rmax", 0.0)
+        imax    = get(sr_info, "imax", 0)
 
-        @printf(f, "%6d  %.16e  %.16e  %.16e  %.16e  %.16e\n",
-                iteration, real(energy), imag(energy), energy_var, force_norm, condition_num)
+        @printf(f, "%6d %5d %6d %6d  %.5e  %.5e  %.5e %6d\n",
+                npara, msize, optcut, diagcut, smax, smin, rmax, imax)
         flush_if_needed!(manager, f)
     end
 
@@ -240,6 +249,41 @@ function write_final_parameters!(manager::MVMCOutputManager, params::Vector)
             @printf(f, "%6d  %.16e  %.16e\n", i, real(p), imag(p))
         end
     end
+end
+
+"""
+    write_component_parameter_files!(manager::MVMCOutputManager; gutzwiller::Vector=ComplexF64[], jastrow::Vector=ComplexF64[], orbital::Vector=ComplexF64[])
+
+Write split parameter files zqp_gutzwiller_opt.dat, zqp_jastrow_opt.dat, zqp_orbital_opt.dat.
+"""
+function write_component_parameter_files!(
+    manager::MVMCOutputManager;
+    gutzwiller::Vector=ComplexF64[],
+    jastrow::Vector=ComplexF64[],
+    orbital::Vector=ComplexF64[],
+    ngutz::Int=length(gutzwiller),
+    njast::Int=length(jastrow),
+    norb::Int=length(orbital)
+)
+    # C-style headers and bodies
+    function write_block(path::String, key::String, count::Int, values::Vector{ComplexF64})
+        open(path, "w") do f
+            println(f, "======================")
+            @printf(f, "%s  %d\n", key, count)
+            println(f, "======================")
+            println(f, "======================")
+            println(f, "======================")
+            # Emit count entries; index from 0
+            for i in 0:(count-1)
+                v = i+1 <= length(values) ? values[i+1] : ComplexF64(0.0, 0.0)
+                @printf(f, "%d %.18e  %.18e \n", i, real(v), imag(v))
+            end
+        end
+    end
+
+    write_block(joinpath(manager.output_dir, "zqp_gutzwiller_opt.dat"), "NGutzwillerIdx", ngutz, gutzwiller)
+    write_block(joinpath(manager.output_dir, "zqp_jastrow_opt.dat"),    "NJastrowIdx",    njast, jastrow)
+    write_block(joinpath(manager.output_dir, "zqp_orbital_opt.dat"),    "NOrbitalIdx",    norb,  orbital)
 end
 
 """
@@ -427,6 +471,12 @@ function write_timing_info!(manager::MVMCOutputManager, iteration::Int, elapsed_
         f = manager.file_handles["zvo_time"]
         @printf(f, "%6d  %.6f  %.6f\n", iteration, elapsed_time, step_time)
         flush_if_needed!(manager, f)
+    end
+    # Also append rough section time into zvo_CalcTimer
+    if haskey(manager.file_handles, "zvo_CalcTimer")
+        f2 = manager.file_handles["zvo_CalcTimer"]
+        @printf(f2, "opt_step_%d  %.6f\n", iteration, step_time)
+        flush_if_needed!(manager, f2)
     end
 end
 

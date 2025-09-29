@@ -42,7 +42,8 @@ function main()
     print_stdface_summary(params)
 
     # Try enhanced simulation but expect it to fail for now
-    output_dir = dirname(path)  # Output in same directory as input
+    output_dir = joinpath(@__DIR__, "output")  # Output in same directory as input
+    mkpath(output_dir)
     sim = run_mvmc_from_stdface(path; T=ComplexF64, output_dir=output_dir)
 
     # Print summary in mVMC style
@@ -52,11 +53,15 @@ function main()
     # Comparison with C implementation
     println("Output files generated (C-implementation compatible):")
     if sim.mode == PARAMETER_OPTIMIZATION
-        println("  - zvo_out.dat      : Energy evolution")
-        println("  - zvo_var.dat      : Parameter variation")
-        println("  - zvo_SRinfo.dat   : Stochastic reconfiguration info")
-        println("  - zqp_opt.dat      : Final optimized parameters")
-        println("  - zvo_time.dat     : Timing information")
+        println("  - zvo_out_001.dat       : Energy evolution")
+        println("  - zvo_var_001.dat       : Parameter variation")
+        println("  - zvo_SRinfo.dat        : Stochastic reconfiguration info")
+        println("  - zvo_time_001.dat      : Timing information")
+        println("  - zvo_CalcTimer.dat     : Calculation timer summary")
+        println("  - zqp_opt.dat           : Final optimized parameters (all)")
+        println("  - zqp_gutzwiller_opt.dat: Split params (Gutzwiller)")
+        println("  - zqp_jastrow_opt.dat   : Split params (Jastrow)")
+        println("  - zqp_orbital_opt.dat   : Split params (Orbital)")
     else
         println("  - zvo_out.dat      : Energy and magnetization")
         println("  - zvo_cisajs.dat   : One-body Green functions")

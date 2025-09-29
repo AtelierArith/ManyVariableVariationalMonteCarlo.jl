@@ -134,19 +134,31 @@ function create_parameter_layout(config::SimulationConfig)
 
     # Determine parameter counts based on model
     if config.model == :Spin
-        # Spin models: include rich Jastrow structure to match mVMC complexity
-        # - onsite (Gutzwiller-like) per site
-        # - nearest-neighbor per site
-        # - long-range per pair (i<j)
-        # - spin-dependent per site
-        n_proj_onsite = n_sites
-        n_proj_nn = n_sites
-        n_proj_lr = div(n_sites * (n_sites - 1), 2)
-        n_proj_spin = n_sites
-        n_proj = n_proj_onsite + n_proj_nn + n_proj_lr + n_proj_spin
-        n_rbm = 0  # Start without RBM
-        n_slater = 0  # Spin models don't use Slater determinants in the same way
-        n_opttrans = 0
+        # Try to match mVMC StdFace-defined parameter counts if idx files exist
+        root = config.root
+        gutz_count = try
+            read_idx_count(joinpath(root, "gutzwilleridx.def"), "NGutzwillerIdx")
+        catch; 0; end
+        jast_count = try
+            read_idx_count(joinpath(root, "jastrowidx.def"), "NJastrowIdx")
+        catch; 0; end
+        orb_count = try
+            read_idx_count(joinpath(root, "orbitalidx.def"), "NOrbitalIdx")
+        catch; 0; end
+
+        if gutz_count + jast_count + orb_count > 0
+            # Map: use proj buffer for (gutz + jastrow), slater for orbital-like params
+            n_proj = gutz_count + jast_count
+            n_rbm = 0
+            n_slater = orb_count
+            n_opttrans = 0
+        else
+            # Fallback: minimal set
+            n_proj = 2
+            n_rbm = 0
+            n_slater = n_sites
+            n_opttrans = 0
+        end
     else
         # Fermion models: more complex parameter structure
         n_proj = n_sites  # Gutzwiller parameters
@@ -156,6 +168,24 @@ function create_parameter_layout(config::SimulationConfig)
     end
 
     return ParameterLayout(n_proj, n_rbm, n_slater, n_opttrans)
+end
+
+"""
+    read_idx_count(path::String, key::String) -> Int
+
+Parse mVMC idx.def header to get count, e.g., "NOrbitalIdx 64".
+"""
+function read_idx_count(path::String, key::String)
+    open(path, "r") do f
+        for line in eachline(f)
+            s = strip(line)
+            if startswith(s, key)
+                parts = split(s)
+                return parse(Int, parts[end])
+            end
+        end
+    end
+    return 0
 end
 
 """
@@ -669,10 +699,32 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
 
         # Collect statistics
         energy_var = compute_energy_variance!(sim.sr_optimizer)
+        # SR info in C reference style
+        eigs = isempty(sim.sr_optimizer.overlap_eigenvalues) ? [0.0] : sim.sr_optimizer.overlap_eigenvalues
+        cutoff = sim.sr_optimizer.eigenvalue_cutoff
+        msize = count(>(cutoff), eigs)
+        diagcut = sim.sr_optimizer.n_parameters - msize
+        # rmax: take signed max of real part in force vector by absolute value
+        fvec = sim.sr_optimizer.force_vector
+        if isempty(fvec)
+            rmax_val = 0.0
+            imax_idx = 0
+        else
+            reals = [real(f) for f in fvec]
+            mags = abs.(reals)
+            imax1 = findmax(mags)[2]
+            rmax_val = reals[imax1]
+            imax_idx = imax1 - 1  # 0-based index like C files
+        end
         sr_info = Dict(
-            "condition_number" => sim.sr_optimizer.overlap_condition_number,
-            "force_norm" => norm(sim.sr_optimizer.force_vector),
-            "sztot" => 0.0  # Placeholder
+            "npara" => sim.sr_optimizer.n_parameters,
+            "msize" => msize,
+            "optcut" => sim.sr_optimizer.n_parameters + 2, # heuristic to match C
+            "diagcut" => diagcut,
+            "sdiagmax" => maximum(eigs),
+            "sdiagmin" => minimum(eigs),
+            "rmax" => rmax_val,
+            "imax" => imax_idx,
         )
 
         # Write optimization step
@@ -707,7 +759,37 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
 
     # Output final parameters
     println("Start: Output opt params.")
-    write_final_parameters!(sim.output_manager, as_vector(sim.parameters))
+    all_params_vec = as_vector(sim.parameters)
+    write_final_parameters!(sim.output_manager, all_params_vec)
+
+    # Also write split parameter files to match mVMC naming
+    if sim.config.model == :Spin
+        # Try to match StdFace idx counts
+        root = sim.config.root
+        ngutz = try read_idx_count(joinpath(root, "gutzwilleridx.def"), "NGutzwillerIdx") catch; 0 end
+        njast = try read_idx_count(joinpath(root, "jastrowidx.def"),     "NJastrowIdx")    catch; 0 end
+        norb  = try read_idx_count(joinpath(root, "orbitalidx.def"),     "NOrbitalIdx")    catch; 0 end
+
+        # Split proj buffer into gutz/jast
+        gvec = ComplexF64[]
+        jvec = ComplexF64[]
+        if ngutz > 0 || njast > 0
+            p = ComplexF64.(sim.parameters.proj)
+            gvec = length(p) >= ngutz ? p[1:ngutz] : p
+            jvec = length(p) > ngutz ? p[(ngutz+1):min(end, ngutz+njast)] : ComplexF64[]
+        end
+        # Orbital from slater buffer if present
+        ovec = ComplexF64.(sim.parameters.slater)
+        write_component_parameter_files!(sim.output_manager;
+            gutzwiller=gvec, jastrow=jvec, orbital=ovec,
+            ngutz=ngutz>0 ? ngutz : length(gvec),
+            njast=njast>0 ? njast : length(jvec),
+            norb =norb >0 ? norb  : length(ovec))
+    else
+        # For fermion models, map slater params to orbital file
+        write_component_parameter_files!(sim.output_manager;
+            gutzwiller=ComplexF64[], jastrow=ComplexF64.(sim.parameters.proj), orbital=ComplexF64.(sim.parameters.slater))
+    end
     println("End: Output opt params.")
 end
 
@@ -839,11 +921,13 @@ function enhanced_sample_configurations!(sim::EnhancedVMCSimulation{T}, n_sample
         end
 
         # Progress indicator
+        #=
         if out_step % max(1, div(n_out_steps, 20)) == 0
             print(".")
         end
+        =#
     end
-    println(" done")
+    #println(" done")
 
     # Compute statistics
     energy_mean = sum(energy_samples) / length(energy_samples)
@@ -1743,18 +1827,88 @@ function measure_enhanced_energy(sim::EnhancedVMCSimulation{T}) where {T}
         return T(0)
     end
 
-    # Separate up and down electrons (simplified for spin model)
+    # Heisenberg: use local energy with flip contributions via Ψ ratio
+    if sim.vmc_state.hamiltonian isa HeisenbergHamiltonian
+        return T(calculate_local_energy_heisenberg(sim))
+    end
+
+    # Generic fallback (Hubbard etc.)
     n_elec = sim.vmc_state.n_electrons
     n_up = div(n_elec, 2)
-
     up_pos = sim.vmc_state.electron_positions[1:n_up]
     dn_pos = length(sim.vmc_state.electron_positions) > n_up ?
              sim.vmc_state.electron_positions[(n_up+1):end] : Int[]
-
-    # Calculate Hamiltonian expectation value
     energy = calculate_hamiltonian(sim.vmc_state.hamiltonian, up_pos, dn_pos)
-
     return T(energy)
+end
+
+"""
+    calculate_local_energy_heisenberg(sim)
+
+Local energy for S=1/2 Heisenberg: E_loc = Σ J S^z_i S^z_j + (J/2) Σ (Ψ(C')/Ψ(C)) over flippable bonds.
+"""
+function calculate_local_energy_heisenberg(sim::EnhancedVMCSimulation{T}) where {T}
+    ham = sim.vmc_state.hamiltonian::HeisenbergHamiltonian
+
+    # Ensure current amplitude is up to date
+    amp_old = compute_wavefunction_amplitude!(sim.wavefunction, sim.vmc_state)
+    amp_old = amp_old == 0 ? T(1e-16) : amp_old
+
+    n_elec = sim.vmc_state.n_electrons
+    n_up = div(n_elec, 2)
+    pos = sim.vmc_state.electron_positions
+    up_pos = pos[1:n_up]
+    dn_pos = length(pos) > n_up ? pos[(n_up+1):end] : Int[]
+
+    # For membership checks
+    up_set = Set(up_pos)
+    dn_set = Set(dn_pos)
+
+    diag = zero(T)
+    offdiag = zero(T)
+
+    for (i, j) in ham.bonds
+        # Diagonal S^z S^z
+        szi = 0.5 * ((i in up_set ? 1 : 0) - (i in dn_set ? 1 : 0))
+        szj = 0.5 * ((j in up_set ? 1 : 0) - (j in dn_set ? 1 : 0))
+        diag += ham.J * szi * szj
+
+        # Off-diagonal: flip if opposite spins
+        flip_ratio = zero(T)
+        if (i in up_set && j in dn_set) || (i in dn_set && j in up_set)
+            # Create swapped configuration
+            new_state = VMCState{T}(sim.vmc_state.n_electrons, sim.vmc_state.n_sites)
+            new_state.electron_positions .= pos
+
+            if i in up_set && j in dn_set
+                # Replace i (in up segment) with j, and the matching j (in dn segment) with i
+                idx_up = findfirst(==(i), new_state.electron_positions[1:n_up])
+                idx_dn_rel = findfirst(==(j), new_state.electron_positions[(n_up+1):end])
+                if idx_up !== nothing && idx_dn_rel !== nothing
+                    idx_dn = n_up + idx_dn_rel
+                    new_state.electron_positions[idx_up] = j
+                    new_state.electron_positions[idx_dn] = i
+                end
+            else
+                # i in dn, j in up
+                idx_up = findfirst(==(j), new_state.electron_positions[1:n_up])
+                idx_dn_rel = findfirst(==(i), new_state.electron_positions[(n_up+1):end])
+                if idx_up !== nothing && idx_dn_rel !== nothing
+                    idx_dn = n_up + idx_dn_rel
+                    new_state.electron_positions[idx_up] = i
+                    new_state.electron_positions[idx_dn] = j
+                end
+            end
+
+            # Ratio Ψ(new)/Ψ(old)
+            amp_new = compute_wavefunction_amplitude!(sim.wavefunction, new_state)
+            flip_ratio = amp_new / amp_old
+        end
+
+        offdiag += (ham.J / 2) * flip_ratio
+    end
+
+    return real(diag + offdiag)
 end
 
 """
