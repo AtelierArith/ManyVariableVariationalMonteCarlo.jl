@@ -31,6 +31,9 @@ function initialize_parameters!(
         params.proj[i] = 0.0  # Exact match with C implementation initialization
     end
 
+    # Verify all parameters are exactly zero (debugging)
+    println("DEBUG: Initial parameter norms: proj=$(norm(params.proj)), slater=$(norm(params.slater)), opttrans=$(norm(params.opttrans))")
+
     if flags.rbm_enabled
         for i in eachindex(params.rbm)
             if mask.rbm[i]
@@ -49,6 +52,8 @@ function initialize_parameters!(
         fill!(params.rbm, 0)
     end
 
+    # Initialize Slater parameters exactly like C implementation
+    # C implementation: Slater[i] = 2*(genrand_real2()-0.5); uniform distribution [-1,1)
     if flags.all_complex
         for i in eachindex(params.slater)
             if mask.slater[i]
@@ -56,12 +61,16 @@ function initialize_parameters!(
                 imag_part = 2 * (rand(rng) - 0.5)
                 params.slater[i] = (real_part + imag_part * im) / sqrt(2)
             else
-                params.slater[i] = 0
+                params.slater[i] = 0.0  # Explicit zero initialization
             end
         end
     else
         for i in eachindex(params.slater)
-            params.slater[i] = mask.slater[i] ? 2 * (rand(rng) - 0.5) : 0
+            if mask.slater[i]
+                params.slater[i] = 2 * (rand(rng) - 0.5)  # C implementation: [-1,1)
+            else
+                params.slater[i] = 0.0  # Explicit zero initialization
+            end
         end
     end
 
@@ -81,12 +90,20 @@ function initialize_parameters!(
 end
 
 function apply_opttrans_basis!(params::ParameterSet, values::AbstractVector)
-    ncopy = min(length(params.opttrans), length(values))
-    for i = 1:ncopy
-        params.opttrans[i] = values[i]
-    end
-    if ncopy < length(params.opttrans)
-        fill!(view(params.opttrans, (ncopy+1):length(params.opttrans)), 0)
+    # C implementation: OptTrans[i] = ParaQPOptTrans[i];
+    if isempty(values)
+        # Initialize OptTrans to small random values when no basis is provided
+        for i in eachindex(params.opttrans)
+            params.opttrans[i] = 1e-6 * (2 * rand() - 1)  # Small random values
+        end
+    else
+        ncopy = min(length(params.opttrans), length(values))
+        for i = 1:ncopy
+            params.opttrans[i] = values[i]
+        end
+        if ncopy < length(params.opttrans)
+            fill!(view(params.opttrans, (ncopy+1):length(params.opttrans)), 0)
+        end
     end
     return params
 end
