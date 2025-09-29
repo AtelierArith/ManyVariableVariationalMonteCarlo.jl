@@ -264,7 +264,7 @@ function VMCParameters()
         1e-10, # dsr_opt_cg_tol (matches C implementation)
         10,    # nvmc_warm_up (matches C implementation)
         1,
-        10,    # nvmc_sample (matches C implementation)
+        1000,  # nvmc_sample (matches C implementation default)
         0,
         1,
         11272,     # rnd_seed (matches C implementation)
