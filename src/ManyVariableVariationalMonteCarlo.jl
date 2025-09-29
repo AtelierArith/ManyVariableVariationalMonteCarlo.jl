@@ -547,7 +547,6 @@ export SimulationConfig,
 
     # Integration module exports
     EnhancedVMCSimulation,
-    run_mvmc_from_stdface,
     print_simulation_summary,
     print_progress_mvmc_style
 

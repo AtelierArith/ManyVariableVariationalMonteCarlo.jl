@@ -154,6 +154,14 @@ function initialize_vmc_state!(state::VMCState{T}, initial_positions::Vector{Int
     # Set electron positions
     state.electron_positions .= initial_positions
 
+    # Set electron configuration (occupancy per site)
+    fill!(state.electron_configuration, 0)
+    for pos in initial_positions
+        if pos >= 1 && pos <= state.n_sites
+            state.electron_configuration[pos] = 1
+        end
+    end
+
     # Initialize wavefunction value (will be computed by wavefunction components)
     state.wavefunction_value = zero(T)
     state.log_wavefunction_value = 0.0
@@ -518,21 +526,27 @@ function measure_energy(state::VMCState{T}) where {T}
     end
 
     n = state.n_sites
-    # Build occupancy from positions (first half up, second half down)
-    nup = div(state.n_electrons, 2)
+
+    # For Heisenberg spin model: each site has exactly one spin (up or down)
+    # Initialize all sites as spin-down, then set spin-up sites
     n_up = zeros(Int, n)
-    n_dn = zeros(Int, n)
-    for (k, pos) in enumerate(state.electron_positions)
-        if k <= nup
-            n_up[pos] += 1
-        else
-            n_dn[pos] += 1
+    n_dn = ones(Int, n)  # Start with all spins down
+
+    # For spin models, we assume electron_positions represent spin-up sites
+    # and the remaining sites are spin-down
+    for pos in state.electron_positions
+        if pos >= 1 && pos <= n
+            n_up[pos] = 1
+            n_dn[pos] = 0
         end
     end
-    # Total occupancy per site
+
+    # Total occupancy per site (always 1 for spin models)
     occ = n_up .+ n_dn
-    # Concatenate up/down occupation vector for engine
+    # Concatenate up/down occupation vector for Hamiltonian engine
     ele_numbers = vcat(n_up, n_dn)
+
+
     return calculate_hamiltonian(state.hamiltonian, occ, ele_numbers)
 end
 

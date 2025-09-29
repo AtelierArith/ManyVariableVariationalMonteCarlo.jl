@@ -25,15 +25,15 @@ function initialize_parameters!(
 )
     _check_layout_mask(layout, mask)
 
-    # Initialize projection parameters (Gutzwiller/Jastrow) with small random values
+    # Initialize projection parameters (Gutzwiller/Jastrow) with very small random values for gradual optimization
     for i in eachindex(params.proj)
         if mask.proj[i]
             if flags.all_complex
-                amp = 1e-2 * rand(rng)
+                amp = 1e-4 * rand(rng)  # Much smaller initial values
                 angle = 2 * pi * rand(rng)
                 params.proj[i] = amp * cis(angle)
             else
-                params.proj[i] = 0.01 * (rand(rng) - 0.5)
+                params.proj[i] = 0.001 * (rand(rng) - 0.5)  # Much smaller initial values
             end
         else
             params.proj[i] = 0

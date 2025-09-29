@@ -254,15 +254,19 @@ function calculate_hamiltonian(
     energy = zero(T)
 
     # Kinetic energy (transfer terms)
-    energy += calculate_kinetic_energy(ham, electron_config, electron_numbers)
+    kinetic = calculate_kinetic_energy(ham, electron_config, electron_numbers)
+    energy += kinetic
 
     # Potential energy terms
-    energy += calculate_coulomb_intra_energy(ham, electron_numbers)
-    energy += calculate_coulomb_inter_energy(ham, electron_numbers)
-    energy += calculate_hund_energy(ham, electron_numbers)
-    energy += calculate_pair_hopping_energy(ham, electron_config, electron_numbers)
-    energy += calculate_exchange_energy(ham, electron_config, electron_numbers)
-    energy += calculate_interall_energy(ham, electron_config, electron_numbers)
+    coulomb_intra = calculate_coulomb_intra_energy(ham, electron_numbers)
+    coulomb_inter = calculate_coulomb_inter_energy(ham, electron_numbers)
+    hund = calculate_hund_energy(ham, electron_numbers)
+    pair_hop = calculate_pair_hopping_energy(ham, electron_config, electron_numbers)
+    exchange = calculate_exchange_energy(ham, electron_config, electron_numbers)
+    interall = calculate_interall_energy(ham, electron_config, electron_numbers)
+
+    energy += coulomb_intra + coulomb_inter + hund + pair_hop + exchange + interall
+
 
     return energy
 end
@@ -279,6 +283,14 @@ function calculate_kinetic_energy(
     electron_numbers::Vector{Int},
 ) where {T}
     energy = zero(T)
+
+    # Check if electron_numbers has the expected size
+    expected_size = 2 * ham.n_sites
+    if length(electron_numbers) < expected_size
+        # For Heisenberg model, there are no transfer terms, so kinetic energy is zero
+        return energy
+    end
+
     n_up = electron_numbers[1:ham.n_sites]
     n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
@@ -317,6 +329,13 @@ function calculate_coulomb_intra_energy(
     electron_numbers::Vector{Int},
 ) where {T}
     energy = zero(T)
+
+    # Check if electron_numbers has the expected size
+    expected_size = 2 * ham.n_sites
+    if length(electron_numbers) < expected_size
+        return energy
+    end
+
     n_up = electron_numbers[1:ham.n_sites]
     n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
@@ -337,6 +356,13 @@ function calculate_coulomb_inter_energy(
     electron_numbers::Vector{Int},
 ) where {T}
     energy = zero(T)
+
+    # Check if electron_numbers has the expected size
+    expected_size = 2 * ham.n_sites
+    if length(electron_numbers) < expected_size
+        return energy
+    end
+
     n_total =
         electron_numbers[1:ham.n_sites] + electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
@@ -354,19 +380,26 @@ Calculate Hund coupling energy.
 """
 function calculate_hund_energy(ham::Hamiltonian{T}, electron_numbers::Vector{Int}) where {T}
     energy = zero(T)
+
+    # Check if electron_numbers has the expected size
+    expected_size = 2 * ham.n_sites
+    if length(electron_numbers) < expected_size
+        return energy
+    end
+
     n_up = electron_numbers[1:ham.n_sites]
     n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
 
     for term in ham.hund_terms
-        # Hund term: J * (S⃗ᵢ · S⃗ⱼ - nᵢnⱼ/4)
-        # Simplified to J * (nᵢ↑nⱼ↑ + nᵢ↓nⱼ↓ - nᵢ↑nⱼ↓ - nᵢ↓nⱼ↑ - (nᵢ↑ + nᵢ↓)(nⱼ↑ + nⱼ↓)/4)
+        # Hund coupling term: matches C implementation
+        # myEnergy -= ParaHundCoupling[idx] * (n0[ri]*n0[rj] + n1[ri]*n1[rj]);
         ni_up = n_up[term.site_i]
         ni_down = n_down[term.site_i]
         nj_up = n_up[term.site_j]
         nj_down = n_down[term.site_j]
 
-        hund_energy = ni_up * nj_up + ni_down * nj_down - ni_up * nj_down - ni_down * nj_up
-        hund_energy -= (ni_up + ni_down) * (nj_up + nj_down) / 4
+        # C implementation formula with negative sign already included in coefficient
+        hund_energy = ni_up * nj_up + ni_down * nj_down
 
         energy += term.coefficient * hund_energy
     end
@@ -401,9 +434,36 @@ function calculate_exchange_energy(
     electron_config::Vector{Int},
     electron_numbers::Vector{Int},
 ) where {T}
-    # Exchange terms are complex and require proper treatment
-    # For now, return zero as placeholder
-    return zero(T)
+    energy = zero(T)
+
+    # Check if electron_numbers has the expected size
+    expected_size = 2 * ham.n_sites
+    if length(electron_numbers) < expected_size
+        return energy
+    end
+
+    n_up = electron_numbers[1:ham.n_sites]
+    n_down = electron_numbers[(ham.n_sites+1):(2*ham.n_sites)]
+
+    for term in ham.exchange_terms
+        # Exchange interaction: J * (c†ᵢ↑cⱼ↑c†ⱼ↓cᵢ↓ + c†ᵢ↓cⱼ↓c†ⱼ↑cᵢ↑)
+        # In mean field approximation, this becomes:
+        # J * (nᵢ↑nⱼ↓ + nᵢ↓nⱼ↑) for the off-diagonal spin-flip terms
+        # However, for the Heisenberg model in C implementation, this is handled differently
+        # The exchange term contributes the same as Hund term but for opposite spins
+        ni_up = n_up[term.site_i]
+        ni_down = n_down[term.site_i]
+        nj_up = n_up[term.site_j]
+        nj_down = n_down[term.site_j]
+
+        # For Heisenberg model, exchange term contributes spin-flip interactions
+        # Simplified mean-field approximation: contributes to off-diagonal terms
+        exchange_energy = ni_up * nj_down + ni_down * nj_up
+
+        energy += term.coefficient * exchange_energy
+    end
+
+    return energy
 end
 
 """
@@ -587,6 +647,140 @@ function create_hubbard_hamiltonian(
     else
         error("Unsupported lattice type: $lattice_type")
     end
+
+    return ham
+end
+
+"""
+    read_hund_file(filepath::String) -> Vector{Tuple{Int,Int,Float64}}
+
+Read hund.def file and return list of (site_i, site_j, coefficient) tuples.
+"""
+function read_hund_file(filepath::String)
+    hund_terms = Tuple{Int,Int,Float64}[]
+
+    if !isfile(filepath)
+        return hund_terms
+    end
+
+    open(filepath, "r") do file
+        for line in eachline(file)
+            line = strip(line)
+            isempty(line) && continue
+            startswith(line, "=") && continue
+            startswith(line, "N") && continue  # Skip NHund line
+
+            parts = split(line)
+            if length(parts) >= 3
+                site_i = parse(Int, parts[1])
+                site_j = parse(Int, parts[2])
+                coeff = parse(Float64, parts[3])
+                push!(hund_terms, (site_i, site_j, coeff))
+            end
+        end
+    end
+
+    return hund_terms
+end
+
+"""
+    read_exchange_file(filepath::String) -> Vector{Tuple{Int,Int,Float64}}
+
+Read exchange.def file and return list of (site_i, site_j, coefficient) tuples.
+"""
+function read_exchange_file(filepath::String)
+    exchange_terms = Tuple{Int,Int,Float64}[]
+
+    if !isfile(filepath)
+        return exchange_terms
+    end
+
+    open(filepath, "r") do file
+        for line in eachline(file)
+            line = strip(line)
+            isempty(line) && continue
+            startswith(line, "=") && continue
+            startswith(line, "N") && continue  # Skip NExchange line
+
+            parts = split(line)
+            if length(parts) >= 3
+                site_i = parse(Int, parts[1])
+                site_j = parse(Int, parts[2])
+                coeff = parse(Float64, parts[3])
+                push!(exchange_terms, (site_i, site_j, coeff))
+            end
+        end
+    end
+
+    return exchange_terms
+end
+
+"""
+    read_coulombinter_file(filepath::String) -> Vector{Tuple{Int,Int,Float64}}
+
+Read coulombinter.def file and return list of (site_i, site_j, coefficient) tuples.
+"""
+function read_coulombinter_file(filepath::String)
+    coulomb_terms = Tuple{Int,Int,Float64}[]
+
+    if !isfile(filepath)
+        return coulomb_terms
+    end
+
+    open(filepath, "r") do file
+        for line in eachline(file)
+            line = strip(line)
+            isempty(line) && continue
+            startswith(line, "=") && continue
+            startswith(line, "N") && continue  # Skip NCoulombInter line
+
+            parts = split(line)
+            if length(parts) >= 3
+                site_i = parse(Int, parts[1])
+                site_j = parse(Int, parts[2])
+                coeff = parse(Float64, parts[3])
+                push!(coulomb_terms, (site_i, site_j, coeff))
+            end
+        end
+    end
+
+    return coulomb_terms
+end
+
+"""
+    create_hamiltonian_from_expert_files(output_dir::String, n_sites::Int; T=ComplexF64)
+
+Create Hamiltonian from expert mode files (hund.def, exchange.def, coulombinter.def).
+This matches the C implementation approach.
+"""
+function create_hamiltonian_from_expert_files(output_dir::String, n_sites::Int; T=ComplexF64)
+    ham = Hamiltonian{T}(n_sites, n_sites)  # One electron per site for spin-1/2
+
+    # Read and add Hund coupling terms
+    hund_file = joinpath(output_dir, "hund.def")
+    hund_terms = read_hund_file(hund_file)
+    println("Read $(length(hund_terms)) Hund terms from $hund_file")
+    for (site_i, site_j, coeff) in hund_terms
+        add_hund_coupling!(ham, T(coeff), site_i + 1, site_j + 1)  # Convert to 1-based indexing
+    end
+
+    # Read and add Exchange terms
+    exchange_file = joinpath(output_dir, "exchange.def")
+    exchange_terms = read_exchange_file(exchange_file)
+    println("Read $(length(exchange_terms)) Exchange terms from $exchange_file")
+    for (site_i, site_j, coeff) in exchange_terms
+        add_exchange!(ham, T(coeff), site_i + 1, site_j + 1)  # Convert to 1-based indexing
+    end
+
+    # Read and add Coulomb inter terms
+    coulomb_file = joinpath(output_dir, "coulombinter.def")
+    coulomb_terms = read_coulombinter_file(coulomb_file)
+    println("Read $(length(coulomb_terms)) Coulomb inter terms from $coulomb_file")
+    for (site_i, site_j, coeff) in coulomb_terms
+        add_coulomb_inter!(ham, T(coeff), site_i + 1, site_j + 1)  # Convert to 1-based indexing
+    end
+
+    println("Total Hamiltonian terms: $(length(ham.hund_terms)) Hund, $(length(ham.exchange_terms)) Exchange, $(length(ham.coulomb_inter_terms)) Coulomb inter")
 
     return ham
 end

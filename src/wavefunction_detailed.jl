@@ -616,6 +616,48 @@ function update_wavefunction_parameters!(wf::CombinedWavefunction{T}, params::Pa
 end
 
 """
+    compute_pairing_sropto(wf::CombinedWavefunction{T}, config::Vector{Int}) -> Vector{T}
+
+Compute SROptO-like vector (log-derivative of pairing det) for current configuration.
+For parameter k, O_k = sum_{a,b : orbital_map[up_site[a], dn_site[b]] == k} (M^{-1})_{b,a}.
+This uses a fresh M/inv(M) built from the provided configuration to ensure consistency.
+"""
+function compute_pairing_sropto(wf::CombinedWavefunction{T}, config::Vector{Int}) where {T}
+    if wf.orbital_map === nothing || isempty(wf.pair_params)
+        return T[]
+    end
+    n_elec = length(config)
+    n_up = div(n_elec, 2)
+    up_pos = config[1:n_up]
+    dn_pos = config[(n_up+1):end]
+    n = n_up
+    M = Matrix{T}(undef, n, n)
+    for (a, i_site) in enumerate(up_pos)
+        for (b, j_site) in enumerate(dn_pos)
+            idx = wf.orbital_map[i_site, j_site]
+            M[a, b] = (1 <= idx <= length(wf.pair_params)) ? wf.pair_params[idx] : zero(T)
+        end
+    end
+    Minv = try
+        inv(M)
+    catch
+        pinv(M)
+    end
+    nparams = length(wf.pair_params)
+    O = zeros(T, nparams)
+    for (a, i_site) in enumerate(up_pos)
+        for (b, j_site) in enumerate(dn_pos)
+            idx = wf.orbital_map[i_site, j_site]
+            if 1 <= idx <= nparams
+                # derivative wrt M_{a,b} contributes (M^{-1})_{b,a}
+                O[idx] += Minv[b, a]
+            end
+        end
+    end
+    return O
+end
+
+"""
     pair_swap_ratio!(wf::CombinedWavefunction{T}, up_index::Int, dn_index::Int, new_up_site::Int, new_dn_site::Int, dn_sites::Vector{Int})
 
 Compute determinant ratio for swapping one up-site row and one down-site column.
