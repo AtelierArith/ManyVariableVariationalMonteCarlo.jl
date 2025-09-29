@@ -395,7 +395,7 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
     nsr_opt_itr_smp = facevalue(face, :NSROptItrSmp, Int; default = 30)
     dsr_opt_red_cut = facevalue(face, :DSROptRedCut, Float64; default = 1e-8)
     dsr_opt_sta_del = facevalue(face, :DSROptStaDel, Float64; default = 1e-2)
-    dsr_opt_step_dt = facevalue(face, :DSROptStepDt, Float64; default = 1e-2)
+    dsr_opt_step_dt = facevalue(face, :DSROptStepDt, Float64; default = 2e-2)  # Match C implementation default
 
     nlanczos_mode = facevalue(face, :NLanczosMode, Int; default = 0)
     nsp_gauss_leg = facevalue(face, :NSPGaussLeg, Int; default = 1)
