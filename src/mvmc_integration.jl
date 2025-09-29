@@ -45,6 +45,9 @@ mutable struct EnhancedVMCSimulation{T<:Union{Float64,ComplexF64}}
     timers::Dict{String,Float64}
     start_time::Float64
 
+    # Cached configurations from last sampling (to reuse for gradients)
+    cached_configurations::Vector{Vector{Int}}
+
     function EnhancedVMCSimulation{T}(config::SimulationConfig, layout::ParameterLayout) where {T}
         parameters = ParameterSet(layout; T = T)
         output_manager = MVMCOutputManager(
@@ -64,7 +67,8 @@ mutable struct EnhancedVMCSimulation{T<:Union{Float64,ComplexF64}}
             Dict{String,Any}[],
             Dict{String,Any}(),
             Dict{String,Float64}(),
-            time()
+            time(),
+            Vector{Vector{Int}}()
         )
     end
 end
@@ -130,8 +134,16 @@ function create_parameter_layout(config::SimulationConfig)
 
     # Determine parameter counts based on model
     if config.model == :Spin
-        # Spin models: Gutzwiller/Jastrow parameters for each site
-        n_proj = n_sites
+        # Spin models: include rich Jastrow structure to match mVMC complexity
+        # - onsite (Gutzwiller-like) per site
+        # - nearest-neighbor per site
+        # - long-range per pair (i<j)
+        # - spin-dependent per site
+        n_proj_onsite = n_sites
+        n_proj_nn = n_sites
+        n_proj_lr = div(n_sites * (n_sites - 1), 2)
+        n_proj_spin = n_sites
+        n_proj = n_proj_onsite + n_proj_nn + n_proj_lr + n_proj_spin
         n_rbm = 0  # Start without RBM
         n_slater = 0  # Spin models don't use Slater determinants in the same way
         n_opttrans = 0
@@ -521,8 +533,8 @@ function print_simulation_summary(sim::EnhancedVMCSimulation)
         println("# Overlap Cond.: ", last["overlap_condition"])
     elseif !isempty(sim.physics_results)
         println("# Energy: ", real(sim.physics_results["energy_mean"]))
-        println("# Energy Std: ", sim.physics_results["energy_std"]) 
-        println("# Samples: ", sim.physics_results["n_samples"]) 
+        println("# Energy Std: ", sim.physics_results["energy_std"])
+        println("# Samples: ", sim.physics_results["n_samples"])
     end
 end
 
@@ -631,8 +643,8 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
         update_wavefunction_parameters!(sim.wavefunction, sim.parameters)
 
         # Sample configurations
-        # Use FULL sample size as specified in configuration (no shortcuts!)
-        actual_sample_size = sim.config.nsr_opt_itr_smp  # Use real sample size
+        # Use FULL NVMCSample per iteration as in mVMC (NSROptItrSmp is not a per-iteration sample count)
+        actual_sample_size = sim.config.nvmc_sample
         sample_results = enhanced_sample_configurations!(sim, actual_sample_size)
 
         # Compute gradients
@@ -805,11 +817,11 @@ function enhanced_sample_configurations!(sim::EnhancedVMCSimulation{T}, n_sample
     n_in_steps = nvmc_interval * sim.config.nsites  # Inner loop per outer step
 
     total_metropolis_steps = n_out_steps * n_in_steps
-    println("    Running Monte Carlo sampling: $(total_metropolis_steps) total Metropolis steps")
-    println("    ($(n_out_steps) outer × $(n_in_steps) inner steps, matching C implementation)")
+    #println("    Running Monte Carlo sampling: $(total_metropolis_steps) total Metropolis steps")
+    #println("    ($(n_out_steps) outer × $(n_in_steps) inner steps, matching C implementation)")
 
     # Perform thermalization + measurement as in C implementation
-    println("    Thermalization + Measurement: $(n_out_steps) steps")
+    #println("    Thermalization + Measurement: $(n_out_steps) steps")
     energy_samples = ComplexF64[]
     configurations = Vector{Int}[]
 
@@ -856,6 +868,8 @@ function enhanced_sample_configurations!(sim::EnhancedVMCSimulation{T}, n_sample
     # Store for gradient computation
     sim.sr_optimizer.energy_samples[1:min(length(energy_samples), sim.sr_optimizer.n_samples)] .=
         energy_samples[1:min(length(energy_samples), sim.sr_optimizer.n_samples)]
+    # Cache configurations for reuse in gradient computation
+    sim.cached_configurations = configurations
 
     return results
 end
@@ -930,38 +944,37 @@ function compute_enhanced_gradients!(sim::EnhancedVMCSimulation{T}, sample_resul
     slater_start = rbm_start + length(sim.parameters.rbm)
     slater_range = slater_start:(slater_start + length(sim.parameters.slater) - 1)
 
-    # Sample index for gradient computation - use actual sampled configurations
-    configurations = Vector{Int}[]
-
-    # Generate configurations using C-implementation equivalent sampling volume
-    rng_grad = Random.MersenneTwister(12345)
-    nvmc_interval = haskey(sim.config.face, :NVMCInterval) ? Int(sim.config.face[:NVMCInterval]) : 1
-    steps_between_samples = nvmc_interval * sim.config.nsites  # Match C implementation
-
-    println("    Gradient computation: generating $(n_samples) configurations")
-    println("    ($(steps_between_samples) Metropolis steps between samples)")
-
-    for sample_idx in 1:n_samples
-        # Perform C-implementation equivalent steps between samples
-        for step in 1:steps_between_samples
-            enhanced_metropolis_step!(sim, rng_grad)
-        end
-        push!(configurations, copy(sim.vmc_state.electron_positions))
-
-        if sample_idx % max(1, div(n_samples, 10)) == 0
-            print(".")
+    # Use configurations cached during the previous sampling to avoid extra MC work
+    configurations = sim.cached_configurations
+    if isempty(configurations)
+        # Fallback: repeat current configuration
+        configurations = [copy(sim.vmc_state.electron_positions) for _ in 1:n_samples]
+    else
+        # Truncate or pad to n_samples
+        if length(configurations) < n_samples
+            last = configurations[end]
+            for _ in 1:(n_samples - length(configurations))
+                push!(configurations, copy(last))
+            end
+        elseif length(configurations) > n_samples
+            configurations = configurations[1:n_samples]
         end
     end
-    println(" gradient sampling done")
 
     for sample_idx in 1:n_samples
         # Get current sampled configuration
         config = configurations[sample_idx]
 
-        # Compute Gutzwiller/Jastrow gradients
-        if !isempty(proj_range) && sim.wavefunction.gutzwiller !== nothing
+        # Compute Jastrow/Gutzwiller gradients (full vector matching proj length)
+        if !isempty(proj_range) && sim.wavefunction.jastrow !== nothing
+            grad_proj = compute_jastrow_gradients(sim.wavefunction.jastrow, config)
+            # Ensure size compatibility
+            nfill = min(length(proj_range), length(grad_proj))
+            gradients[proj_range[1:nfill], sample_idx] .= grad_proj[1:nfill]
+        elseif !isempty(proj_range) && sim.wavefunction.gutzwiller !== nothing
             grad_proj = compute_gutzwiller_gradients(sim.wavefunction.gutzwiller, config)
-            gradients[proj_range, sample_idx] .= grad_proj[1:length(proj_range)]
+            nfill = min(length(proj_range), length(grad_proj))
+            gradients[proj_range[1:nfill], sample_idx] .= grad_proj[1:nfill]
         end
 
         # Compute RBM gradients
@@ -1008,6 +1021,86 @@ function compute_gutzwiller_gradients(proj::GutzwillerProjector{T}, config) wher
     end
 
     return gradients
+end
+
+"""
+    compute_jastrow_gradients(jastrow::EnhancedJastrowFactor{T}, config) where {T}
+
+Compute gradients of log(Ψ) with respect to all Jastrow parameters in EnhancedJastrowFactor.
+The returned vector layout matches ParameterLayout.proj when Spin model is used:
+  [onsite (n), nn (n), long-range (n(n-1)/2), spin (n)].
+"""
+function compute_jastrow_gradients(jastrow::EnhancedJastrowFactor{T}, config) where {T}
+    n = jastrow.n_sites
+
+    # Occupancies and spins from configuration
+    n_up = zeros(Int, n)
+    n_dn = zeros(Int, n)
+    n_elec = jastrow.n_electrons
+    n_up_elec = div(n_elec, 2)
+    for i in 1:n_up_elec
+        site = config[i]
+        if 1 <= site <= n
+            n_up[site] += 1
+        end
+    end
+    for i in (n_up_elec+1):min(n_elec, length(config))
+        site = config[i]
+        if 1 <= site <= n
+            n_dn[site] += 1
+        end
+    end
+
+    # Helper lambdas
+    density(i) = n_up[i] + n_dn[i]
+    szi(i) = (n_up[i] - n_dn[i]) / 2
+
+    # Onsite part (n)
+    grad_onsite = Vector{T}(undef, n)
+    for i in 1:n
+        n_tot = density(i)
+        docc = n_up[i] * n_dn[i]
+        # Approx derivative terms aligned with compute_jastrow_factor!
+        grad_onsite[i] = T(docc + (n_tot > 0 ? (n_tot - 1) * n_tot / 2 : 0))
+    end
+
+    # Nearest-neighbor part (n): aggregate contributions per site
+    grad_nn = zeros(T, n)
+    for i in 1:n
+        for j in jastrow.neighbor_list[i]
+            if i < j
+                grad_nn[i] += T(density(i) * density(j))
+            end
+        end
+    end
+
+    # Long-range part (n(n-1)/2): sequence over pairs i<j beyond NN
+    n_lr = div(n * (n - 1), 2)
+    grad_lr = zeros(T, n_lr)
+    lr_idx = 0
+    for i in 1:n
+        for j in (i+1):n
+            lr_idx += 1
+            dist = jastrow.distance_matrix[i, j]
+            if dist > 1.5
+                grad_lr[lr_idx] = T(density(i) * density(j) / (dist^2 + 1))
+            else
+                grad_lr[lr_idx] = T(0)
+            end
+        end
+    end
+
+    # Spin-dependent part (n): per site aggregate of nn spin-spin
+    grad_spin = zeros(T, n)
+    for i in 1:n
+        for j in jastrow.neighbor_list[i]
+            if i < j
+                grad_spin[i] += T(szi(i) * szi(j))
+            end
+        end
+    end
+
+    return vcat(grad_onsite, grad_nn, grad_lr, grad_spin)
 end
 
 """
@@ -1601,33 +1694,32 @@ function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
         end
     end
 
-    # ===== HEAVY COMPUTATIONAL MATCHING C IMPLEMENTATION =====
-    # These operations make the C implementation slow - we need to replicate them!
-
-    # 1. Calculate new Pfaffian matrix (CalculateNewPfM2 equivalent)
-    pfm_new = calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
-
-    # 2. Calculate matrix determinants and inverses (CalculateMAll_fcmp equivalent)
-    slater_matrices = calculate_slater_matrices(sim, electron_idx, new_pos)
-
-    # 3. Calculate logarithm of inner product (CalculateLogIP_fcmp equivalent)
-    log_ip_new = calculate_log_inner_product(sim, pfm_new, slater_matrices)
-    log_ip_old = calculate_log_inner_product_current(sim)
-
-    # 4. Calculate projector ratios (LogProjRatio equivalent)
-    proj_ratio = calculate_projector_ratio(sim, old_pos, new_pos)
-
-    # 5. Calculate RBM ratio (LogRBMRatio equivalent)
-    rbm_ratio = calculate_rbm_ratio_heavy(sim, electron_idx, old_pos, new_pos)
-
-    # 6. Complete wavefunction ratio with all components
-    total_ratio = exp(proj_ratio + rbm_ratio + log_ip_new - log_ip_old)
+    # Compute Metropolis ratio
+    if sim.config.model == :Spin
+        # Spin model: avoid unnecessary Pfaffian/Slater; use Jastrow/Gutzwiller/RBM ratios
+        proj_ratio = calculate_projector_ratio(sim, old_pos, new_pos)
+        rbm_ratio = calculate_rbm_ratio_heavy(sim, electron_idx, old_pos, new_pos)
+        total_ratio = exp(proj_ratio + rbm_ratio)
+    else
+        # ===== Heavy path for fermion models =====
+        pfm_new = calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
+        slater_matrices = calculate_slater_matrices(sim, electron_idx, new_pos)
+        log_ip_new = calculate_log_inner_product(sim, pfm_new, slater_matrices)
+        log_ip_old = calculate_log_inner_product_current(sim)
+        proj_ratio = calculate_projector_ratio(sim, old_pos, new_pos)
+        rbm_ratio = calculate_rbm_ratio_heavy(sim, electron_idx, old_pos, new_pos)
+        total_ratio = exp(proj_ratio + rbm_ratio + log_ip_new - log_ip_old)
+    end
     prob = min(1.0, real(abs2(total_ratio)))
 
     # Accept or reject
     if rand(rng) < prob
-        # 7. Update all matrices if accepted (UpdateMAll equivalent)
-        update_matrices_after_move!(sim, electron_idx, old_pos, new_pos, pfm_new, slater_matrices)
+        # Update all matrices if accepted (only needed for fermion models)
+        if sim.config.model != :Spin
+            pfm_new = @isdefined(pfm_new) ? pfm_new : calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
+            slater_matrices = @isdefined(slater_matrices) ? slater_matrices : calculate_slater_matrices(sim, electron_idx, new_pos)
+            update_matrices_after_move!(sim, electron_idx, old_pos, new_pos, pfm_new, slater_matrices)
+        end
 
         # Update positions
         if swap_allowed && swap_partner_idx !== nothing
