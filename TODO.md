@@ -83,6 +83,11 @@ ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
   - ニューロン分類（General/Charge/Spin）、階層 RBM、RBM-Lanczos 連携
 
 テスト観点（追加が必要）
+- **VMC基盤の物理的正当性テスト（最高優先度）**
+  - Heisenberg鎖の基底エネルギー収束テスト（理論値 ~-7.1 vs 現状 -2.0）
+  - エネルギー最適化の段階的進化の確認（C実装との比較）
+  - メトロポリス受容率の監視と最適化
+  - 統計的エラーバーの妥当性検証
 - zvo_* ファイルのスキーマ/ヘッダ/最小内容の検証（特に cisajs/ls 系）
 - 小系での物理量再現（既知の基底エネルギー/相関）
 - FSZ 更新/グリーン関数の整合性テスト
@@ -98,3 +103,10 @@ ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
 - 依存関係: `julia --project -e 'using Pkg; Pkg.instantiate()'`
 - テスト: `julia --project -e 'using Pkg; Pkg.test()'`
 - 絞り込み: `julia --project -e 'using ReTestItems; ReTestItems.runtests(filter="lanczos|output|greens")'`
+
+**2025-09-29修正の成果と次のステップ**
+- **成果**: 変分モンテカルロの基盤（局所エネルギー、波動関数比、メトロポリス法）を実装完了
+- **現状**: エネルギーが波動関数パラメータに依存するようになった（-12.0 → -6.0 → -2.0）
+- **次の目標**: C実装のような段階的最適化（-0.036 → -7.14）を実現
+- **重点課題**: パラメータ更新スケール、統計的変動、受容率最適化
+- **検証**: `julia --project examples/18_stdface_spin_chain_from_file.jl` でHeisenberg鎖の最適化をテスト
