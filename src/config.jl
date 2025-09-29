@@ -408,6 +408,28 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
         facevalue(face, :NVMCWarmUp, Int; default = max(50, div(nvmc_sample, 10)))
     nvmc_interval = facevalue(face, :NVMCInterval, Int; default = 1)
 
+    # Additional parameters from C implementation
+    n_data_qty_smp = facevalue(face, :NDataQtySmp, Int; default = 1)
+    nex_update_path = facevalue(face, :NExUpdatePath, Int; default = 0)
+    rnd_seed = facevalue(face, :RndSeed, Int; default = 12345)
+    nsplit_size = facevalue(face, :NSplitSize, Int; default = 1)
+
+    # SR optimization parameters
+    nsr_opt_cg_max_iter = facevalue(face, :NSROptCGMaxIter, Int; default = 1000)
+    dsr_opt_cg_tol = facevalue(face, :DSROptCGTol, Float64; default = 1e-6)
+
+    # Complex/real flag
+    all_complex_flag = facevalue(face, :AllComplexFlag, Bool; default = true)
+
+    # RBM flag
+    flag_rbm = facevalue(face, :FlagRBM, Bool; default = false)
+
+    # Orbital flags
+    iflg_orbital_general = facevalue(face, :iFlgOrbitalGeneral, Int; default = 0)
+
+    # Fixed spin zone parameters
+    two_sz = facevalue(face, :TwoSz, Int; default = sz_total)
+
     return SimulationConfig(
         face,
         String(root),
@@ -436,6 +458,16 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
         flush_interval,
         nvmc_warm_up,
         nvmc_interval,
+        n_data_qty_smp,
+        nex_update_path,
+        rnd_seed,
+        nsplit_size,
+        nsr_opt_cg_max_iter,
+        dsr_opt_cg_tol,
+        all_complex_flag,
+        flag_rbm,
+        iflg_orbital_general,
+        two_sz,
     )
 end
 

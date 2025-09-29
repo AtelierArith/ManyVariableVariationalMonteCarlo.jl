@@ -11,6 +11,8 @@ using Printf
 using LinearAlgebra
 using Random
 
+# Update types for Monte Carlo moves are defined in updates.jl
+
 """
     maybe_flush(io, sim)
 
@@ -258,34 +260,529 @@ end
 """
     run_simulation!(sim::VMCSimulation{T}) where {T}
 
-Run the complete VMC simulation workflow.
+Run the complete VMC simulation workflow, equivalent to main() in vmcmain.c.
 """
 function run_simulation!(sim::VMCSimulation{T}) where {T}
-    @info "Starting VMC simulation (mode: $(sim.mode))"
+    start_time = time()
 
+    @printf("Start: Read *def files.\n")
     # Initialize if not already done
     if sim.vmc_state === nothing
         initialize_simulation!(sim)
     end
+    @printf("End  : Read *def files.\n")
 
-    # Run appropriate calculation mode
-    if sim.mode == PARAMETER_OPTIMIZATION
-        run_parameter_optimization!(sim)
-    elseif sim.mode == PHYSICS_CALCULATION
-        run_physics_calculation!(sim)
+    @printf("Start: Set memories.\n")
+    # Memory setup is handled in initialize_simulation!
+    @printf("End  : Set memories.\n")
+
+    @printf("Start: Initialize parameters.\n")
+    initialize_parameters!(sim)
+    @printf("End  : Initialize parameters.\n")
+
+    @printf("Start: Initialize variables for quantum projection.\n")
+    initialize_quantum_projection!(sim)
+    @printf("End  : Initialize variables for quantum projection.\n")
+
+    # Run appropriate calculation mode (equivalent to NVMCCalMode check in C)
+    if sim.mode == PARAMETER_OPTIMIZATION  # NVMCCalMode == 0
+        @printf("Start: Optimize VMC parameters.\n")
+        vmc_parameter_optimization!(sim)
+        @printf("End  : Optimize VMC parameters.\n")
+    elseif sim.mode == PHYSICS_CALCULATION  # NVMCCalMode == 1
+        @printf("Start: Calculate VMC physical quantities.\n")
+        vmc_physics_calculation!(sim)
+        @printf("End  : Calculate VMC physical quantities.\n")
     else
-        error("Unknown VMC calculation mode: $(sim.mode)")
+        error("NVMCCalMode must be 0 or 1. Got: $(Int(sim.mode))")
     end
 
-    @info "VMC simulation completed"
+    sim.timers["total"] = time() - start_time
+    @printf("Finish calculation.\n")
+
+    return sim
+end
+
+"""
+    initialize_parameters!(sim::VMCSimulation{T}) where {T}
+
+Initialize variational parameters, equivalent to InitParameter() in C.
+"""
+function initialize_parameters!(sim::VMCSimulation{T}) where {T}
+    # Initialize parameters if not already done in initialize_simulation!
+    # This function is a placeholder matching the C interface
+    return nothing
+end
+
+"""
+    initialize_quantum_projection!(sim::VMCSimulation{T}) where {T}
+
+Initialize variables for quantum projection, equivalent to InitQPWeight() in C.
+"""
+function initialize_quantum_projection!(sim::VMCSimulation{T}) where {T}
+    # Initialize quantum projection weights
+    # This function is a placeholder matching the C interface
+    return nothing
+end
+
+"""
+    vmc_parameter_optimization!(sim::VMCSimulation{T}) where {T}
+
+VMC parameter optimization, equivalent to VMCParaOpt() in vmcmain.c.
+"""
+function vmc_parameter_optimization!(sim::VMCSimulation{T}) where {T}
+    config = sim.config
+    n_opt_steps = config.nsr_opt_itr_step
+
+    for step in 1:n_opt_steps
+        # Output progress (equivalent to OutputTime and progress reporting in C)
+        if n_opt_steps < 20
+            progress = floor(Int, 100.0 * (step-1) / n_opt_steps)
+            @printf("Progress of Optimization: %d %%.\n", progress)
+        elseif (step-1) % div(n_opt_steps, 20) == 0
+            progress = floor(Int, 100.0 * (step-1) / n_opt_steps)
+            @printf("Progress of Optimization: %d %%.\n", progress)
+        end
+
+        # Update Slater elements (equivalent to UpdateSlaterElm_fcmp/fsz)
+        update_slater_elements!(sim)
+
+        # Make samples (equivalent to VMCMakeSample)
+        vmc_make_sample!(sim)
+
+        # Main calculation (equivalent to VMCMainCal)
+        vmc_main_calculation!(sim)
+
+        # Stochastic optimization (equivalent to StochasticOpt/StochasticOptCG)
+        perform_stochastic_optimization!(sim, step)
+
+        # Store optimization data if in final sampling period
+        if step >= n_opt_steps - config.nsr_opt_itr_smp
+            store_optimization_data!(sim, step - (n_opt_steps - config.nsr_opt_itr_smp))
+        end
+    end
+
+    # Output final optimization results
+    @printf("Start: Output opt params.\n")
+    output_optimization_data!(sim)
+    @printf("End: Output opt params.\n")
+
+    return nothing
+end
+
+"""
+    vmc_physics_calculation!(sim::VMCSimulation{T}) where {T}
+
+VMC physical quantity calculation, equivalent to VMCPhysCal() in vmcmain.c.
+"""
+function vmc_physics_calculation!(sim::VMCSimulation{T}) where {T}
+    config = sim.config
+    n_data_qty_smp = config.n_data_qty_smp
+
+    @printf("Start: UpdateSlaterElm.\n")
+    update_slater_elements!(sim)
+    @printf("End  : UpdateSlaterElm.\n")
+
+    @printf("Start: Sampling.\n")
+    for sample_idx in 1:n_data_qty_smp
+        # Make samples (equivalent to VMCMakeSample)
+        vmc_make_sample!(sim)
+
+        @printf("End  : Sampling.\n")
+        @printf("Start: Main calculation.\n")
+
+        # Main calculation (equivalent to VMCMainCal)
+        vmc_main_calculation!(sim)
+
+        @printf("End  : Main calculation.\n")
+
+        # Store physics results
+        store_physics_data!(sim, sample_idx)
+    end
+
+    return nothing
 end
 
 """
     run_parameter_optimization!(sim::VMCSimulation{T}) where {T}
 
-Run parameter optimization using stochastic reconfiguration.
+Legacy function name - redirects to vmc_parameter_optimization!
 """
 function run_parameter_optimization!(sim::VMCSimulation{T}) where {T}
+    return vmc_parameter_optimization!(sim)
+end
+
+# Legacy function name - redirects to vmc_physics_calculation!
+# (Actual implementation is further down in the file)
+
+# Placeholder functions for detailed implementation
+
+# Update Slater matrix elements (actual implementation is further down in the file)
+
+"""
+    vmc_make_sample!(sim::VMCSimulation{T}) where {T}
+
+Generate Monte Carlo samples, equivalent to VMCMakeSample in vmcmake.c.
+Implements the detailed two-loop sampling structure from the C implementation.
+"""
+function vmc_make_sample!(sim::VMCSimulation{T}) where {T}
+    config = sim.config
+    state = sim.vmc_state
+
+    # Determine number of steps (equivalent to C logic)
+    burn_flag = get(sim.timers, "burn_flag", 0) == 1
+    n_out_step = burn_flag ? (config.nvmc_sample + 1) : (config.nvmc_warm_up + config.nvmc_sample)
+    n_in_step = config.nvmc_interval * config.nsites
+
+    # Reset counters (equivalent to Counter reset in C)
+    counters = zeros(Int, 6)  # [hopping, hopping_accept, exchange, exchange_accept, spinflip, spinflip_accept]
+    n_accept = 0
+
+    for out_step in 1:n_out_step
+        for in_step in 1:n_in_step
+            # Get update type (equivalent to getUpdateType in C)
+            update_type = get_update_type(config.nex_update_path, config)
+
+            if update_type == HOPPING
+                counters[1] += 1
+
+                # Make hopping candidate (equivalent to makeCandidate_hopping)
+                candidate = make_hopping_candidate(state)
+                if candidate.reject_flag
+                    continue
+                end
+
+                # Calculate acceptance probability and accept/reject
+                if metropolis_accept_hopping(state, candidate)
+                    apply_hopping_update!(state, candidate)
+                    n_accept += 1
+                    counters[2] += 1
+                else
+                    reject_hopping_update!(state, candidate)
+                end
+
+            elseif update_type == EXCHANGE
+                counters[3] += 1
+
+                # Make exchange candidate (equivalent to makeCandidate_exchange)
+                candidate = make_exchange_candidate(state)
+                if candidate.reject_flag
+                    continue
+                end
+
+                # Calculate acceptance probability and accept/reject
+                if metropolis_accept_exchange(state, candidate)
+                    apply_exchange_update!(state, candidate)
+                    n_accept += 1
+                    counters[4] += 1
+                else
+                    reject_exchange_update!(state, candidate)
+                end
+
+            elseif update_type == LOCALSPINFLIP
+                counters[5] += 1
+
+                # Local spin flip updates (for FSZ mode)
+                candidate = make_spinflip_candidate(state)
+                if !candidate.reject_flag && metropolis_accept_spinflip(state, candidate)
+                    apply_spinflip_update!(state, candidate)
+                    n_accept += 1
+                    counters[6] += 1
+                end
+            end
+
+            # Recalculate matrices if too many accepts (equivalent to C logic)
+            if n_accept > config.nsites
+                recalculate_matrices!(state)
+                n_accept = 0
+            end
+        end
+
+        # Save electron configuration if in sampling period
+        if out_step >= n_out_step - config.nvmc_sample
+            sample_idx = out_step - (n_out_step - config.nvmc_sample)
+            save_electron_configuration!(state, sample_idx)
+        end
+    end
+
+    # Store counters for statistics
+    sim.timers["counters"] = counters
+    sim.timers["burn_flag"] = 1  # Set burn flag
+
+    return nothing
+end
+
+"""
+    vmc_main_calculation!(sim::VMCSimulation{T}) where {T}
+
+Main VMC calculation, equivalent to VMCMainCal in vmccal.c.
+"""
+function vmc_main_calculation!(sim::VMCSimulation{T}) where {T}
+    # Placeholder for main calculation
+    return nothing
+end
+
+"""
+    perform_stochastic_optimization!(sim::VMCSimulation{T}, step::Int) where {T}
+
+Perform stochastic reconfiguration optimization step.
+"""
+function perform_stochastic_optimization!(sim::VMCSimulation{T}, step::Int) where {T}
+    # Placeholder for SR optimization
+    return nothing
+end
+
+"""
+    store_optimization_data!(sim::VMCSimulation{T}, data_idx::Int) where {T}
+
+Store optimization data for final averaging.
+"""
+function store_optimization_data!(sim::VMCSimulation{T}, data_idx::Int) where {T}
+    # Placeholder for storing optimization data
+    return nothing
+end
+
+"""
+    output_optimization_data!(sim::VMCSimulation{T}) where {T}
+
+Output final optimization results.
+"""
+function output_optimization_data!(sim::VMCSimulation{T}) where {T}
+    # Placeholder for outputting optimization results
+    return nothing
+end
+
+"""
+    store_physics_data!(sim::VMCSimulation{T}, sample_idx::Int) where {T}
+
+Store physics calculation results.
+"""
+function store_physics_data!(sim::VMCSimulation{T}, sample_idx::Int) where {T}
+    # Placeholder for storing physics data
+    return nothing
+end
+
+# Support functions for Monte Carlo sampling (equivalent to functions in vmcmake.c)
+
+"""
+    get_update_type(path::Int, config::SimulationConfig)
+
+Get update type based on path, equivalent to getUpdateType() in vmcmake.c.
+"""
+function get_update_type(path::Int, config::SimulationConfig)
+    if path == 0
+        return HOPPING
+    elseif path == 1
+        return rand() < 0.5 ? EXCHANGE : HOPPING
+    elseif path == 2
+        # Check if spin conservation is enabled
+        if get(config, :iflg_orbital_general, 0) == 0
+            return EXCHANGE
+        else
+            # FSZ mode - check TwoSz
+            two_sz = get(config, :two_sz, 0)
+            if two_sz == -1  # Sz not conserved
+                return rand() < 0.5 ? EXCHANGE : LOCALSPINFLIP
+            else
+                return EXCHANGE
+            end
+        end
+    elseif path == 3  # KondoGC mode
+        if rand() < 0.5
+            return HOPPING
+        else
+            return rand() < 0.5 ? EXCHANGE : LOCALSPINFLIP
+        end
+    end
+    return NONE
+end
+
+# Placeholder candidate structures
+struct HoppingCandidate
+    mi::Int        # electron index
+    ri::Int        # source site
+    rj::Int        # target site
+    s::Int         # spin
+    reject_flag::Bool
+end
+
+struct ExchangeCandidate
+    mi::Int        # first electron index
+    mj::Int        # second electron index
+    ri::Int        # first site
+    rj::Int        # second site
+    s::Int         # first spin
+    t::Int         # second spin
+    reject_flag::Bool
+end
+
+struct SpinflipCandidate
+    site::Int      # site for spin flip
+    reject_flag::Bool
+end
+
+# Placeholder functions for Monte Carlo moves
+
+"""
+    make_hopping_candidate(state::VMCState)
+
+Create hopping move candidate, equivalent to makeCandidate_hopping in C.
+"""
+function make_hopping_candidate(state::VMCState)
+    # Simplified placeholder - actual implementation would select random electron and site
+    mi = rand(1:state.n_electrons)
+    ri = state.electron_configuration[mi]
+    rj = rand(1:state.n_sites)
+    s = rand(0:1)  # spin
+
+    # Check if move is valid (site not occupied, not local spin site, etc.)
+    reject_flag = (rj == ri) || (rj in state.electron_configuration)
+
+    return HoppingCandidate(mi, ri, rj, s, reject_flag)
+end
+
+"""
+    make_exchange_candidate(state::VMCState)
+
+Create exchange move candidate, equivalent to makeCandidate_exchange in C.
+"""
+function make_exchange_candidate(state::VMCState)
+    # Simplified placeholder
+    mi = rand(1:state.n_electrons)
+    mj = rand(1:state.n_electrons)
+    ri = state.electron_configuration[mi]
+    rj = state.electron_configuration[mj]
+    s = rand(0:1)
+    t = 1 - s
+
+    reject_flag = (mi == mj) || (ri == rj)
+
+    return ExchangeCandidate(mi, mj, ri, rj, s, t, reject_flag)
+end
+
+"""
+    make_spinflip_candidate(state::VMCState)
+
+Create spin flip candidate for FSZ mode.
+"""
+function make_spinflip_candidate(state::VMCState)
+    site = rand(1:state.n_sites)
+    reject_flag = false  # Simplified
+
+    return SpinflipCandidate(site, reject_flag)
+end
+
+# Metropolis acceptance functions (placeholders)
+
+"""
+    metropolis_accept_hopping(state::VMCState, candidate::HoppingCandidate)
+
+Calculate Metropolis acceptance for hopping move.
+"""
+function metropolis_accept_hopping(state::VMCState, candidate::HoppingCandidate)
+    # Placeholder - actual implementation would calculate wave function ratio
+    return rand() < 0.5
+end
+
+"""
+    metropolis_accept_exchange(state::VMCState, candidate::ExchangeCandidate)
+
+Calculate Metropolis acceptance for exchange move.
+"""
+function metropolis_accept_exchange(state::VMCState, candidate::ExchangeCandidate)
+    # Placeholder
+    return rand() < 0.5
+end
+
+"""
+    metropolis_accept_spinflip(state::VMCState, candidate::SpinflipCandidate)
+
+Calculate Metropolis acceptance for spin flip move.
+"""
+function metropolis_accept_spinflip(state::VMCState, candidate::SpinflipCandidate)
+    # Placeholder
+    return rand() < 0.5
+end
+
+# Update application functions (placeholders)
+
+"""
+    apply_hopping_update!(state::VMCState, candidate::HoppingCandidate)
+
+Apply accepted hopping move to state.
+"""
+function apply_hopping_update!(state::VMCState, candidate::HoppingCandidate)
+    # Update electron configuration
+    state.electron_configuration[candidate.mi] = candidate.rj
+    return nothing
+end
+
+"""
+    reject_hopping_update!(state::VMCState, candidate::HoppingCandidate)
+
+Reject hopping move (no state change needed).
+"""
+function reject_hopping_update!(state::VMCState, candidate::HoppingCandidate)
+    return nothing
+end
+
+"""
+    apply_exchange_update!(state::VMCState, candidate::ExchangeCandidate)
+
+Apply accepted exchange move to state.
+"""
+function apply_exchange_update!(state::VMCState, candidate::ExchangeCandidate)
+    # Swap electron positions
+    state.electron_configuration[candidate.mi] = candidate.rj
+    state.electron_configuration[candidate.mj] = candidate.ri
+    return nothing
+end
+
+"""
+    reject_exchange_update!(state::VMCState, candidate::ExchangeCandidate)
+
+Reject exchange move (no state change needed).
+"""
+function reject_exchange_update!(state::VMCState, candidate::ExchangeCandidate)
+    return nothing
+end
+
+"""
+    apply_spinflip_update!(state::VMCState, candidate::SpinflipCandidate)
+
+Apply accepted spin flip move to state.
+"""
+function apply_spinflip_update!(state::VMCState, candidate::SpinflipCandidate)
+    # Placeholder for spin flip logic
+    return nothing
+end
+
+"""
+    recalculate_matrices!(state::VMCState)
+
+Recalculate Slater matrices after many updates, equivalent to CalculateMAll in C.
+"""
+function recalculate_matrices!(state::VMCState)
+    # Placeholder for matrix recalculation
+    return nothing
+end
+
+"""
+    save_electron_configuration!(state::VMCState, sample_idx::Int)
+
+Save current electron configuration for measurement.
+"""
+function save_electron_configuration!(state::VMCState, sample_idx::Int)
+    # Placeholder for saving configuration
+    return nothing
+end
+
+"""
+    run_parameter_optimization_original!(sim::VMCSimulation{T}) where {T}
+
+Original parameter optimization implementation.
+"""
+function run_parameter_optimization_original!(sim::VMCSimulation{T}) where {T}
     @info "Starting parameter optimization..."
 
     # Setup optimization

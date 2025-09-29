@@ -93,6 +93,28 @@ struct SimulationConfig
     # Sampling control
     nvmc_warm_up::Int
     nvmc_interval::Int
+
+    # Additional parameters from C implementation
+    n_data_qty_smp::Int           # NDataQtySmp - number of output files
+    nex_update_path::Int          # NExUpdatePath - update path selection
+    rnd_seed::Int                 # RndSeed - random seed
+    nsplit_size::Int              # NSplitSize - MPI split size
+
+    # SR optimization parameters
+    nsr_opt_cg_max_iter::Int      # NSROptCGMaxIter
+    dsr_opt_cg_tol::Float64       # DSROptCGTol
+
+    # Complex/real flag
+    all_complex_flag::Bool        # AllComplexFlag
+
+    # RBM flag
+    flag_rbm::Bool                # FlagRBM
+
+    # Orbital flags
+    iflg_orbital_general::Int     # iFlgOrbitalGeneral
+
+    # Fixed spin zone parameters
+    two_sz::Int                   # TwoSz - for FSZ mode
 end
 
 """
