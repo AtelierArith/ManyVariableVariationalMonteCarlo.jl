@@ -195,6 +195,20 @@ end
 Set Jastrow parameters from a parameter vector.
 """
 function set_jastrow_parameters!(jastrow::EnhancedJastrowFactor{T}, params::Vector{T}) where {T}
+    # Special handling for StdFace Spin with tiny parameter count (e.g., NGutz=1, NJast=1)
+    if length(params) <= 2
+        # Use the last parameter as a global spin-Jastrow coefficient
+        if !isempty(params)
+            global_spin = params[end]
+            fill!(jastrow.spin_params, global_spin)
+        end
+        # Zero other components to avoid unintended density-only constants
+        fill!(jastrow.onsite_params, zero(T))
+        fill!(jastrow.nn_params, zero(T))
+        fill!(jastrow.longrange_params, zero(T))
+        return
+    end
+
     offset = 0
 
     # Onsite parameters
@@ -491,12 +505,15 @@ mutable struct CombinedWavefunction{T<:Union{Float64,ComplexF64}}
     gutzwiller::Union{Nothing,GutzwillerProjector{T}}
     jastrow::Union{Nothing,EnhancedJastrowFactor{T}}
     rbm::Union{Nothing,EnhancedRBMNetwork{T}}
+    # Spin singlet pairing support (StdFace orbital mapping)
+    pair_params::Vector{T}
+    orbital_map::Union{Nothing,Matrix{Int}}
 
     # Current wavefunction amplitude
     current_amplitude::T
 
     function CombinedWavefunction{T}() where {T}
-        new{T}(nothing, nothing, nothing, nothing, one(T))
+        new{T}(nothing, nothing, nothing, nothing, T[], nothing, one(T))
     end
 end
 
@@ -534,6 +551,29 @@ function compute_wavefunction_amplitude!(wf::CombinedWavefunction{T}, state::VMC
         wf.current_amplitude *= rbm_factor
     end
 
+    # Spin singlet pairing determinant using StdFace orbital mapping
+    if wf.orbital_map !== nothing && !isempty(wf.pair_params)
+        n_elec = state.n_electrons
+        n_up = div(n_elec, 2)
+        up_pos = state.electron_positions[1:n_up]
+        dn_pos = length(state.electron_positions) > n_up ? state.electron_positions[(n_up+1):end] : Int[]
+        if length(dn_pos) == n_up
+            # Build pairing matrix from mapping (site-indexed)
+            M = Matrix{T}(undef, n_up, n_up)
+            for (a, i_site) in enumerate(up_pos)
+                for (b, j_site) in enumerate(dn_pos)
+                    idx = wf.orbital_map[i_site, j_site]
+                    M[a, b] = (idx >= 1 && idx <= length(wf.pair_params)) ? wf.pair_params[idx] : zero(T)
+                end
+            end
+            try
+                wf.current_amplitude *= det(M)
+            catch
+                wf.current_amplitude *= T(0)
+            end
+        end
+    end
+
     return wf.current_amplitude
 end
 
@@ -559,6 +599,10 @@ function update_wavefunction_parameters!(wf::CombinedWavefunction{T}, params::Pa
 
     # Slater determinant parameters would be updated separately
     # through the SlaterDeterminant interface
+    # Update pairing parameters for Spin (StdFace orbital mapping)
+    if !isempty(params.slater)
+        wf.pair_params = copy(params.slater)
+    end
 end
 
 """

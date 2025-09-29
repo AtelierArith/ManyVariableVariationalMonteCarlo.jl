@@ -25,7 +25,20 @@ function initialize_parameters!(
 )
     _check_layout_mask(layout, mask)
 
-    fill!(params.proj, 0)
+    # Initialize projection parameters (Gutzwiller/Jastrow) with small random values
+    for i in eachindex(params.proj)
+        if mask.proj[i]
+            if flags.all_complex
+                amp = 1e-2 * rand(rng)
+                angle = 2 * pi * rand(rng)
+                params.proj[i] = amp * cis(angle)
+            else
+                params.proj[i] = 0.01 * (rand(rng) - 0.5)
+            end
+        else
+            params.proj[i] = 0
+        end
+    end
 
     if flags.rbm_enabled
         for i in eachindex(params.rbm)

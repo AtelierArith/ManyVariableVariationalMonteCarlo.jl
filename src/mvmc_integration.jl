@@ -234,7 +234,10 @@ function initialize_enhanced_simulation!(sim::EnhancedVMCSimulation{T}) where {T
     )
     mask = ParameterMask(layout; default = true)
     flags = ParameterFlags(T <: Complex, length(sim.parameters.rbm) > 0)
-    initialize_parameters!(sim.parameters, layout, mask, flags)
+    # Initialize parameters with StdFace RNG for reproducibility w.r.t. C
+    rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 123456789
+    rng = Random.MersenneTwister(rng_seed)
+    initialize_parameters!(sim.parameters, layout, mask, flags; rng=rng)
 
     # Initialize stochastic reconfiguration
     n_params = length(sim.parameters)
@@ -545,6 +548,18 @@ function initialize_enhanced_wavefunction!(sim::EnhancedVMCSimulation{T}) where 
         initialize_rbm_random!(sim.wavefunction.rbm, rng)
         set_rbm_parameters!(sim.wavefunction.rbm, sim.parameters.rbm)
     end
+
+    # Load StdFace orbital mapping for Spin pairing (orbitalidx.def) and seed pair params
+    if sim.config.model == :Spin && length(sim.parameters.slater) > 0
+        try
+            rootdir = haskey(sim.config.face, :StdFaceRoot) ? String(sim.config.face[:StdFaceRoot]) : sim.config.root
+            sim.wavefunction.orbital_map = load_orbital_index_map(rootdir, sim.config.nsites)
+        catch e
+            @warn "Failed to load orbitalidx.def: $e"
+            sim.wavefunction.orbital_map = nothing
+        end
+        sim.wavefunction.pair_params = copy(sim.parameters.slater)
+    end
 end
 
 """
@@ -566,6 +581,37 @@ function print_simulation_summary(sim::EnhancedVMCSimulation)
         println("# Energy Std: ", sim.physics_results["energy_std"])
         println("# Samples: ", sim.physics_results["n_samples"])
     end
+end
+
+"""
+    load_orbital_index_map(root::AbstractString, nsite::Int) -> Matrix{Int}
+
+Parse orbitalidx.def to build site-based (i,j) -> param-index (1-based) map.
+"""
+function load_orbital_index_map(root::AbstractString, nsite::Int)
+    path = joinpath(root, "orbitalidx.def")
+    m = fill(0, nsite, nsite)
+    open(path, "r") do f
+        for line in eachline(f)
+            s = strip(line)
+            isempty(s) && continue
+            startswith(s, "=") && continue
+            startswith(s, "NOrbitalIdx") && continue
+            startswith(s, "ComplexType") && continue
+            parts = split(s)
+            if length(parts) == 3
+                i = parse(Int, parts[1]) + 1
+                j = parse(Int, parts[2]) + 1
+                k = parse(Int, parts[3]) + 1
+                if 1 <= i <= nsite && 1 <= j <= nsite
+                    m[i, j] = k
+                end
+            elseif length(parts) == 2
+                # Optimization flags; ignore
+            end
+        end
+    end
+    return m
 end
 
 # set_gutzwiller_parameters! is defined in wavefunction_detailed.jl
@@ -727,14 +773,18 @@ function run_enhanced_parameter_optimization!(sim::EnhancedVMCSimulation{T}) whe
             "imax" => imax_idx,
         )
 
-        # Write optimization step
+        # Weighted averages (uniform weights for now)
+        # Weighted averaging to mirror C: WeightAverageWE/WeightAverageSROpt_real (uniform weights placeholder)
+        wa = WeightedAverager()
+        update!(wa, sample_results.energy_samples)
+        Etot, Etot2 = summarize_energy(wa)
         write_optimization_step!(
             sim.output_manager,
             iteration,
-            sample_results.energy_mean,
-            energy_var,
+            Etot,
+            Etot2,
             as_vector(sim.parameters),
-            sr_info
+            sr_info,
         )
 
         # Store results
@@ -1735,55 +1785,65 @@ end
 Perform one enhanced Metropolis step with HEAVY matrix computations matching C implementation.
 """
 function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
-    # Propose a single move (support spin-exchange for spin models)
+    # Propose a move
     n_elec = sim.vmc_state.n_electrons
-    electron_idx = rand(rng, 1:n_elec)
-    old_pos = sim.vmc_state.electron_positions[electron_idx]
-
-    # Propose new position (nearest neighbor move)
     n_sites = sim.config.nsites
-    neighbors = Int[]
-    if old_pos > 1
-        push!(neighbors, old_pos - 1)
-    end
-    if old_pos < n_sites
-        push!(neighbors, old_pos + 1)
-    end
+    n_up = div(n_elec, 2)
 
-    if isempty(neighbors)
-        return  # Cannot move
-    end
+    if sim.config.model == :Spin
+        # Spin model: propose swapping spins at two arbitrary sites of opposite spin (global exchange)
+        up_index = rand(rng, 1:n_up)
+        dn_index = rand(rng, (n_up+1):n_elec)
+        old_pos_up = sim.vmc_state.electron_positions[up_index]
+        old_pos_dn = sim.vmc_state.electron_positions[dn_index]
 
-    new_pos = neighbors[rand(rng, 1:length(neighbors))]
-
-    # Determine if target is occupied and, for spin models, whether a swap is allowed
-    target_idx = findfirst(==(new_pos), sim.vmc_state.electron_positions)
-    swap_allowed = false
-    swap_partner_idx = nothing
-    if target_idx !== nothing
-        if sim.config.model == :Spin
-            # Interpret indexes 1:n_up as spin-↑, n_up+1:n_elec as spin-↓
-            n_up = div(n_elec, 2)
-            is_up = electron_idx <= n_up
-            target_is_up = target_idx <= n_up
-            # Allow exchange only when spins are opposite
-            swap_allowed = (is_up != target_is_up)
-            if swap_allowed
-                swap_partner_idx = target_idx
-            else
-                return  # Same-spin conflict; reject
-            end
-        else
-            return  # Fermion models: reject double occupancy
+        electron_idx = up_index
+        old_pos = old_pos_up
+        new_pos = old_pos_dn
+        swap_allowed = true
+        swap_partner_idx = dn_index
+    else
+        # Fermion models: nearest-neighbor hop
+        electron_idx = rand(rng, 1:n_elec)
+        old_pos = sim.vmc_state.electron_positions[electron_idx]
+        neighbors = Int[]
+        if old_pos > 1
+            push!(neighbors, old_pos - 1)
+        end
+        if old_pos < n_sites
+            push!(neighbors, old_pos + 1)
+        end
+        isempty(neighbors) && return
+        new_pos = neighbors[rand(rng, 1:length(neighbors))]
+        target_idx = findfirst(==(new_pos), sim.vmc_state.electron_positions)
+        swap_allowed = false
+        swap_partner_idx = nothing
+        if target_idx !== nothing
+            return
         end
     end
 
     # Compute Metropolis ratio
     if sim.config.model == :Spin
-        # Spin model: avoid unnecessary Pfaffian/Slater; use Jastrow/Gutzwiller/RBM ratios
-        proj_ratio = calculate_projector_ratio(sim, old_pos, new_pos)
-        rbm_ratio = calculate_rbm_ratio_heavy(sim, electron_idx, old_pos, new_pos)
-        total_ratio = exp(proj_ratio + rbm_ratio)
+        # Spin model: evaluate full wavefunction ratio by explicit swap
+        amp_old = compute_wavefunction_amplitude!(sim.wavefunction, sim.vmc_state)
+        new_state = VMCState{T}(sim.vmc_state.n_electrons, sim.vmc_state.n_sites)
+        new_state.electron_positions .= sim.vmc_state.electron_positions
+        if swap_allowed && swap_partner_idx !== nothing
+            new_state.electron_positions[electron_idx] = new_pos
+            new_state.electron_positions[swap_partner_idx] = old_pos
+        else
+            new_state.electron_positions[electron_idx] = new_pos
+        end
+        amp_new = compute_wavefunction_amplitude!(sim.wavefunction, new_state)
+        if abs(amp_old) < 1e-14 || abs(amp_new) < 1e-14
+            # Fallback: use Jastrow-only ratio to avoid singular determinants
+            j_old = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, sim.vmc_state) : one(T)
+            j_new = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, new_state) : one(T)
+            total_ratio = j_new / (j_old == 0 ? T(1e-16) : j_old)
+        else
+            total_ratio = amp_new / amp_old
+        end
     else
         # ===== Heavy path for fermion models =====
         pfm_new = calculate_new_pfaffian_matrix(sim, electron_idx, old_pos, new_pos)
@@ -1852,7 +1912,8 @@ function calculate_local_energy_heisenberg(sim::EnhancedVMCSimulation{T}) where 
 
     # Ensure current amplitude is up to date
     amp_old = compute_wavefunction_amplitude!(sim.wavefunction, sim.vmc_state)
-    amp_old = amp_old == 0 ? T(1e-16) : amp_old
+    # Also capture Jastrow-only baseline
+    jastrow_old = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, sim.vmc_state) : one(T)
 
     n_elec = sim.vmc_state.n_electrons
     n_up = div(n_elec, 2)
@@ -1871,41 +1932,63 @@ function calculate_local_energy_heisenberg(sim::EnhancedVMCSimulation{T}) where 
         # Diagonal S^z S^z
         szi = 0.5 * ((i in up_set ? 1 : 0) - (i in dn_set ? 1 : 0))
         szj = 0.5 * ((j in up_set ? 1 : 0) - (j in dn_set ? 1 : 0))
-        diag += ham.J * szi * szj
+        # Use AF convention: H = -J S_i·S_j (J>0)
+        diag += -ham.J * szi * szj
 
         # Off-diagonal: flip if opposite spins
         flip_ratio = zero(T)
         if (i in up_set && j in dn_set) || (i in dn_set && j in up_set)
-            # Create swapped configuration
-            new_state = VMCState{T}(sim.vmc_state.n_electrons, sim.vmc_state.n_sites)
-            new_state.electron_positions .= pos
-
-            if i in up_set && j in dn_set
-                # Replace i (in up segment) with j, and the matching j (in dn segment) with i
-                idx_up = findfirst(==(i), new_state.electron_positions[1:n_up])
-                idx_dn_rel = findfirst(==(j), new_state.electron_positions[(n_up+1):end])
-                if idx_up !== nothing && idx_dn_rel !== nothing
-                    idx_dn = n_up + idx_dn_rel
-                    new_state.electron_positions[idx_up] = j
-                    new_state.electron_positions[idx_dn] = i
+            # Prefer fast spin-Jastrow ratio when using StdFace-style (few) parameters
+            use_fast = length(sim.parameters.proj) <= 2 && sim.wavefunction.jastrow !== nothing
+            if use_fast
+                # Spins as ±1/2 on sites
+                s = Dict{Int,Float64}()
+                for site in 1:ham.n_sites
+                    s[site] = (site in up_set ? 0.5 : 0.0) - (site in dn_set ? 0.5 : 0.0)
                 end
+                # Change in Σ_nn s_u s_v when swapping spins on bond (i,j)
+                s_i = s[i]; s_j = s[j]
+                s_im1 = i > 1 ? s[i-1] : 0.0
+                s_jp1 = j < ham.n_sites ? s[j+1] : 0.0
+                ΔS = (s_j - s_i) * (s_im1 - s_jp1)
+                # Global spin-Jastrow coefficient
+                v = real(sim.parameters.proj[end])
+                flip_ratio = T(exp(v * ΔS))
             else
-                # i in dn, j in up
-                idx_up = findfirst(==(j), new_state.electron_positions[1:n_up])
-                idx_dn_rel = findfirst(==(i), new_state.electron_positions[(n_up+1):end])
-                if idx_up !== nothing && idx_dn_rel !== nothing
-                    idx_dn = n_up + idx_dn_rel
-                    new_state.electron_positions[idx_up] = i
-                    new_state.electron_positions[idx_dn] = j
-                end
-            end
+                # Create swapped configuration and evaluate general ratio
+                new_state = VMCState{T}(sim.vmc_state.n_electrons, sim.vmc_state.n_sites)
+                new_state.electron_positions .= pos
 
-            # Ratio Ψ(new)/Ψ(old)
+                if i in up_set && j in dn_set
+                    idx_up = findfirst(==(i), new_state.electron_positions[1:n_up])
+                    idx_dn_rel = findfirst(==(j), new_state.electron_positions[(n_up+1):end])
+                    if idx_up !== nothing && idx_dn_rel !== nothing
+                        idx_dn = n_up + idx_dn_rel
+                        new_state.electron_positions[idx_up] = j
+                        new_state.electron_positions[idx_dn] = i
+                    end
+                else
+                    idx_up = findfirst(==(j), new_state.electron_positions[1:n_up])
+                    idx_dn_rel = findfirst(==(i), new_state.electron_positions[(n_up+1):end])
+                    if idx_up !== nothing && idx_dn_rel !== nothing
+                        idx_dn = n_up + idx_dn_rel
+                        new_state.electron_positions[idx_up] = i
+                        new_state.electron_positions[idx_dn] = j
+                    end
+                end
+
             amp_new = compute_wavefunction_amplitude!(sim.wavefunction, new_state)
-            flip_ratio = amp_new / amp_old
+            if abs(amp_old) < 1e-14 || abs(amp_new) < 1e-14
+                j_new = sim.wavefunction.jastrow !== nothing ? compute_jastrow_factor!(sim.wavefunction.jastrow, new_state) : one(T)
+                flip_ratio = j_new / (jastrow_old == 0 ? T(1e-16) : jastrow_old)
+            else
+                flip_ratio = amp_new / amp_old
+            end
+            end
         end
 
-        offdiag += (ham.J / 2) * flip_ratio
+        # Off-diagonal contribution with AF sign
+        offdiag += -(ham.J / 2) * flip_ratio
     end
 
     return real(diag + offdiag)

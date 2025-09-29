@@ -347,7 +347,7 @@ end
 
 Convert StdFaceParameters to a SimulationConfig object.
 """
-function stdface_to_simulation_config(params::StdFaceParameters)
+function stdface_to_simulation_config(params::StdFaceParameters; root::AbstractString = ".")
     # Create face dictionary with all parameters
     face = FaceDefinition()
 
@@ -383,8 +383,11 @@ function stdface_to_simulation_config(params::StdFaceParameters)
     push_definition!(face, :OneBodyG, params.OneBodyG)
     push_definition!(face, :TwoBodyG, params.TwoBodyG)
 
+    # Store StdFace root for downstream file lookups
+    push_definition!(face, :StdFaceRoot, String(root))
+
     # Create SimulationConfig using the standard constructor
-    config = SimulationConfig(face; root = ".")
+    config = SimulationConfig(face; root = String(root))
 
     return config
 end
@@ -396,7 +399,7 @@ Convenience function to parse StdFace.def file and create SimulationConfig.
 """
 function parse_stdface_and_create_config(filename::String)
     params = parse_stdface_def(filename)
-    return stdface_to_simulation_config(params)
+    return stdface_to_simulation_config(params; root = dirname(filename))
 end
 
 """

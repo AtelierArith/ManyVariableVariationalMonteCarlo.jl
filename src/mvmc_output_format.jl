@@ -174,19 +174,18 @@ function write_physics_header!(manager::MVMCOutputManager, config::SimulationCon
 end
 
 """
-    write_optimization_step!(manager::MVMCOutputManager, iteration::Int, energy::Complex, energy_var::Float64, params::Vector, sr_info::Dict)
+    write_optimization_step!(manager::MVMCOutputManager, iteration::Int, Etot::Float64, Etot2::Float64, params::Vector, sr_info::Dict)
 
 Write optimization step data in mVMC format.
 """
-function write_optimization_step!(manager::MVMCOutputManager, iteration::Int, energy::Complex, energy_var::Float64, params::Vector, sr_info::Dict)
-    # Main output (zvo_out.dat)
+function write_optimization_step!(manager::MVMCOutputManager, iteration::Int, Etot::Float64, Etot2::Float64, params::Vector, sr_info::Dict)
+    relvar = (Etot2 - Etot * Etot) / (Etot != 0 ? (Etot * Etot) : 1.0)
+
+    # Main output (zvo_out_001.dat)
     if haskey(manager.file_handles, "zvo_out")
         f = manager.file_handles["zvo_out"]
-        etot = real(energy)
-        varE = energy_var
-        # Output columns aligned (at least) for E and Var(E); remaining zeros as placeholders
-        @printf(f, "%.18e %.18e %.18e %.18e %.18e %.18e\n",
-                etot, 0.0, varE, 0.0, 0.0, 0.0)
+        @printf(f, "%.18e %.18e  %.18e %.18e %.18e %.18e\n",
+                Etot, 0.0, Etot2, relvar, 0.0, 0.0)
         flush_if_needed!(manager, f)
     end
 
@@ -205,7 +204,8 @@ function write_optimization_step!(manager::MVMCOutputManager, iteration::Int, en
             write(f, param_data)
         else
             # Formatted output
-            @printf(f, "%.18e %.18e 0.0 %.18e %.18e 0.0 ", real(energy), imag(energy), real(abs2(energy)), imag(abs2(energy)))
+            # First write Etot and Etot2 consistent with zvo_out
+            @printf(f, "%.18e %.18e 0.0 %.18e %.18e 0.0 ", Etot, 0.0, Etot2, 0.0)
             for p in params
                 @printf(f, "%.18e %.18e 0.0 ", real(p), imag(p))
             end

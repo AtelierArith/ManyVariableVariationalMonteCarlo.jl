@@ -50,6 +50,7 @@ include("stdface_parser.jl")
 include("wavefunction_detailed.jl")
 include("stochastic_reconfiguration_precise.jl")
 include("mvmc_output_format.jl")
+include("weight_averager.jl")
 include("mvmc_integration.jl")
 
 # Import functions from included modules
