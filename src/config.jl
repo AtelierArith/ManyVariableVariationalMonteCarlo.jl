@@ -411,7 +411,7 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
     # Additional parameters from C implementation
     n_data_qty_smp = facevalue(face, :NDataQtySmp, Int; default = 1)
     nex_update_path = facevalue(face, :NExUpdatePath, Int; default = 0)
-    rnd_seed = facevalue(face, :RndSeed, Int; default = 12345)
+    rnd_seed = facevalue(face, :RndSeed, Int; default = 11272)  # Match C default
     nsplit_size = facevalue(face, :NSplitSize, Int; default = 1)
 
     # SR optimization parameters

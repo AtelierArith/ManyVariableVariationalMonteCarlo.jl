@@ -323,7 +323,15 @@ Initialize variables for quantum projection, equivalent to InitQPWeight() in C.
 """
 function initialize_quantum_projection!(sim::VMCSimulation{T}) where {T}
     # Initialize quantum projection weights
-    # This function is a placeholder matching the C interface
+    # For compatibility with C implementation, we could add quantum projection here
+    # Currently this is a placeholder matching the C interface
+
+    # If quantum projection parameters are available in config, initialize them
+    if haskey(sim.config.face, :NSPGaussLeg) || haskey(sim.config.face, :NMPTrans)
+        @info "Quantum projection parameters detected in configuration"
+        # Could initialize quantum projection here if needed
+    end
+
     return nothing
 end
 
@@ -799,7 +807,7 @@ function calculate_spin_model_matrix(ele_idx::Vector{Int}, n_sites::Int, n_size:
     end
 
     # Add small random perturbation to ensure non-singularity
-    rng = Random.MersenneTwister(12345)  # Fixed seed for reproducibility
+    rng = Random.MersenneTwister(11272)  # Fixed seed for reproducibility (match C default)
     for i in 1:n_size
         for j in 1:n_size
             spin_matrix[i, j] += 1e-6 * (rand(rng) - 0.5)
@@ -1884,11 +1892,11 @@ end
 
 Get update type based on path, equivalent to getUpdateType() in vmcmake.c.
 """
-function get_update_type(path::Int, config::SimulationConfig)
+function get_update_type(path::Int, config::SimulationConfig, rng::AbstractRNG = Random.GLOBAL_RNG)
     if path == 0
         return HOPPING
     elseif path == 1
-        return rand() < 0.5 ? EXCHANGE : HOPPING
+        return rand(rng) < 0.5 ? EXCHANGE : HOPPING
     elseif path == 2
         # Check if spin conservation is enabled
         iflg_orbital_general = hasfield(typeof(config), :iflg_orbital_general) ? config.iflg_orbital_general : 0
@@ -1898,16 +1906,16 @@ function get_update_type(path::Int, config::SimulationConfig)
             # FSZ mode - check TwoSz
             two_sz = hasfield(typeof(config), :two_sz) ? config.two_sz : 0
             if two_sz == -1  # Sz not conserved
-                return rand() < 0.5 ? EXCHANGE : LOCALSPINFLIP
+                return rand(rng) < 0.5 ? EXCHANGE : LOCALSPINFLIP
             else
                 return EXCHANGE
             end
         end
     elseif path == 3  # KondoGC mode
-        if rand() < 0.5
+        if rand(rng) < 0.5
             return HOPPING
         else
-            return rand() < 0.5 ? EXCHANGE : LOCALSPINFLIP
+            return rand(rng) < 0.5 ? EXCHANGE : LOCALSPINFLIP
         end
     end
     return NONE
@@ -2011,9 +2019,9 @@ end
 
 Calculate Metropolis acceptance for hopping move.
 """
-function metropolis_accept_hopping(state::VMCState, candidate::HoppingCandidate)
+function metropolis_accept_hopping(state::VMCState, candidate::HoppingCandidate, rng::AbstractRNG = Random.GLOBAL_RNG)
     # Placeholder - actual implementation would calculate wave function ratio
-    return rand() < 0.5
+    return rand(rng) < 0.5
 end
 
 """
@@ -2021,9 +2029,9 @@ end
 
 Calculate Metropolis acceptance for exchange move.
 """
-function metropolis_accept_exchange(state::VMCState, candidate::ExchangeCandidate)
+function metropolis_accept_exchange(state::VMCState, candidate::ExchangeCandidate, rng::AbstractRNG = Random.GLOBAL_RNG)
     # Placeholder
-    return rand() < 0.5
+    return rand(rng) < 0.5
 end
 
 """
@@ -2031,9 +2039,9 @@ end
 
 Calculate Metropolis acceptance for spin flip move.
 """
-function metropolis_accept_spinflip(state::VMCState, candidate::SpinflipCandidate)
+function metropolis_accept_spinflip(state::VMCState, candidate::SpinflipCandidate, rng::AbstractRNG = Random.GLOBAL_RNG)
     # Placeholder
-    return rand() < 0.5
+    return rand(rng) < 0.5
 end
 
 # Update application functions (placeholders)
@@ -2271,7 +2279,7 @@ function sample_configurations!(sim::VMCSimulation{T}, n_samples::Int) where {T}
     )
 
     # Initialize RNG
-    rng = Random.MersenneTwister(12345)
+    rng = Random.MersenneTwister(11272)  # Match C default
 
     # Run sampling
     return run_vmc_sampling!(sim.vmc_state, config, rng)

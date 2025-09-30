@@ -7,6 +7,7 @@ Integrates all enhanced components to provide C-implementation compatible VMC si
 using Random
 using Printf
 using LinearAlgebra
+include("quantum_projection_c_compat.jl")
 include("true_wavefunction.jl")
 
 """
@@ -37,6 +38,9 @@ mutable struct EnhancedVMCSimulation{T<:Union{Float64,ComplexF64}}
 
     # True wavefunction calculator (C implementation equivalent)
     true_wavefunction_calc::Union{Nothing, TrueWavefunctionCalculator{Float64}}
+
+    # Quantum projection (C implementation equivalent)
+    quantum_projection::Union{Nothing, CCompatQuantumProjection{T}}
 
     # Output management
     output_manager::MVMCOutputManager
@@ -71,6 +75,7 @@ mutable struct EnhancedVMCSimulation{T<:Union{Float64,ComplexF64}}
             nothing,
             nothing,
             nothing,  # true_wavefunction_calc - will be initialized later
+            nothing,  # quantum_projection - will be initialized later
             output_manager,
             Dict{String,Any}[],
             Dict{String,Any}(),
@@ -120,7 +125,14 @@ function run_mvmc_from_stdface(stdface_file::String; T=ComplexF64, output_dir::S
     println("End  : Initialize parameters.")
 
     println("Start: Initialize variables for quantum projection.")
-    # Quantum projection initialization (placeholder)
+    # Initialize quantum projection with C-compatible implementation
+    sim.quantum_projection = initialize_quantum_projection_from_config(config; T=T)
+    # Print summary after integration functions are loaded
+    try
+        print_quantum_projection_summary(sim)
+    catch
+        println("Quantum projection initialized (summary not available)")
+    end
     println("End  : Initialize variables for quantum projection.")
 
     # Run based on mode
@@ -271,7 +283,7 @@ function initialize_enhanced_simulation!(sim::EnhancedVMCSimulation{T}) where {T
     mask = ParameterMask(layout; default = true)
     flags = ParameterFlags(T <: Complex, length(sim.parameters.rbm) > 0)
     # Initialize parameters with StdFace RNG for reproducibility w.r.t. C
-    rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 123456789
+    rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 11272  # Match C default
     rng = Random.MersenneTwister(rng_seed)
     initialize_parameters!(sim.parameters, layout, mask, flags; rng=rng)
 
@@ -586,7 +598,7 @@ function initialize_enhanced_wavefunction!(sim::EnhancedVMCSimulation{T}) where 
         n_visible = 2 * n_sites
         n_hidden = max(1, div(length(sim.parameters.rbm), n_visible + 1))
         sim.wavefunction.rbm = EnhancedRBMNetwork{T}(n_visible, n_hidden, n_sites)
-        rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 12345
+        rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 11272  # Match C default
     rng = Random.MersenneTwister(rng_seed)
         initialize_rbm_random!(sim.wavefunction.rbm, rng)
         set_rbm_parameters!(sim.wavefunction.rbm, sim.parameters.rbm)
@@ -1063,7 +1075,7 @@ function enhanced_sample_configurations!(sim::EnhancedVMCSimulation{T}, n_sample
         two_electron_probability = 0.15
     )
 
-    rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 12345
+    rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 11272  # Match C default
     rng = Random.MersenneTwister(rng_seed)
 
     # Enhanced sampling matching C implementation volume
@@ -3658,3 +3670,6 @@ function update_matrices_after_move!(sim::EnhancedVMCSimulation{T}, electron_idx
         update_rbm_correlations!(sim.wavefunction.rbm, electron_idx, old_pos, new_pos, sim.config.nsites)
     end
 end
+
+# Include quantum projection integration functions after EnhancedVMCSimulation is defined
+include("quantum_projection_integration.jl")

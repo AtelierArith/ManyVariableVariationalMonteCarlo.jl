@@ -93,8 +93,10 @@ function apply_opttrans_basis!(params::ParameterSet, values::AbstractVector)
     # C implementation: OptTrans[i] = ParaQPOptTrans[i];
     if isempty(values)
         # Initialize OptTrans to small random values when no basis is provided
+        # Use fixed seed for consistency
+        temp_rng = Random.MersenneTwister(11272)
         for i in eachindex(params.opttrans)
-            params.opttrans[i] = 1e-6 * (2 * rand() - 1)  # Small random values
+            params.opttrans[i] = 1e-6 * (2 * rand(temp_rng) - 1)  # Small random values
         end
     else
         ncopy = min(length(params.opttrans), length(values))
