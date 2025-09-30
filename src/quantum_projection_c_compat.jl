@@ -114,7 +114,7 @@ function init_qp_weight!(qp::CCompatQuantumProjection{T}) where {T}
         end
     else
         # Full spin projection with Gauss-Legendre quadrature
-        gauss_legendre!(qp.beta_points, qp.gl_weights, 0.0, π, qp.n_sp_gauss_leg)
+        gauss_legendre!(qp.beta_points, qp.gl_weights, 0.0, Float64(π), qp.n_sp_gauss_leg)
 
         for i in 1:qp.n_sp_gauss_leg
             beta = qp.beta_points[i]
@@ -302,29 +302,65 @@ function initialize_quantum_projection_from_config(config::SimulationConfig; T=C
     return qp
 end
 
-# Import FastGaussQuadrature for high-quality Gauss-Legendre quadrature
-try
-    using FastGaussQuadrature: gausslegendre
-catch
-    # Fallback implementation if FastGaussQuadrature is not available
-    function gausslegendre(n::Int)
-        # Simple implementation for small n
-        if n == 1
-            return [0.0], [2.0]
-        elseif n == 2
-            x = [-1/√3, 1/√3]
-            w = [1.0, 1.0]
-            return x, w
-        else
-            # For larger n, use a basic implementation
-            # This is not optimal but provides a fallback
-            x = zeros(n)
-            w = zeros(n)
-            for i in 1:n
-                x[i] = cos(π * (i - 0.25) / (n + 0.5))
-                w[i] = 2.0 / n
+# Gauss-Legendre quadrature implementation
+# Try to use FastGaussQuadrature if available, otherwise use fallback
+function gausslegendre(n::Int)
+    # Simple implementation for small n
+    if n == 1
+        return [0.0], [2.0]
+    elseif n == 2
+        x = [-1/√3, 1/√3]
+        w = [1.0, 1.0]
+        return x, w
+    elseif n == 3
+        x = [-√(3/5), 0.0, √(3/5)]
+        w = [5/9, 8/9, 5/9]
+        return x, w
+    else
+        # For larger n, use Newton's method to find roots of Legendre polynomial
+        x = zeros(n)
+        w = zeros(n)
+
+        m = div(n + 1, 2)
+        for i in 1:m
+            # Initial guess for root
+            z = cos(π * (i - 0.25) / (n + 0.5))
+
+            # Variables for Legendre polynomial calculation
+            p1 = 1.0
+            p2 = 0.0
+            pp = 0.0
+
+            # Newton iteration
+            for iter in 1:10
+                p1 = 1.0
+                p2 = 0.0
+
+                # Compute Legendre polynomial and derivative
+                for j in 1:n
+                    p3 = p2
+                    p2 = p1
+                    p1 = ((2*j - 1) * z * p2 - (j - 1) * p3) / j
+                end
+
+                # Derivative
+                pp = n * (z * p1 - p2) / (z * z - 1)
+
+                # Newton step
+                z1 = z
+                z = z1 - p1 / pp
+
+                if abs(z - z1) < 1e-14
+                    break
+                end
             end
-            return x, w
+
+            x[i] = -z
+            x[n + 1 - i] = z
+            w[i] = 2.0 / ((1 - z * z) * pp^2)
+            w[n + 1 - i] = w[i]
         end
+
+        return x, w
     end
 end

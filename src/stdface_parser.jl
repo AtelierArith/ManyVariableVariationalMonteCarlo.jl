@@ -156,18 +156,26 @@ function parse_stdface_def(filename::String)
                 continue
             end
 
+            # Remove inline comments (both # and //)
+            if contains(line, "#")
+                line = strip(split(line, "#", limit=2)[1])
+            end
+            if contains(line, "//")
+                line = strip(split(line, "//", limit=2)[1])
+            end
+
+            # Skip if line became empty after removing comments
+            if isempty(line)
+                continue
+            end
+
             # Parse key-value pairs
             if contains(line, "=")
                 key, value = split(line, "=", limit=2)
                 key = strip(key)
                 value = strip(value)
 
-                # Remove quotes from string values
-                if startswith(value, "\"") && endswith(value, "\"")
-                    value = value[2:end-1]
-                end
-
-                # Parse based on key
+                # Parse based on key (quote removal handled in parse_parameter!)
                 parse_parameter!(params, key, value)
             end
         end
@@ -182,6 +190,12 @@ end
 Parse a single parameter and update the StdFaceParameters object.
 """
 function parse_parameter!(params::StdFaceParameters, key::AbstractString, value::AbstractString)
+    # Remove quotes from value if present
+    value = strip(value)
+    if startswith(value, "\"") && endswith(value, "\"")
+        value = value[2:end-1]
+    end
+
     # Convert key to lowercase for case-insensitive matching
     key_lower = lowercase(key)
 

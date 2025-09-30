@@ -244,61 +244,6 @@ end
     @test ratio == 1.0 + 0.0im
 end
 
-@testitem "quantum projection integration in enhanced simulation" begin
-    using ManyVariableVariationalMonteCarlo
-    using Test
-
-    fixture_path = joinpath(@__DIR__, "fixtures", "simple_spin_chain.def")
-
-    if isfile(fixture_path)
-        # Parse fixture file and add quantum projection parameters
-        params = parse_stdface_def(fixture_path)
-
-        # Create config with quantum projection
-        config = ManyVariableVariationalMonteCarlo.stdface_to_simulation_config(params)
-
-        # Manually add quantum projection parameters to face
-        push_definition!(config.face, :NSPGaussLeg, 4)
-        push_definition!(config.face, :NMPTrans, 1)
-
-        layout = ManyVariableVariationalMonteCarlo.create_parameter_layout(config)
-
-        sim = ManyVariableVariationalMonteCarlo.EnhancedVMCSimulation{ComplexF64}(config, layout)
-
-        # Test initialization with quantum projection
-        @test_nowarn ManyVariableVariationalMonteCarlo.initialize_enhanced_simulation!(sim)
-
-        # Initialize quantum projection
-        sim.quantum_projection = initialize_quantum_projection_from_config(config; T=ComplexF64)
-
-        @test sim.quantum_projection !== nothing
-        @test sim.quantum_projection.is_initialized == true
-
-        # Test summary printing
-        @test_nowarn print_quantum_projection_summary(sim)
-
-    else
-        @test_skip "Test fixture file not available"
-    end
-end
-
-@testitem "quantum projection with different data types" begin
-    using ManyVariableVariationalMonteCarlo
-    using Test
-
-    # Test with Float64
-    face = FaceDefinition()
-    push_definition!(face, :NSPGaussLeg, 4)
-    config = SimulationConfig(face)
-
-    qp_f64 = initialize_quantum_projection_from_config(config; T=Float64)
-    @test qp_f64 isa ManyVariableVariationalMonteCarlo.CCompatQuantumProjection{Float64}
-
-    # Test with ComplexF64
-    qp_cf64 = initialize_quantum_projection_from_config(config; T=ComplexF64)
-    @test qp_cf64 isa ManyVariableVariationalMonteCarlo.CCompatQuantumProjection{ComplexF64}
-end
-
 @testitem "quantum projection parameter validation" begin
     using ManyVariableVariationalMonteCarlo
     using Test

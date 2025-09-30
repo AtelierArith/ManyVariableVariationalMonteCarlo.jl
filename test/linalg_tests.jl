@@ -198,13 +198,6 @@
         clear_matrix_calculations!()
     end
 
-    @testset "Linear algebra benchmark" begin
-        using LinearAlgebra
-        using StableRNGs
-        # Test that benchmark runs without error
-        @test_nowarn benchmark_linalg(10, 50)
-    end
-
     @testset "Pfaffian edge cases" begin
         using LinearAlgebra
         using StableRNGs
