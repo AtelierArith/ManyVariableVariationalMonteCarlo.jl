@@ -205,32 +205,18 @@ end
     read_idx_count(path::String, key::String) -> Int
 
 Parse mVMC idx.def header to get count, e.g., "NOrbitalIdx 64".
-Returns 0 if file doesn't exist or key not found.
 """
 function read_idx_count(path::String, key::String)
-    if !isfile(path)
-        return 0
-    end
-
-    try
-        result = open(path, "r") do f
-            for line in eachline(f)
-                s = strip(line)
-                if startswith(s, key)
-                    # Split on whitespace and filter out empty strings
-                    parts = filter(!isempty, split(s))
-                    if length(parts) >= 2
-                        return parse(Int, parts[end])
-                    end
-                end
+    open(path, "r") do f
+        for line in eachline(f)
+            s = strip(line)
+            if startswith(s, key)
+                parts = split(s)
+                return parse(Int, parts[end])
             end
-            return 0  # Key not found
         end
-        return result
-    catch e
-        @debug "Error reading idx count from $path: $e"
-        return 0
     end
+    return 0
 end
 
 """
@@ -330,23 +316,18 @@ function get_lattice_geometry(sim::EnhancedVMCSimulation{T}) where {T}
 
     # Get lattice dimensions
     if haskey(face, :L)
-        # Check if this is 2D or 1D
-        if haskey(face, :W)
-            # 2D lattice
-            W = facevalue(face, :W, Int)
-            L = facevalue(face, :L, Int)
-            return EnhancedSquareLattice(W, L)
-        else
-            # 1D chain
-            L = facevalue(face, :L, Int)
-            return EnhancedChainLattice(L)
-        end
+        # 1D chain
+        L = Int(face[:L])
+        return EnhancedChainLattice(L)
+    elseif haskey(face, :W) && haskey(face, :L)
+        # 2D lattice
+        W = Int(face[:W])
+        L = Int(face[:L])
+        return EnhancedSquareLattice(W, L)
     elseif haskey(face, :a0W) && haskey(face, :a1W) && haskey(face, :a0L) && haskey(face, :a1L)
         # General 2D lattice with basis vectors
-        a0W = facevalue(face, :a0W, Float64)
-        a1W = facevalue(face, :a1W, Float64)
-        a0L = facevalue(face, :a0L, Float64)
-        a1L = facevalue(face, :a1L, Float64)
+        a0W, a1W = Float64(face[:a0W]), Float64(face[:a1W])
+        a0L, a1L = Float64(face[:a0L]), Float64(face[:a1L])
         return EnhancedGeneralLattice2D(a0W, a1W, a0L, a1L)
     else
         # Default to 1D chain based on number of sites

@@ -13,12 +13,6 @@ using DelimitedFiles
 # ╔═╡ 0034674a-6599-40b2-8ec5-d555bdd41a8f
 plot(readdlm("output/zvo_out_001.dat")[:, 1])
 
-# ╔═╡ ec9910dd-d23d-435d-8d12-8b68bad48be7
-plot(readdlm("../mVMC/samples/Standard/Spin/HeisenbergChain/output/zvo_out_001.dat")[:, 1])
-
-# ╔═╡ 63e89013-1956-454e-87fd-b99d2f85de58
-
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -1126,7 +1120,5 @@ version = "1.9.2+0"
 # ╠═ce970862-9d04-11f0-0acd-3fe9aa44df93
 # ╠═215b9c5f-13db-4c79-8db5-c1ff120ccc33
 # ╠═0034674a-6599-40b2-8ec5-d555bdd41a8f
-# ╠═ec9910dd-d23d-435d-8d12-8b68bad48be7
-# ╠═63e89013-1956-454e-87fd-b99d2f85de58
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
