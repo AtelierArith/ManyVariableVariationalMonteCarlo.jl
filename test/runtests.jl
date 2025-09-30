@@ -1,4 +1,5 @@
 using ReTestItems
 using ManyVariableVariationalMonteCarlo
 
-ReTestItems.runtests(ManyVariableVariationalMonteCarlo)
+# Only run tests in test directory, not examples
+ReTestItems.runtests(@__DIR__)

@@ -1,0 +1,25 @@
+# Simple square lattice for testing
+# 2x2 system for fast tests
+
+L = 2
+W = 2
+Height = 1
+model = "Spin"
+lattice = "square"
+J = 1.0
+2Sz = 0
+
+# VMC parameters - small for fast testing
+NVMCCalMode = 1
+NSROptItrStep = 5
+NSROptItrSmp = 3
+NVMCWarmUp = 3
+NVMCInterval = 1
+NVMCSample = 10
+RndSeed = 12345
+
+# Output parameters
+CDataFileHead = "test_zvo"
+CParaFileHead = "test_zqp"
+OneBodyG = 1
+TwoBodyG = 0
