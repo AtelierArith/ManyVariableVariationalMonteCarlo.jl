@@ -2133,46 +2133,67 @@ Calculate local energy for Heisenberg model using proper VMC formula.
 E_loc = Σᵢⱼ Jᵢⱼ [Sᵢᶻ Sⱼᶻ + (1/2)(Ψ(C')/Ψ(C))]
 """
 function calculate_heisenberg_local_energy(sim::EnhancedVMCSimulation{T}) where {T}
-    # C implementation: calham_real.c CalculateHamiltonian_real
-    # Exact faithful implementation
+    # C implementation: calham_real.c CalculateHamiltonian_real (Line 43-210)
+    # Reference: mVMC/src/mVMC/calham_real.c
     local_energy = zero(T)
 
+    # DEBUG: Track contributions
+    coulomb_contrib = zero(T)
+    hund_contrib = zero(T)
+    exchange_contrib = zero(T)
+
     # C implementation: CoulombInter terms
-    # Line 106: myEnergy += ParaCoulombInter[idx] * (n0[ri]+n1[ri]) * (n0[rj]+n1[rj])
+    # Reference: calham_real.c Line 102-107
+    # myEnergy += ParaCoulombInter[idx] * (n0[ri]+n1[ri]) * (n0[rj]+n1[rj])
     for term in sim.vmc_state.hamiltonian.coulomb_inter_terms
         i, j = term.site_i, term.site_j
         V_ij = term.coefficient
         # For spin models: n0[ri]+n1[ri] = 1 always (one electron per site)
-        local_energy += V_ij * 1.0 * 1.0
+        contrib = V_ij * 1.0 * 1.0
+        coulomb_contrib += contrib
+        local_energy += contrib
     end
 
     # C implementation: HundCoupling terms
-    # Line 118: myEnergy -= ParaHundCoupling[idx] * (n0[ri]*n0[rj] + n1[ri]*n1[rj])
-    # CRITICAL: negative sign!
+    # Reference: calham_real.c Line 114-120
+    # myEnergy -= ParaHundCoupling[idx] * (n0[ri]*n0[rj] + n1[ri]*n1[rj])
+    # CRITICAL: negative sign in line 118!
     for term in sim.vmc_state.hamiltonian.hund_terms
         i, j = term.site_i, term.site_j
         J_ij = term.coefficient
         n0_i, n1_i = get_site_occupations(sim, i)
         n0_j, n1_j = get_site_occupations(sim, j)
-        # Negative sign in C implementation
-        local_energy -= J_ij * (n0_i * n0_j + n1_i * n1_j)
+        # Reference: calham_real.c Line 118 - negative sign
+        contrib = -J_ij * (n0_i * n0_j + n1_i * n1_j)
+        hund_contrib += contrib
+        local_energy += contrib
     end
 
     # C implementation: ExchangeCoupling terms
-    # Line 168-170: tmp = GreenFunc2(...0,1) + GreenFunc2(...1,0); myEnergy += Para * tmp
+    # Reference: calham_real.c Line 163-172
+    # tmp = GreenFunc2_real(ri,rj,rj,ri,0,1,...) + GreenFunc2_real(ri,rj,rj,ri,1,0,...)
+    # myEnergy += ParaExchangeCoupling[idx] * tmp
     for term in sim.vmc_state.hamiltonian.exchange_terms
         i, j = term.site_i, term.site_j
         J_ij = term.coefficient
 
-        # Calculate 2-body Green functions
+        # Reference: calham_real.c Line 168-169
+        # Calculate 2-body Green functions via locgrn_real.c Line 80-164
         tmp = 0.0
         tmp += calculate_green_func2_real(sim, i, j, j, i, 0, 1)
         tmp += calculate_green_func2_real(sim, i, j, j, i, 1, 0)
 
-        local_energy += J_ij * tmp
+        # Reference: calham_real.c Line 170
+        contrib = J_ij * tmp
+        exchange_contrib += contrib
+        local_energy += contrib
     end
 
+    # Temporarily disable debug output to speed up execution
+    # Will analyze energy structure separately
+
     # C implementation: Check for finite energy
+    # Reference: vmccal.c (energy validation)
     if !isfinite(real(local_energy)) || !isfinite(imag(local_energy))
         println("WARNING: Non-finite local energy, returning fallback")
         return T(0.0)
