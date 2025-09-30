@@ -40,6 +40,11 @@ mutable struct PreciseStochasticReconfiguration{T<:Union{Float64,ComplexF64}}
     diagonal_shift::Float64
     eigenvalue_cutoff::Float64
 
+    # C-compatible stabilization parameters
+    dsr_opt_red_cut::Float64  # DSROptRedCut: threshold for redundant direction truncation
+    dsr_opt_sta_del::Float64  # DSROptStaDel: diagonal stabilization factor
+    parameter_mask::Vector{Bool}  # Which parameters to optimize (after redundancy check)
+
     # Conjugate gradient parameters
     use_cg::Bool
     cg_max_iterations::Int
@@ -69,34 +74,38 @@ mutable struct PreciseStochasticReconfiguration{T<:Union{Float64,ComplexF64}}
 
     function PreciseStochasticReconfiguration{T}(n_parameters::Int, n_samples::Int) where {T}
         new{T}(
-            n_parameters, n_samples,
-            zeros(T, n_parameters, n_parameters),
-            zeros(T, n_parameters),
-            zeros(T, n_parameters),
-            zeros(T, n_parameters, n_samples),
-            zeros(T, n_parameters, n_samples),
-            zeros(T, n_samples),
-            ones(Float64, n_samples),
-            1e-4,  # regularization
-            1e-3,  # diagonal_shift
-            1e-10, # eigenvalue_cutoff
-            false, # use_cg
-            100,   # cg_max_iterations
-            1e-6,  # cg_tolerance
-            zeros(T, n_parameters),
-            zeros(T, n_parameters),
-            zeros(T, n_parameters),
-            false, # use_svd
-            1e12,  # condition_number_threshold
-            0.1,   # max_parameter_change
-            zeros(Float64, n_parameters),
-            1.0,   # overlap_condition_number
-            0.02,  # optimization_step_size
-            zeros(T, n_parameters),
-            zeros(T, n_parameters, n_parameters),
-            0.0,
-            zeros(T, n_parameters),
-            zeros(T, n_parameters, n_parameters)
+            n_parameters,                           # n_parameters
+            n_samples,                              # n_samples
+            zeros(T, n_parameters, n_parameters),   # overlap_matrix
+            zeros(T, n_parameters),                 # force_vector
+            zeros(T, n_parameters),                 # parameter_delta
+            zeros(T, n_parameters, n_samples),      # gradients
+            zeros(T, n_parameters, n_samples),      # energy_gradients
+            zeros(T, n_samples),                    # energy_samples
+            ones(Float64, n_samples),               # sample_weights
+            1e-4,                                   # regularization
+            1e-3,                                   # diagonal_shift
+            1e-10,                                  # eigenvalue_cutoff
+            0.001,                                  # dsr_opt_red_cut (DSROptRedCut)
+            0.01,                                   # dsr_opt_sta_del (DSROptStaDel)
+            trues(n_parameters),                    # parameter_mask
+            false,                                  # use_cg
+            100,                                    # cg_max_iterations
+            1e-6,                                   # cg_tolerance
+            zeros(T, n_parameters),                 # cg_residual
+            zeros(T, n_parameters),                 # cg_direction
+            zeros(T, n_parameters),                 # cg_temp
+            false,                                  # use_svd
+            1e12,                                   # condition_number_threshold
+            0.1,                                    # max_parameter_change
+            zeros(Float64, n_parameters),           # overlap_eigenvalues
+            1.0,                                    # overlap_condition_number
+            0.02,                                   # optimization_step_size
+            zeros(T, n_parameters),                 # temp_vector
+            zeros(T, n_parameters, n_parameters),   # temp_matrix
+            0.0,                                    # wc
+            zeros(T, n_parameters),                 # ho_accum
+            zeros(T, n_parameters, n_parameters)    # oo_accum
         )
     end
 end
@@ -105,17 +114,28 @@ PreciseStochasticReconfiguration(n_parameters::Int, n_samples::Int; T=ComplexF64
     PreciseStochasticReconfiguration{T}(n_parameters, n_samples)
 
 """
-    configure_optimization!(sr::PreciseStochasticReconfiguration{T}, config::OptimizationConfig) where {T}
+    configure_optimization!(sr::PreciseStochasticReconfiguration{T}, config::OptimizationConfig;
+                           dsr_opt_red_cut=nothing, dsr_opt_sta_del=nothing) where {T}
 
 Configure the stochastic reconfiguration optimizer with optimization settings.
+Optionally override C-compatible stabilization parameters.
 """
-function configure_optimization!(sr::PreciseStochasticReconfiguration{T}, config::OptimizationConfig) where {T}
+function configure_optimization!(sr::PreciseStochasticReconfiguration{T}, config::OptimizationConfig;
+                                dsr_opt_red_cut=nothing, dsr_opt_sta_del=nothing) where {T}
     sr.regularization = config.regularization_parameter
     sr.optimization_step_size = config.learning_rate
     sr.diagonal_shift = config.regularization_parameter * 10
     sr.use_cg = config.use_sr_cg
     sr.cg_max_iterations = config.sr_cg_max_iter
     sr.cg_tolerance = config.sr_cg_tol
+
+    # Override C-compatible parameters if provided
+    if dsr_opt_red_cut !== nothing
+        sr.dsr_opt_red_cut = Float64(dsr_opt_red_cut)
+    end
+    if dsr_opt_sta_del !== nothing
+        sr.dsr_opt_sta_del = Float64(dsr_opt_sta_del)
+    end
 
     # Resize arrays if necessary
     if size(sr.overlap_matrix, 1) != sr.n_parameters
@@ -201,12 +221,69 @@ function compute_overlap_matrix_precise!(sr::PreciseStochasticReconfiguration{T}
 end
 
 """
+    apply_redundant_direction_truncation!(sr::PreciseStochasticReconfiguration{T}) where {T}
+
+Apply C-compatible redundant direction truncation based on diagonal elements.
+This implements the DSROptRedCut mechanism from mVMC stcopt.c:
+- Compute diagonal elements S[i][i] = ⟨O_i* O_i⟩ - ⟨O_i*⟩²
+- Find max diagonal: sDiagMax
+- Set threshold: diagCutThreshold = sDiagMax * DSROptRedCut
+- Disable parameters with diagonal < threshold
+"""
+function apply_redundant_direction_truncation!(sr::PreciseStochasticReconfiguration{T}) where {T}
+    # Compute diagonal variances (before regularization)
+    diag_variances = zeros(Float64, sr.n_parameters)
+    for i in 1:sr.n_parameters
+        diag_variances[i] = real(sr.overlap_matrix[i, i])
+    end
+
+    # Find max diagonal variance
+    max_diag = maximum(diag_variances)
+
+    # Apply threshold: disable parameters with variance < max * DSROptRedCut
+    threshold = max_diag * sr.dsr_opt_red_cut
+    n_cut = 0
+    n_opt = 0
+
+    for i in 1:sr.n_parameters
+        if diag_variances[i] < threshold
+            sr.parameter_mask[i] = false  # Disable this parameter
+            n_cut += 1
+        else
+            sr.parameter_mask[i] = true   # Enable this parameter
+            n_opt += 1
+        end
+    end
+
+    # Report (for debugging)
+    if n_cut > 0
+        # println("  SR: Truncated $n_cut redundant directions (threshold=$(threshold), max_diag=$(max_diag))")
+    end
+
+    return n_opt, n_cut
+end
+
+"""
     regularize_overlap_matrix!(sr::PreciseStochasticReconfiguration{T}) where {T}
 
 Apply regularization to the overlap matrix for numerical stability.
+Implements both standard regularization and C-compatible DSROptStaDel.
 """
 function regularize_overlap_matrix!(sr::PreciseStochasticReconfiguration{T}) where {T}
-    # Diagonal shift regularization
+    # First apply redundant direction truncation (C-compatible)
+    apply_redundant_direction_truncation!(sr)
+
+    # C-compatible diagonal stabilization (DSROptStaDel)
+    # Add DSROptStaDel * max(diagonal) to all diagonal elements
+    diag_values = [real(sr.overlap_matrix[i, i]) for i in 1:sr.n_parameters]
+    max_diag = maximum(abs.(diag_values))
+    sta_del_value = sr.dsr_opt_sta_del * max_diag
+
+    for i in 1:sr.n_parameters
+        sr.overlap_matrix[i, i] += T(sta_del_value)
+    end
+
+    # Additional diagonal shift regularization (original implementation)
     for i in 1:sr.n_parameters
         sr.overlap_matrix[i, i] += T(sr.diagonal_shift)
     end
@@ -217,6 +294,15 @@ function regularize_overlap_matrix!(sr::PreciseStochasticReconfiguration{T}) whe
         regularization_strength = sr.regularization * matrix_norm / sr.n_parameters
         for i in 1:sr.n_parameters
             sr.overlap_matrix[i, i] += T(regularization_strength)
+        end
+    end
+
+    # Zero out rows/columns for masked parameters
+    for i in 1:sr.n_parameters
+        if !sr.parameter_mask[i]
+            sr.overlap_matrix[i, :] .= zero(T)
+            sr.overlap_matrix[:, i] .= zero(T)
+            sr.overlap_matrix[i, i] = one(T)  # Set diagonal to 1 to avoid singularity
         end
     end
 end
@@ -313,6 +399,13 @@ function compute_force_vector_precise!(sr::PreciseStochasticReconfiguration{T}, 
     for i in 1:n_params
         sr.force_vector[i] -= conj(sr.temp_vector[i]) * weighted_energy
     end
+
+    # Apply parameter mask (zero out force for masked parameters)
+    for i in 1:n_params
+        if !sr.parameter_mask[i]
+            sr.force_vector[i] = zero(T)
+        end
+    end
 end
 
 """
@@ -332,6 +425,13 @@ function solve_sr_equations_direct!(sr::PreciseStochasticReconfiguration{T}) whe
 
         # Apply step size
         sr.parameter_delta .*= T(-sr.optimization_step_size)
+
+        # Apply parameter mask (zero out updates for masked parameters)
+        for i in 1:sr.n_parameters
+            if !sr.parameter_mask[i]
+                sr.parameter_delta[i] = zero(T)
+            end
+        end
 
         # Limit parameter changes for stability
         limit_parameter_changes!(sr)
