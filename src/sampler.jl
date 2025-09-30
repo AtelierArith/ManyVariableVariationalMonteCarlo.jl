@@ -88,6 +88,9 @@ mutable struct VMCState{T<:Union{Float64,ComplexF64}}
     # Observable manager
     observable_manager::Union{Nothing,Any}  # Will be ObservableManager{T}
 
+    # General data storage for VMC calculations
+    data::Dict{String,Any}
+
     function VMCState{T}(
         n_electrons::Int,
         n_sites::Int,
@@ -111,6 +114,7 @@ mutable struct VMCState{T<:Union{Float64,ComplexF64}}
             0,
             nothing,
             nothing,
+            Dict{String,Any}(),
         )
     end
 end

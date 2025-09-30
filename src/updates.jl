@@ -36,6 +36,9 @@ Enumeration of different Monte Carlo update types.
     EXCHANGE_HOPPING
     PAIR_CREATION_ANNIHILATION
     CLUSTER_UPDATE
+    HOPPING
+    EXCHANGE
+    LOCALSPINFLIP
 end
 
 """

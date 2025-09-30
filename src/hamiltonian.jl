@@ -398,8 +398,13 @@ function calculate_hund_energy(ham::Hamiltonian{T}, electron_numbers::Vector{Int
         nj_up = n_up[term.site_j]
         nj_down = n_down[term.site_j]
 
-        # C implementation formula with negative sign already included in coefficient
-        hund_energy = ni_up * nj_up + ni_down * nj_down
+        # Full Hund coupling term implementation
+        # H_Hund = n_i↑*n_j↑ + n_i↓*n_j↓ - n_i↑*n_j↓ - n_i↓*n_j↑ - (n_i↑+n_i↓)*(n_j↑+n_j↓)/4
+        parallel_term = ni_up * nj_up + ni_down * nj_down
+        cross_term = ni_up * nj_down + ni_down * nj_up
+        interaction_term = (ni_up + ni_down) * (nj_up + nj_down) / 4
+
+        hund_energy = parallel_term - cross_term - interaction_term
 
         energy += term.coefficient * hund_energy
     end
