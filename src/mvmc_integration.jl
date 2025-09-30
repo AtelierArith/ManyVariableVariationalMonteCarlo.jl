@@ -207,22 +207,14 @@ end
 Parse mVMC idx.def header to get count, e.g., "NOrbitalIdx 64".
 """
 function read_idx_count(path::String, key::String)
-    if !isfile(path)
-        return 0
-    end
-
-    try
-        open(path, "r") do f
-            for line in eachline(f)
-                s = strip(line)
-                if startswith(s, key)
-                    parts = split(s)
-                    return parse(Int, parts[end])
-                end
+    open(path, "r") do f
+        for line in eachline(f)
+            s = strip(line)
+            if startswith(s, key)
+                parts = split(s)
+                return parse(Int, parts[end])
             end
         end
-    catch
-        return 0
     end
     return 0
 end
@@ -349,9 +341,6 @@ Lattice geometry structures for enhanced compatibility.
 struct EnhancedChainLattice
     length::Int
 end
-
-# Add Base.length method for EnhancedChainLattice
-Base.length(lattice::EnhancedChainLattice) = lattice.length
 
 struct EnhancedSquareLattice
     width::Int
@@ -1944,11 +1933,6 @@ function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
     n_elec = sim.vmc_state.n_electrons
     n_sites = sim.config.nsites
     n_up = div(n_elec, 2)
-
-    # Early return if no electrons
-    if n_elec == 0 || n_sites == 0
-        return
-    end
 
     if sim.config.model == :Spin
         # Spin model: propose swapping spins at two arbitrary sites of opposite spin (global exchange)

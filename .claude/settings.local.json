@@ -4,9 +4,7 @@
       "Bash(julia:*)",
       "Bash(grep:*)",
       "Read(/Users/atelierarith/work/atelierarith/**)",
-      "Read(/Users/atelierarith/work/**)",
-      "Bash(tee:*)",
-      "Read(//private/tmp/**)"
+      "Read(/Users/atelierarith/work/**)"
     ],
     "deny": [],
     "ask": []

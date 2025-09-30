@@ -10,11 +10,8 @@ using Plots
 # ╔═╡ 215b9c5f-13db-4c79-8db5-c1ff120ccc33
 using DelimitedFiles
 
-# ╔═╡ 37c8637f-6b06-4387-a9a0-b4a4e495cbdc
-scatter(readdlm("output/zvo_out_001.dat")[:, 1])
-
-# ╔═╡ dc292e3e-9fb7-4cd2-91b9-258b0857ba11
-scatter(readdlm("../mVMC/samples/Standard/Spin/HeisenbergChain/output/zvo_out_001.dat")[:, 1])
+# ╔═╡ 0034674a-6599-40b2-8ec5-d555bdd41a8f
+plot(readdlm("output/zvo_out_001.dat")[:, 1])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1122,7 +1119,6 @@ version = "1.9.2+0"
 # ╔═╡ Cell order:
 # ╠═ce970862-9d04-11f0-0acd-3fe9aa44df93
 # ╠═215b9c5f-13db-4c79-8db5-c1ff120ccc33
-# ╠═37c8637f-6b06-4387-a9a0-b4a4e495cbdc
-# ╠═dc292e3e-9fb7-4cd2-91b9-258b0857ba11
+# ╠═0034674a-6599-40b2-8ec5-d555bdd41a8f
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

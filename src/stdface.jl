@@ -339,18 +339,6 @@ function generate_site_coordinates(geometry::LatticeGeometry{T}) where {T}
     return coords
 end
 
-# Import EnhancedChainLattice if defined in mvmc_integration
-# This method handles EnhancedChainLattice from mvmc_integration.jl
-function generate_site_coordinates(lattice::Any)
-    # Check if this is an EnhancedChainLattice by checking for :length field
-    if hasfield(typeof(lattice), :length)
-        L = getfield(lattice, :length)
-        # Return 1D coordinates for chain
-        return reshape(Float64.(0:L-1), L, 1)
-    end
-    error("Cannot generate site coordinates for lattice type $(typeof(lattice))")
-end
-
 """
     generate_neighbor_list(geometry::LatticeGeometry{T}, max_distance::T=2.0) where {T}
 
