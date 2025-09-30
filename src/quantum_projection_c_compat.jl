@@ -114,7 +114,7 @@ function init_qp_weight!(qp::CCompatQuantumProjection{T}) where {T}
         end
     else
         # Full spin projection with Gauss-Legendre quadrature
-        gauss_legendre!(qp.beta_points, qp.gl_weights, 0.0, π, qp.n_sp_gauss_leg)
+        gauss_legendre!(qp.beta_points, qp.gl_weights, 0.0, Float64(π), qp.n_sp_gauss_leg)
 
         for i in 1:qp.n_sp_gauss_leg
             beta = qp.beta_points[i]
@@ -180,8 +180,34 @@ function gauss_legendre!(x::Vector{Float64}, w::Vector{Float64}, a::Float64, b::
         return
     end
 
-    # Use standard [-1,1] interval first
-    x_std, w_std = gausslegendre(n)
+    # Compute Gauss-Legendre nodes and weights on [-1,1] using Newton's method
+    # This is a simplified implementation matching the C code approach
+    x_std = zeros(Float64, n)
+    w_std = zeros(Float64, n)
+
+    # Find roots of Legendre polynomial P_n
+    for i in 1:n
+        # Initial guess
+        xi = cos(π * (i - 0.25) / (n + 0.5))
+
+        # Newton iteration
+        for iter in 1:100
+            p = legendre_poly(xi, n)
+            dp = legendre_poly_derivative(xi, n)
+
+            xi_new = xi - p / dp
+            if abs(xi_new - xi) < 1e-14
+                xi = xi_new
+                break
+            end
+            xi = xi_new
+        end
+
+        x_std[i] = xi
+        # Weight: 2 / ((1 - xi^2) * (P'_n(xi))^2)
+        dp = legendre_poly_derivative(xi, n)
+        w_std[i] = 2.0 / ((1.0 - xi * xi) * dp * dp)
+    end
 
     # Transform to [a,b] interval
     for i in 1:n
@@ -212,6 +238,25 @@ function legendre_poly(x::Float64, n::Int)
             p1 = p2
         end
         return p1
+    end
+end
+
+"""
+    legendre_poly_derivative(x::Float64, n::Int) -> Float64
+
+Calculate derivative of Legendre polynomial P'_n(x).
+Uses the relation: (1 - x^2)P'_n(x) = n(P_{n-1}(x) - xP_n(x))
+"""
+function legendre_poly_derivative(x::Float64, n::Int)
+    if n == 0
+        return 0.0
+    elseif n == 1
+        return 1.0
+    else
+        pn = legendre_poly(x, n)
+        pn_1 = legendre_poly(x, n - 1)
+        # P'_n(x) = n(P_{n-1}(x) - xP_n(x)) / (1 - x^2)
+        return n * (pn_1 - x * pn) / (1.0 - x * x)
     end
 end
 

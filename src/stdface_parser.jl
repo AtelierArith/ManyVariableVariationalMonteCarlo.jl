@@ -106,6 +106,10 @@ mutable struct StdFaceParameters
     FlushFile::Bool
     NFileFlushInterval::Int
 
+    # Sublattice computed parameters
+    NCellsub::Int
+    NSym::Int
+
     function StdFaceParameters()
         new(
             # Lattice parameters - defaults
@@ -130,7 +134,9 @@ mutable struct StdFaceParameters
             # Output control
             1, true, "local", false,
             # File flush
-            false, 0
+            false, 0,
+            # Sublattice computed
+            1, 1
         )
     end
 end
@@ -162,9 +168,17 @@ function parse_stdface_def(filename::String)
                 key = strip(key)
                 value = strip(value)
 
+                # Remove inline comments
+                if contains(value, "#")
+                    value = strip(split(value, "#")[1])
+                end
+
                 # Remove quotes from string values
                 if startswith(value, "\"") && endswith(value, "\"")
                     value = value[2:end-1]
+                elseif startswith(value, "\"") && !endswith(value, "\"")
+                    # Handle case where quote is not closed (remove leading quote)
+                    value = value[2:end]
                 end
 
                 # Parse based on key
@@ -172,6 +186,9 @@ function parse_stdface_def(filename::String)
             end
         end
     end
+
+    # Calculate sublattice parameters
+    calculate_sublattice_params!(params)
 
     return params
 end
@@ -182,6 +199,13 @@ end
 Parse a single parameter and update the StdFaceParameters object.
 """
 function parse_parameter!(params::StdFaceParameters, key::AbstractString, value::AbstractString)
+    # Strip quotes from value if present
+    if startswith(value, "\"") && endswith(value, "\"")
+        value = value[2:end-1]
+    elseif startswith(value, "\"") && !endswith(value, "\"")
+        value = value[2:end]
+    end
+
     # Convert key to lowercase for case-insensitive matching
     key_lower = lowercase(key)
 
@@ -459,5 +483,31 @@ function print_stdface_summary(params::StdFaceParameters)
     println("    NSROptItrSmp = $(params.NSROptItrSmp)")
     println("    NVMCSample = $(params.NVMCSample)")
     println("    2Sz = $(params.TwoSz)")
+    println("    NCellsub = $(params.NCellsub)")
+    println("    NSym = $(params.NSym)")
     println()
+end
+
+"""
+    calculate_sublattice_params!(params::StdFaceParameters)
+
+Calculate sublattice parameters NCellsub and NSym from Lsub, Wsub, Hsub.
+Based on StdFace_InitSiteSub() in mVMC C implementation.
+"""
+function calculate_sublattice_params!(params::StdFaceParameters)
+    # For chain lattice (1D), NCellsub = Lsub
+    if lowercase(params.lattice) == "chain" || lowercase(params.lattice) == "chainlattice"
+        params.NCellsub = params.Lsub
+    # For 2D lattices, NCellsub = Lsub * Wsub
+    elseif lowercase(params.lattice) in ["square", "triangular", "honeycomb", "kagome", "ladder"]
+        params.NCellsub = params.Lsub * params.Wsub
+    # For 3D lattices, NCellsub = Lsub * Wsub * Hsub
+    else
+        params.NCellsub = params.Lsub * params.Wsub * params.Hsub
+    end
+
+    # NSym (number of translation symmetries) equals NCellsub
+    params.NSym = params.NCellsub
+
+    return nothing
 end

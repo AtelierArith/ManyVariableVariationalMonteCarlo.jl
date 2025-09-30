@@ -147,6 +147,155 @@ function initialize_fsz_state!(
 end
 
 """
+    generate_initial_electron_config_with_2sz(n_sites::Int, n_elec::Int, two_sz::Int,
+                                              loc_spn::Vector{Int}, rng) -> (ele_idx, ele_spn, ele_cfg, ele_num)
+
+Generate initial electron configuration with 2Sz constraint.
+Based on MakeInitialSample_fsz() in mVMC C implementation (vmcmake_fsz.c).
+
+# Arguments
+- `n_sites`: Number of lattice sites
+- `n_elec`: Number of electrons (Ne)
+- `two_sz`: Total 2Sz value (must be even or -1 for unconserved)
+- `loc_spn`: Local spin flags (1 for local spin site, 0 for itinerant)
+- `rng`: Random number generator
+
+# Returns
+- `ele_idx`: Electron index array [2*Ne] - which site each electron occupies
+- `ele_spn`: Electron spin array [2*Ne] - spin of each electron (0=up, 1=down)
+- `ele_cfg`: Electron configuration array [2*n_sites] - which electron at each site
+- `ele_num`: Electron number array [2*n_sites] - occupation number at each site
+"""
+function generate_initial_electron_config_with_2sz(
+    n_sites::Int,
+    n_elec::Int,
+    two_sz::Int,
+    loc_spn::Vector{Int},
+    rng,
+)
+    # For spin systems where all sites are local spins: each site has exactly one electron
+    n_local_spin = count(==(1), loc_spn)
+    is_pure_spin_system = (n_local_spin == n_sites && n_elec == n_sites)
+
+    n_size = is_pure_spin_system ? n_sites : 2 * n_elec
+    n_site2 = 2 * n_sites
+
+    # Initialize arrays
+    ele_idx = fill(-1, n_size)
+    ele_spn = fill(-1, n_size)
+    ele_cfg = fill(-1, n_site2)
+    ele_num = zeros(Int, n_site2)
+
+    # Determine initial 2Sz
+    if two_sz == -1
+        tmp_two_sz = 0
+    else
+        if two_sz % 2 != 0
+            error("2Sz must be even, got $(two_sz)")
+        end
+        tmp_two_sz = two_sz ÷ 2
+    end
+
+    # Assign spins to electrons
+    if is_pure_spin_system
+        # For pure spin systems: one electron per site
+        n_up = (n_sites + 2*tmp_two_sz) ÷ 2
+        for x_mi in 0:(n_size-1)
+            if x_mi < n_up
+                ele_spn[x_mi+1] = 0  # Up spin
+            else
+                ele_spn[x_mi+1] = 1  # Down spin
+            end
+        end
+    else
+        # General case
+        for x_mi in 0:(n_size-1)
+            if x_mi < n_elec + tmp_two_sz
+                ele_spn[x_mi+1] = 0  # Up spin
+            else
+                ele_spn[x_mi+1] = 1  # Down spin
+            end
+        end
+    end
+
+    # Place local spin electrons
+    # For spin systems, each local spin site gets exactly one electron
+    # We need to place them carefully to satisfy 2Sz constraint
+
+    # Collect local spin sites
+    local_spin_sites = [ri for ri in 0:(n_sites-1) if loc_spn[ri+1] == 1]
+    n_local_spin = length(local_spin_sites)
+
+    if n_local_spin > 0
+        # For spin systems: n_local_spin == 2*n_elec typically
+        # Each local spin site gets one electron (either up or down)
+
+        # Shuffle sites for randomness
+        shuffled_sites = shuffle(rng, local_spin_sites)
+
+        # Assign electrons to local spin sites
+        x_mi = 0
+        for ri in shuffled_sites
+            if x_mi < n_size
+                si = ele_spn[x_mi+1]
+                ele_cfg[ri+1 + si*n_sites] = x_mi
+                ele_idx[x_mi+1] = ri
+                x_mi += 1
+            else
+                break
+            end
+        end
+    end
+
+    # Place itinerant electrons
+    # Check if there are any itinerant sites
+    n_itinerant = count(==(0), loc_spn)
+
+    if n_itinerant > 0
+        for x_mi in 0:(n_size-1)
+            if ele_idx[x_mi+1] == -1
+                si = ele_spn[x_mi+1]
+                # Find empty itinerant site
+                local ri
+                max_attempts = n_sites * 100
+                attempt = 0
+                found = false
+
+                while attempt < max_attempts
+                    ri = rand(rng, 0:(n_sites-1))
+                    if ele_cfg[ri+1 + si*n_sites] == -1 && loc_spn[ri+1] == 0
+                        found = true
+                        break
+                    end
+                    attempt += 1
+                end
+
+                if !found
+                    error("Could not place itinerant electron after $max_attempts attempts. " *
+                          "n_itinerant=$n_itinerant, remaining electrons=$(count(==(-1), ele_idx))")
+                end
+
+                ele_cfg[ri+1 + si*n_sites] = x_mi
+                ele_idx[x_mi+1] = ri
+            end
+        end
+    else
+        # All sites are local spins, all electrons should already be placed
+        n_unplaced = count(==(-1), ele_idx)
+        if n_unplaced > 0
+            error("No itinerant sites but $n_unplaced electrons remain unplaced")
+        end
+    end
+
+    # Calculate occupation numbers
+    for rsi in 0:(n_site2-1)
+        ele_num[rsi+1] = (ele_cfg[rsi+1] < 0) ? 0 : 1
+    end
+
+    return (ele_idx, ele_spn, ele_cfg, ele_num)
+end
+
+"""
     FSZHamiltonian{T}
 
 Hamiltonian specialized for FSZ calculations.

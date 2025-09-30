@@ -724,3 +724,110 @@ function benchmark_updates(n_site::Int = 10, n_elec::Int = 5, n_iterations::Int 
     println("  Two electron acceptance rate: $(stats.two_electron.acceptance_rate)")
     println("  Exchange hopping acceptance rate: $(stats.exchange_hopping.acceptance_rate)")
 end
+
+"""
+    make_candidate_hopping_csz(ele_idx, ele_cfg, ele_num, ele_spn, n_sites, rng)
+
+Make a candidate for spin-conserving hopping (csz = conserved Sz).
+For spin systems with NExUpdatePath=2.
+Based on makeCandidate_hopping_csz() in mVMC C implementation.
+
+Returns: (mi, ri, rj, s, t, reject_flag)
+- mi: electron index
+- ri: current site
+- rj: new site
+- s: current spin
+- t: new spin (same as s for csz)
+- reject_flag: true if move should be rejected
+"""
+function make_candidate_hopping_csz(
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    ele_spn::Vector{Int},
+    n_sites::Int,
+    rng,
+)
+    n_size = length(ele_idx)
+
+    # Select random electron
+    mi = rand(rng, 1:n_size)
+    ri = ele_idx[mi]  # Current site (0-based in C, 1-based in Julia)
+    s = ele_spn[mi]   # Spin
+    t = s  # Spin conserving: t = s
+
+    # Select random destination site
+    rj = rand(rng, 1:n_sites)
+
+    # Check if destination is occupied (same spin sector)
+    if ele_cfg[rj + s * n_sites] != -1
+        return (mi, ri, rj, s, t, true)  # Reject if occupied
+    end
+
+    return (mi, ri, rj, s, t, false)
+end
+
+"""
+    make_candidate_local_spin_flip_conduction(ele_idx, ele_cfg, ele_num, ele_spn, n_sites, rng)
+
+Make a candidate for local spin flip in conduction band.
+For systems where 2Sz is not conserved (TwoSz == -1).
+Based on makeCandidate_LocalSpinFlip_conduction() in mVMC C implementation.
+
+This flips the spin of an electron at a randomly chosen site.
+
+Returns: (mi, ri, rj, s, t, reject_flag)
+"""
+function make_candidate_local_spin_flip_conduction(
+    ele_idx::Vector{Int},
+    ele_cfg::Vector{Int},
+    ele_num::Vector{Int},
+    ele_spn::Vector{Int},
+    n_sites::Int,
+    rng,
+)
+    n_size = length(ele_idx)
+
+    # Select random electron
+    mi = rand(rng, 1:n_size)
+    ri = ele_idx[mi]  # Current site
+    s = ele_spn[mi]   # Current spin
+    t = 1 - s  # Flip spin: 0 -> 1 or 1 -> 0
+
+    rj = ri  # Same site (local spin flip)
+
+    # Check if destination spin sector is occupied
+    if ele_cfg[rj + t * n_sites] != -1
+        return (mi, ri, rj, s, t, true)  # Reject if occupied
+    end
+
+    return (mi, ri, rj, s, t, false)
+end
+
+"""
+    get_update_type_for_spin_system(n_ex_update_path::Int, two_sz::Int, rng)
+
+Get update type for spin systems based on NExUpdatePath and TwoSz.
+For NExUpdatePath = 2 (spin system):
+- If TwoSz == -1 (not conserved): randomly choose between hopping and spin flip
+- If TwoSz != -1 (conserved): always use spin-conserving hopping
+
+Returns: :HOPPING or :LOCALSPINFLIP
+"""
+function get_update_type_for_spin_system(n_ex_update_path::Int, two_sz::Int, rng)
+    if n_ex_update_path != 2
+        return :HOPPING  # Default
+    end
+
+    if two_sz == -1
+        # Sz not conserved: mix hopping and spin flip
+        if rand(rng) < 0.5
+            return :HOPPING
+        else
+            return :LOCALSPINFLIP
+        end
+    else
+        # Sz conserved: only spin-conserving hopping
+        return :HOPPING
+    end
+end

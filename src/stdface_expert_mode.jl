@@ -142,6 +142,22 @@ function create_lattice_data(params::StdFaceParameters)
         end
 
         return lattice
+
+    # For square lattice
+    elseif lowercase(params.lattice) == "square" || lowercase(params.lattice) == "squarelattice"
+        nsite = params.L * params.W
+        lattice = LatticeData(nsite)
+        lattice.nsiteuc = 1
+
+        # Set local spin flags
+        if lowercase(params.model) == "spin"
+            lattice.locspinflag .= 1  # S = 1/2
+        else
+            lattice.locspinflag .= 0  # No constraint for Hubbard model
+        end
+
+        return lattice
+
     else
         error("Lattice type $(params.lattice) not yet implemented")
     end
