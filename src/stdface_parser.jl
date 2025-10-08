@@ -181,6 +181,20 @@ function parse_stdface_def(filename::String)
         end
     end
 
+    # Apply C implementation logic for parameters if not explicitly set
+    # In C implementation, NSROptItrSmp defaults to NSROptItrStep / 10
+    if params.NSROptItrSmp == 100  # This is the default value from StdFaceParameters()
+        params.NSROptItrSmp = params.NSROptItrStep ÷ 10
+    end
+
+    # C implementation defaults for NVMCSample and RndSeed
+    if params.NVMCSample == 10  # This is the default value from StdFaceParameters()
+        params.NVMCSample = 1000  # C implementation default
+    end
+    if params.RndSeed == 11272  # This is the default value from StdFaceParameters()
+        params.RndSeed = 123456789  # C implementation default
+    end
+
     return params
 end
 

@@ -2170,8 +2170,8 @@ function run_parameter_optimization_original!(sim::VMCSimulation{T}) where {T}
             parameter_update = sim.sr_optimizer.parameter_delta
             update_parameters!(sim.parameters, parameter_update)
 
-            # Update wavefunction components (temporarily disabled for testing)
-            # update_wavefunction_parameters!(sim)
+            # Update wavefunction components
+            update_wavefunction_parameters!(sim)
 
             # Record results
             iter_results = Dict{String,Any}(

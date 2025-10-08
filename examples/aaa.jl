@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.10
+# v0.20.8
 
 using Markdown
 using InteractiveUtils
@@ -14,7 +14,7 @@ using DelimitedFiles
 plot(readdlm("output/zvo_out_001.dat")[:, 1])
 
 # ╔═╡ 523d1cb0-1e09-4ff9-907e-530bb540e78c
-plot(readdlm("../mVMC/samples/Standard/Spin/HeisenbergChain/output/zvo_out_001.dat")[:, 1])
+#plot(readdlm("../mVMC/samples/Standard/Spin/HeisenbergChain/output/zvo_out_001.dat")[:, 1])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """

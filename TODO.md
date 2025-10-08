@@ -1,112 +1,96 @@
-ManyVariableVariationalMonteCarlo.jl — TODO（mVMC との差分）
+# TODO: Missing Features from mVMC C Implementation
 
-目的: mVMC（C 実装）を参照し、本パッケージに未実装/不足している機能のみを簡潔に列挙します。
+Based on analysis of the mVMC C implementation, the following features are supported in the original but not yet implemented in our Julia package:
 
-最終更新: 2025-09-29
+## 1. Advanced Quantum Projections
+- [ ] Multi-orbital quantum projections for multi-orbital Hubbard models
+- [ ] Point group symmetry projections (crystal symmetry)
+- [ ] Time-reversal symmetry projections
+- [ ] Particle-hole symmetry projections
+- [ ] Advanced symmetry operations and cubic symmetry
 
-進捗サマリ（現状の実装）
-- zvo_* 出力: `zvo_result/energy/accept/struct/momentum/corr/cisajs` を実装。4 体系（`cisajscktaltex/cktalt`）とビン分割（`_001` 等）も生成（物理の厳密性は要強化）。
-- Lanczos: `NLanczosMode>0` で `zvo_ls_*`（result/alpha_beta/cisajs）を最小統合。
-- Twist: `TwistX/TwistY` を設定から受け取り、基本的位相を考慮。
-- 機能モジュール: FSZ/Backflow/Advanced Projections（点群・時間反転・粒子正孔）を追加（要検証/最適化）。
-- **VMC基盤修正（2025-09-29）**: 変分モンテカルロの局所エネルギー計算、波動関数比に基づくメトロポリス法、パラメータ最適化の基本機構を実装。
+## 2. Unrestricted Hartree-Fock (UHF) Calculations
+- [ ] ComplexUHF module for multi-orbital, multi-interaction systems
+- [ ] Automatic initial wavefunction generation from UHF results
+- [ ] Orbital optimization functionality
+- [ ] UHF energy calculation and orbital analysis
 
-**重要課題（2025-09-29修正で判明）**
-- **VMC エネルギー最適化の段階的進化**
-  - 現状: エネルギーが一定値（-2.0）で最適化が進行しない
-  - 原因: パラメータ更新幅が小さすぎる、局所エネルギー計算の統計的変動不足
-  - 必要: C実装のような段階的最適化（-0.036 → -7.14）を実現
+## 3. Advanced Sampling Methods
+- [ ] Burn-in sampling with controlled relaxation
+- [ ] Split sampling for parallelization
+- [ ] Adaptive step size adjustment
+- [ ] Block updates for efficient sampling
+- [ ] Autocorrelation analysis
 
-- **統計的変動とエラーバー**
-  - 現状: エラーバーが常に0.0（非現実的）
-  - 必要: 適切なモンテカルロサンプリングによる統計的変動の実現
+## 4. Wannier90 Integration
+- [ ] RESPACK integration for first-principles calculations
+- [ ] Wannier function utilization from Wannier90
+- [ ] Automatic calculation of effective interactions (U, J parameters)
+- [ ] Conversion tools: respack2wan90, wout2geom
 
-- **メトロポリス法の受容率最適化**
-  - 現状: 波動関数比の計算は実装済みだが、受容率が最適でない可能性
-  - 必要: 受容率の監視と調整、効率的なスピン更新アルゴリズム
+## 5. Advanced Physical Quantities
+- [ ] Fourier transform tools for real-space to k-space conversion
+- [ ] Detailed 1-body and 2-body Green function calculations
+- [ ] Dynamic correlation functions (time-dependent)
+- [ ] Spectral function calculations
+- [ ] Momentum distribution analysis
 
-- **変分パラメータの初期化と更新スケール**
-  - 現状: 初期値が小さすぎて（~1e-4）最適化の効果が見えない
-  - 必要: C実装と同等の初期化戦略とパラメータ更新スケール
+## 6. Advanced Parallel Computing
+- [ ] MPI parallelization for large-scale calculations
+- [ ] OpenMP parallelization for multi-threading
+- [ ] Hybrid parallelization (MPI + OpenMP)
+- [ ] Memory optimization for large systems
+- [ ] Distributed memory management
 
-未実装（または部分実装）の機能一覧
-- Wannier90 連携（StdFace_W90）
-  - *_hr.dat 読み込み、格子/軌道情報の統合、二重カウント補正（Hartree/Hartree-U/Full）
-  - XSF 等の補助出力
+## 7. Specialized Optimization Methods
+- [ ] Lanczos method integration (single Lanczos step)
+- [ ] Advanced CG method implementations
+- [ ] Precise stochastic reconfiguration
+- [ ] Automatic parameter adjustment
+- [ ] Optimization with constraints
 
-- UHF/ComplexUHF 初期化
-  - UHF ソルバの呼び出し、UHF 結果からの初期波動関数生成/読み込み
+## 8. Complete Output Format Support
+- [ ] Binary output for large datasets
+- [ ] HDF5 hierarchical data output
+- [ ] Visualization-ready data formats
+- [ ] Checkpointing for calculation restart
+- [ ] Advanced file I/O with multiple formats
 
-- MPI/スケーラブル線形代数
-  - MPI 分散サンプリング/通信最適化（現在は Threads/Distributed ベースの簡易分散のみ）
-  - ScaLAPACK を用いた大規模 SR/固有値処理パス
+## 9. Specialized Lattices and Models
+- [ ] Pyrochlore lattice (3D frustrated)
+- [ ] Kagome lattice (2D frustrated)
+- [ ] Kitaev model (quantum spin liquid)
+- [ ] Multi-orbital models
+- [ ] Complex interaction models
 
-- zvo_cisajs/4体 系の厳密化
-  - 既存ファイル出力の物理厳密化：Wick 展開、DC 項、平均化スキーム、見出し/単位の mVMC 完全互換
-  - 大規模系向けの計算負荷削減（メモリ/時間最適化）
+## 10. Tools and Utilities
+- [ ] greenr2k: Green function k-space conversion
+- [ ] respack2wan90: RESPACK to Wannier90 conversion
+- [ ] wout2geom: Geometry information extraction
+- [ ] gen_frmsf: Frustration information generation
+- [ ] Fourier analysis tools
 
-- Lanczos の本格統合
-  - VMC サンプルからの Krylov 構築、物理量投影、スペクトル/動的相関の出力整備
-  - zvo_ls_* 出力の物理的内容とフォーマットの完全互換
+## 11. Advanced Wavefunctions
+- [ ] Backflow corrections for electron correlation
+- [ ] Advanced RBM implementations
+- [ ] Composite wavefunctions (multiple correlation factors)
+- [ ] Frozen spin functionality
+- [ ] Enhanced Jastrow factors
 
-- **モンテカルロ更新の精緻化（高優先度）**
-  - ブロック・パフィアン更新、2 電子同時更新（FSZ 含む）の物理的比（現状は比=1 等の簡易化）
-  - 大規模ローカルグリーン関数の効率的更新（lslocgrn 系）
-  - **スピン交換更新の最適化**: 現在のスピン交換アルゴリズムの受容率と効率の改善
-  - **局所エネルギー計算の高速化**: スピンフリップ配置での波動関数比計算の最適化
+## 12. Numerical Computing Optimization
+- [ ] BLIS library integration for high-performance linear algebra
+- [ ] ScaLAPACK for parallel linear algebra
+- [ ] Memory management for large systems
+- [ ] Numerical stability improvements
+- [ ] High-precision calculations
 
-- 1 体/4 体グリーン関数の厳密化
-  - 等時 1 体 G の厳密計算（逆行列更新・数値安定化、境界条件/Twist を反映）
-  - 4 体 G と DC 項の計算/平均化/出力の mVMC 互換
+## Priority Implementation Order
+1. **High Priority**: UHF calculations, Wannier90 integration, advanced sampling
+2. **Medium Priority**: Advanced quantum projections, specialized lattices
+3. **Low Priority**: Tools and utilities, advanced output formats
 
-- 反周期境界/ツイスト角の一般化
-  - 任意格子での APBC/Twist、k-グリッド平均、トポロジカル量の計測支援
-
-- **SR/最適化制御の高度化（高優先度）**
-  - 固有値カット、対角カット、パラメータ縮退方向の除去、数値安定化オプション
-  - 実数/複素数混在パラメータ最適化の統合
-  - **学習率とパラメータ更新スケールの調整**: 現在の更新幅（~1e-4）では最適化が進行しない
-  - **勾配計算の精度向上**: 現在の勾配計算が最適化に十分な情報を提供していない可能性
-
-- 出力/I/O の拡張
-  - HDF5/JSON 既存 I/O のスキーマ整備、バイナリ出力（`FlagBinary` 系）
-  - チェックポイント/リスタート（RNG を含むフル状態）
-  - 見出し/単位/整合性の厳密化、後方互換を保った schema テスト
-
-- 多軌道・実材料系
-  - 一般軌道モデル、軌道間相互作用、Wannier90 との端到端ワークフロー
-
-- タイマー/プロファイリング
-  - 詳細タイマー/集計（TimerOutputs 等）、段階別レポート、メモリ監視
-
-- RBM 拡張/連携
-  - ニューロン分類（General/Charge/Spin）、階層 RBM、RBM-Lanczos 連携
-
-テスト観点（追加が必要）
-- **VMC基盤の物理的正当性テスト（最高優先度）**
-  - Heisenberg鎖の基底エネルギー収束テスト（理論値 ~-7.1 vs 現状 -2.0）
-  - エネルギー最適化の段階的進化の確認（C実装との比較）
-  - メトロポリス受容率の監視と最適化
-  - 統計的エラーバーの妥当性検証
-- zvo_* ファイルのスキーマ/ヘッダ/最小内容の検証（特に cisajs/ls 系）
-- 小系での物理量再現（既知の基底エネルギー/相関）
-- FSZ 更新/グリーン関数の整合性テスト
-- Lanczos の固有値回帰/スペクトル形状のスモークテスト
-- APBC/Twist の幾何別サニティチェック、k-平均の数値安定性
-
-開発運用（TODO）
-- CI: GitHub Actions で `julia-actions/setup-julia@v1` + `Pkg.instantiate`/`Pkg.test` を追加
-- フォーマッタ: `JuliaFormatter` を CI に組み込み（差分チェック）
-- 大きな出力（`zvo_*.dat`）は成果物として収集し、VCS には含めない
-
-作業の指針
-- 依存関係: `julia --project -e 'using Pkg; Pkg.instantiate()'`
-- テスト: `julia --project -e 'using Pkg; Pkg.test()'`
-- 絞り込み: `julia --project -e 'using ReTestItems; ReTestItems.runtests(filter="lanczos|output|greens")'`
-
-**2025-09-29修正の成果と次のステップ**
-- **成果**: 変分モンテカルロの基盤（局所エネルギー、波動関数比、メトロポリス法）を実装完了
-- **現状**: エネルギーが波動関数パラメータに依存するようになった（-12.0 → -6.0 → -2.0）
-- **次の目標**: C実装のような段階的最適化（-0.036 → -7.14）を実現
-- **重点課題**: パラメータ更新スケール、統計的変動、受容率最適化
-- **検証**: `julia --project examples/18_stdface_spin_chain_from_file.jl` でHeisenberg鎖の最適化をテスト
+## Notes
+- Many features require external dependencies (MPI, BLIS, ScaLAPACK)
+- Some features may need significant architectural changes
+- Consider implementing core features first, then advanced features
+- Maintain compatibility with existing mVMC workflow

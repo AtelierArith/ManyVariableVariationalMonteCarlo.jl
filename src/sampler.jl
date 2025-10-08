@@ -66,6 +66,9 @@ mutable struct VMCState{T<:Union{Float64,ComplexF64}}
     n_electrons::Int
     n_sites::Int
 
+    # Spin configuration (for spin models)
+    spin_configuration::Vector{Int}  # Spin states: +1 or -1 for each site
+
     # Wavefunction components
     slater_det::Union{Nothing,Any}  # Will be SlaterDeterminant{T}
     rbm_network::Union{Nothing,Any}  # Will be RBMNetwork{T}
@@ -97,11 +100,13 @@ mutable struct VMCState{T<:Union{Float64,ComplexF64}}
     ) where {T<:Union{Float64,ComplexF64}}
         electron_positions = zeros(Int, n_electrons)
         electron_configuration = zeros(Int, n_sites)
+        spin_configuration = zeros(Int, n_sites)  # Initialize spin configuration
         new{T}(
             electron_positions,
             electron_configuration,
             n_electrons,
             n_sites,
+            spin_configuration,
             nothing,
             nothing,
             nothing,

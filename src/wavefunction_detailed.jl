@@ -73,14 +73,28 @@ function compute_gutzwiller_factor!(proj::GutzwillerProjector{T}, state::VMCStat
     n_up = zeros(Int, proj.n_sites)
     n_down = zeros(Int, proj.n_sites)
 
-    n_up_electrons = div(state.n_electrons, 2)
-    for i in 1:n_up_electrons
-        site = state.electron_positions[i]
-        n_up[site] += 1
-    end
-    for i in (n_up_electrons+1):state.n_electrons
-        site = state.electron_positions[i]
-        n_down[site] += 1
+    # Check if we have spin configuration (for spin models)
+    if hasfield(typeof(state), :spin_configuration) && !isempty(state.spin_configuration)
+        # For spin models: use spin configuration directly
+        for site in 1:min(length(state.spin_configuration), proj.n_sites)
+            spin = state.spin_configuration[site]
+            if spin == 1  # Spin up
+                n_up[site] = 1
+            elseif spin == -1  # Spin down
+                n_down[site] = 1
+            end
+        end
+    else
+        # For fermion models: use electron positions
+        n_up_electrons = div(state.n_electrons, 2)
+        for i in 1:n_up_electrons
+            site = state.electron_positions[i]
+            n_up[site] += 1
+        end
+        for i in (n_up_electrons+1):state.n_electrons
+            site = state.electron_positions[i]
+            n_down[site] += 1
+        end
     end
 
     # Compute projection factor
@@ -251,14 +265,28 @@ function compute_jastrow_factor!(jastrow::EnhancedJastrowFactor{T}, state::VMCSt
     n_up = zeros(Int, jastrow.n_sites)
     n_down = zeros(Int, jastrow.n_sites)
 
-    n_up_electrons = div(state.n_electrons, 2)
-    for i in 1:n_up_electrons
-        site = state.electron_positions[i]
-        n_up[site] += 1
-    end
-    for i in (n_up_electrons+1):state.n_electrons
-        site = state.electron_positions[i]
-        n_down[site] += 1
+    # Check if we have spin configuration (for spin models)
+    if hasfield(typeof(state), :spin_configuration) && !isempty(state.spin_configuration)
+        # For spin models: use spin configuration directly
+        for site in 1:min(length(state.spin_configuration), jastrow.n_sites)
+            spin = state.spin_configuration[site]
+            if spin == 1  # Spin up
+                n_up[site] = 1
+            elseif spin == -1  # Spin down
+                n_down[site] = 1
+            end
+        end
+    else
+        # For fermion models: use electron positions
+        n_up_electrons = div(state.n_electrons, 2)
+        for i in 1:n_up_electrons
+            site = state.electron_positions[i]
+            n_up[site] += 1
+        end
+        for i in (n_up_electrons+1):state.n_electrons
+            site = state.electron_positions[i]
+            n_down[site] += 1
+        end
     end
 
     # Onsite contributions
@@ -432,21 +460,35 @@ function compute_rbm_amplitude!(rbm::EnhancedRBMNetwork{T}, state::VMCState{T}) 
     # Convert electron positions to visible units (spin up/down representation)
     visible_config = zeros(Int, rbm.n_visible)
 
-    n_up_electrons = div(state.n_electrons, 2)
-
-    # Spin-up electrons
-    for i in 1:n_up_electrons
-        site = state.electron_positions[i]
-        if site <= rbm.n_sites
-            visible_config[2*site-1] = 1  # Spin-up at site
+    # Check if we have spin configuration (for spin models)
+    if hasfield(typeof(state), :spin_configuration) && !isempty(state.spin_configuration)
+        # For spin models: use spin configuration directly
+        for site in 1:min(length(state.spin_configuration), rbm.n_sites)
+            spin = state.spin_configuration[site]
+            if spin == 1  # Spin up
+                visible_config[2*site-1] = 1
+            elseif spin == -1  # Spin down
+                visible_config[2*site] = 1
+            end
         end
-    end
+    else
+        # For fermion models: use electron positions
+        n_up_electrons = div(state.n_electrons, 2)
 
-    # Spin-down electrons
-    for i in (n_up_electrons+1):state.n_electrons
-        site = state.electron_positions[i]
-        if site <= rbm.n_sites
-            visible_config[2*site] = 1  # Spin-down at site
+        # Spin-up electrons
+        for i in 1:n_up_electrons
+            site = state.electron_positions[i]
+            if site <= rbm.n_sites
+                visible_config[2*site-1] = 1  # Spin-up at site
+            end
+        end
+
+        # Spin-down electrons
+        for i in (n_up_electrons+1):state.n_electrons
+            site = state.electron_positions[i]
+            if site <= rbm.n_sites
+                visible_config[2*site] = 1  # Spin-down at site
+            end
         end
     end
 

@@ -48,6 +48,8 @@ include("lanczos.jl")        # Lanczos method integration
 # Enhanced implementation modules for C-compatibility
 include("stdface_parser.jl")
 include("stdface_expert_mode.jl")
+include("sfmt_rng.jl")
+include("c_compat_initialization.jl")
 include("wavefunction_detailed.jl")
 include("stochastic_reconfiguration_precise.jl")
 include("mvmc_output_format.jl")

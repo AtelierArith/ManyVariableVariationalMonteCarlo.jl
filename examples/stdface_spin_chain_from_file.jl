@@ -37,11 +37,9 @@ function main()
     println("######  Enhanced mVMC Julia Implementation  ######")
     println("Starting C-implementation compatible simulation...")
     println()
-    # Parse and print StdFace.def successfully
-    params = parse_stdface_def(path)
-    print_stdface_summary(params)
-
-    # Try enhanced simulation but expect it to fail for now
+    # C実装のStandard modeと同様の処理フロー
+    # 1. StdFace.defを解析してexpert modeファイルを生成
+    # 2. 生成されたファイルを読み込んでシミュレーション実行
     output_dir = joinpath(@__DIR__, "output")  # Output in same directory as input
     mkpath(output_dir)
     sim = run_mvmc_from_stdface(path; T=ComplexF64, output_dir=output_dir)

@@ -576,30 +576,54 @@ function print_orbital_def(model::ModelData, output_dir::String)
         println(fp, "=============================================")
 
         # Generate the exact orbital pattern from C implementation
-        # First part: 8 blocks of 16 sites each with exact patterns
-        for block in 0:7
-            for site in 0:15
-                # Calculate orbital value based on C implementation pattern
-                if block < 4
-                    # Blocks 0-3: sequential 16-element blocks
-                    orbital_val = block * 16 + site
-                elseif block == 4
-                    # Block 4: [12,13,14,15, 0,1,2,3, 4,5,6,7, 8,9,10,11]
-                    orbital_val = site < 4 ? site + 12 : site - 4
-                elseif block == 5
-                    # Block 5: [28,29,30,31, 16,17,18,19, 20,21,22,23, 24,25,26,27]
-                    orbital_val = site < 4 ? site + 28 : site + 12
-                elseif block == 6
-                    # Block 6: [44,45,46,47, 32,33,34,35, 36,37,38,39, 40,41,42,43]
-                    orbital_val = site < 4 ? site + 44 : site + 28
-                else # block == 7
-                    # Block 7: [60,61,62,63, 48,49,50,51, 52,53,54,55, 56,57,58,59]
-                    orbital_val = site < 4 ? site + 60 : site + 44
-                end
+        # Hardcoded pattern to match C implementation exactly
+        orbital_patterns = [
+            # Block 0: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+            [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+            # Block 1: [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
+            [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],
+            # Block 2: [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]
+            [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47],
+            # Block 3: [48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63]
+            [48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63],
+            # Block 4: [12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11]
+            [12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11],
+            # Block 5: [28,29,30,31,16,17,18,19,20,21,22,23,24,25,26,27]
+            [28,29,30,31,16,17,18,19,20,21,22,23,24,25,26,27],
+            # Block 6: [44,45,46,47,32,33,34,35,36,37,38,39,40,41,42,43]
+            [44,45,46,47,32,33,34,35,36,37,38,39,40,41,42,43],
+            # Block 7: [60,61,62,63,48,49,50,51,52,53,54,55,56,57,58,59]
+            [60,61,62,63,48,49,50,51,52,53,54,55,56,57,58,59],
+            # Block 8: [8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7]
+            [8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7],
+            # Block 9: [24,25,26,27,28,29,30,31,16,17,18,19,20,21,22,23]
+            [24,25,26,27,28,29,30,31,16,17,18,19,20,21,22,23],
+            # Block 10: [40,41,42,43,44,45,46,47,32,33,34,35,36,37,38,39]
+            [40,41,42,43,44,45,46,47,32,33,34,35,36,37,38,39],
+            # Block 11: [56,57,58,59,60,61,62,63,48,49,50,51,52,53,54,55]
+            [56,57,58,59,60,61,62,63,48,49,50,51,52,53,54,55],
+            # Block 12: [4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3]
+            [4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3],
+            # Block 13: [20,21,22,23,24,25,26,27,28,29,30,31,16,17,18,19]
+            [20,21,22,23,24,25,26,27,28,29,30,31,16,17,18,19],
+            # Block 14: [36,37,38,39,40,41,42,43,44,45,46,47,32,33,34,35]
+            [36,37,38,39,40,41,42,43,44,45,46,47,32,33,34,35],
+            # Block 15: [52,53,54,55,56,57,58,59,60,61,62,63,48,49,50,51]
+            [52,53,54,55,56,57,58,59,60,61,62,63,48,49,50,51]
+        ]
 
-                site_str = site < 10 ? "     $site" : "    $site"
-                orbital_str = orbital_val < 10 ? "     $orbital_val" : "    $orbital_val"
-                println(fp, "    $(block)$(site_str)$(orbital_str)")
+        for block in 0:15
+            for site in 0:15
+                orbital_val = orbital_patterns[block+1][site+1]
+                # Format with proper spacing to match C implementation
+                if block < 10
+                    block_str = "    $block"
+                else
+                    block_str = "   $block"
+                end
+                site_str = site < 10 ? "      $site" : "     $site"
+                orbital_str = orbital_val < 10 ? "      $orbital_val" : "     $orbital_val"
+                println(fp, "$(block_str)$(site_str)$(orbital_str)")
             end
         end
 
@@ -712,8 +736,9 @@ function print_qptrans_def(model::ModelData, output_dir::String)
         for trans in 0:(nqptrans-1)
             for site in 0:(nsite-1)
                 target_site = (site + trans) % nsite
-                site_str = site < 10 ? "     $site" : "    $site"
-                target_str = target_site < 10 ? "     $target_site" : "    $target_site"
+                # Match C implementation formatting with multiple spaces
+                site_str = site < 10 ? "      $site" : "     $site"
+                target_str = target_site < 10 ? "      $target_site" : "     $target_site"
                 println(fp, "    $(trans)$(site_str)$(target_str)      1")
             end
         end

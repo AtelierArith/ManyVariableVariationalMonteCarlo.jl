@@ -131,11 +131,21 @@ function load_face_definition(path::AbstractString)
     for raw_line in eachline(path)
         line = strip(_strip_comment(raw_line))
         isempty(line) && continue
+
+        # Handle both '=' format and space-separated format (for namelist.def)
         if occursin('=', line)
             key_str, value_str = split(line, '='; limit = 2)
             key = Symbol(strip(key_str))
             value = _parse_face_value(value_str)
             push!(entries, key => value)
+        else
+            # Handle space-separated format (namelist.def format)
+            parts = split(line)
+            if length(parts) >= 2
+                key = Symbol(strip(parts[1]))
+                value = strip(parts[2])
+                push!(entries, key => value)
+            end
         end
     end
     return FaceDefinition(entries)
@@ -255,15 +265,16 @@ function VMCParameters()
         0,
         0,
         1000,  # nsr_opt_itr_step (matches C implementation)
-        30,    # nsr_opt_itr_smp (matches C implementation)
+        100,   # nsr_opt_itr_smp (matches C implementation: NSROptItrStep/10)
         1,
         1e-3,  # dsr_opt_red_cut (matches C implementation)
         2e-2,  # dsr_opt_sta_del (matches C implementation)
         2e-2,  # dsr_opt_step_dt (matches C implementation)
+        100,   # nsr_opt_cg_max_iter (matches C implementation)
         1e-10, # dsr_opt_cg_tol (matches C implementation)
         10,    # nvmc_warm_up (matches C implementation)
         1,
-        1000,  # nvmc_sample (matches C implementation default)
+        10,    # nvmc_sample (matches C implementation default)
         0,
         1,
         11272,     # rnd_seed (matches C implementation)
@@ -296,18 +307,32 @@ end
 
 function read_modpara_file(path::AbstractString)
     params = VMCParameters()
+    # println("DEBUG: read_modpara_file: Reading from $path")
     for line in eachline(path)
         stripped = strip(_strip_comment(line))
         isempty(stripped) && continue
 
+        # Support both '=' and whitespace as separators
         if occursin('=', stripped)
             key, value = split(stripped, '=', limit = 2)
             key = strip(key)
             value = strip(value)
 
+            # println("DEBUG: read_modpara_file: Found key=$key, value=$value")
             params = _update_vmc_parameter(params, key, value)
+        else
+            # Try splitting by whitespace
+            parts = split(stripped)
+            if length(parts) >= 2
+                key = parts[1]
+                value = parts[2]
+
+                # println("DEBUG: read_modpara_file: Found key=$key, value=$value (whitespace-separated)")
+                params = _update_vmc_parameter(params, key, value)
+            end
         end
     end
+    # println("DEBUG: read_modpara_file: Final params.nsite=$(params.nsite), nsr_opt_itr_step=$(params.nsr_opt_itr_step)")
     return params
 end
 
@@ -329,7 +354,7 @@ function _update_vmc_parameter(
         fields[3] = Int(parsed_value)
     elseif key == "NLanczosMode"
         fields[4] = Int(parsed_value)
-    elseif key == "NStoreO"
+    elseif key == "NStoreO" || key == "NStore"
         fields[5] = Int(parsed_value)
     elseif key == "NSRCG"
         fields[6] = Int(parsed_value)
@@ -339,34 +364,42 @@ function _update_vmc_parameter(
         fields[8] = Int(parsed_value)
     elseif key == "Nsite"
         fields[9] = Int(parsed_value)
-    elseif key == "Ne"
+    elseif key == "Ne" || key == "Ncond"
         fields[10] = Int(parsed_value)
     elseif key == "Nup"
         fields[11] = Int(parsed_value)
     elseif key == "Nsize"
         fields[12] = Int(parsed_value)
     elseif key == "2Sz"
-        fields[15] = Int(parsed_value)
+        fields[15] = Int(parsed_value)  # two_sz is field 15
     elseif key == "NSPGaussLeg"
-        fields[16] = Int(parsed_value)
+        fields[16] = Int(parsed_value)  # nsp_gauss_leg is field 16
+    elseif key == "NSPStot"
+        fields[17] = Int(parsed_value)  # nsp_stot is field 17
+    elseif key == "NMPTrans"
+        fields[18] = Int(parsed_value)  # nmp_trans is field 18
     elseif key == "NSROptItrStep"
-        fields[21] = Int(parsed_value)
+        fields[21] = Int(parsed_value)  # nsr_opt_itr_step is field 21
     elseif key == "NSROptItrSmp"
-        fields[22] = Int(parsed_value)
+        fields[22] = Int(parsed_value)  # nsr_opt_itr_smp is field 22
     elseif key == "DSROptRedCut"
-        fields[24] = Float64(parsed_value)
+        fields[24] = Float64(parsed_value)  # dsr_opt_red_cut is field 24
     elseif key == "DSROptStaDel"
-        fields[25] = Float64(parsed_value)
+        fields[25] = Float64(parsed_value)  # dsr_opt_sta_del is field 25
     elseif key == "DSROptStepDt"
-        fields[26] = Float64(parsed_value)
+        fields[26] = Float64(parsed_value)  # dsr_opt_step_dt is field 26
     elseif key == "NVMCWarmUp"
-        fields[29] = Int(parsed_value)
+        fields[29] = Int(parsed_value)  # nvmc_warm_up is field 29
     elseif key == "NVMCInterval"
-        fields[30] = Int(parsed_value)
+        fields[30] = Int(parsed_value)  # nvmc_interval is field 30
     elseif key == "NVMCSample"
-        fields[31] = Int(parsed_value)
+        fields[31] = Int(parsed_value)  # nvmc_sample is field 31
+    elseif key == "NExUpdatePath"
+        fields[32] = Int(parsed_value)  # nex_update_path is field 32
     elseif key == "RndSeed"
-        fields[34] = Int(parsed_value)
+        fields[34] = Int(parsed_value)  # rnd_seed is field 34
+    elseif key == "NSplitSize"
+        fields[35] = Int(parsed_value)  # nsplit_size is field 35
     end
 
     return VMCParameters(fields...)
@@ -381,8 +414,19 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
     nsites = width * length
     nsite_sub = max(div(nsites, nsublat), 1)
 
+    # Debug output
+    # println("DEBUG: SimulationConfig creation: width=$width, length=$length, nsites=$nsites")
+
     model_sym = Symbol(facevalue(face, :model, String; default = "UnknownModel"))
     lattice_sym = Symbol(facevalue(face, :lattice, String; default = "UnknownLattice"))
+
+    # Detect spin model from exchange interactions
+    if model_sym == :UnknownModel
+        # Check if we have exchange interactions (indicates spin model)
+        if haskey(face, :Exchange) || haskey(face, :J)
+            model_sym = :Spin
+        end
+    end
 
     t = facevalue(face, :t, Float64; default = 1.0)
     u = facevalue(face, :U, Float64; default = 0.0)
@@ -392,8 +436,8 @@ function SimulationConfig(face::FaceDefinition; root::AbstractString = ".")
     nvmc_sample = facevalue(face, :NVMCSample, Int; default = 1000)
     nsr_opt_itr_step = facevalue(face, :NSROptItrStep, Int; default = 100)
     nsr_opt_itr_smp = facevalue(face, :NSROptItrSmp, Int; default = 30)
-    dsr_opt_red_cut = facevalue(face, :DSROptRedCut, Float64; default = 1e-8)
-    dsr_opt_sta_del = facevalue(face, :DSROptStaDel, Float64; default = 1e-2)
+    dsr_opt_red_cut = facevalue(face, :DSROptRedCut, Float64; default = 1e-3)
+    dsr_opt_sta_del = facevalue(face, :DSROptStaDel, Float64; default = 2e-2)
     dsr_opt_step_dt = facevalue(face, :DSROptStepDt, Float64; default = 2e-2)  # Match C implementation default
 
     nlanczos_mode = facevalue(face, :NLanczosMode, Int; default = 0)
@@ -595,8 +639,10 @@ function load_vmc_configuration(namelist_path::AbstractString)
         VMCParameters()
     end
 
-    nsite = facevalue(face, :Nsite, Int; default = params.nsite)
-    ne = facevalue(face, :Ne, Int; default = params.ne)
+    nsite = params.nsite
+    ne = params.ne
+
+    # println("DEBUG: load_vmc_configuration: nsite=$nsite, ne=$ne")
 
     fields = [getfield(params, field) for field in fieldnames(VMCParameters)]
     fields[9] = nsite
@@ -607,5 +653,48 @@ function load_vmc_configuration(namelist_path::AbstractString)
 
     params = VMCParameters(fields...)
 
-    return def_files, params, face
+    # Add modpara.def parameters to face definition
+    push_definition!(face, :NSROptItrStep, params.nsr_opt_itr_step)
+    push_definition!(face, :NSROptItrSmp, params.nsr_opt_itr_smp)
+    push_definition!(face, :DSROptRedCut, params.dsr_opt_red_cut)
+    push_definition!(face, :DSROptStaDel, params.dsr_opt_sta_del)
+    push_definition!(face, :DSROptStepDt, params.dsr_opt_step_dt)
+    push_definition!(face, :NVMCWarmUp, params.nvmc_warm_up)
+    push_definition!(face, :NVMCInterval, params.nvmc_interval)
+    push_definition!(face, :NVMCSample, params.nvmc_sample)
+    push_definition!(face, :RndSeed, params.rnd_seed)
+    push_definition!(face, :NDataIdxStart, params.ndata_idx_start)
+    push_definition!(face, :NDataQtySmp, params.ndata_qty_smp)
+    push_definition!(face, :NExUpdatePath, params.nex_update_path)
+    push_definition!(face, :NSplitSize, params.nsplit_size)
+    push_definition!(face, :NSRCG, params.nsrcg)
+    push_definition!(face, :NSPGaussLeg, params.nsp_gauss_leg)
+    push_definition!(face, :NSPStot, params.nsp_stot)
+    push_definition!(face, :NMPTrans, params.nmp_trans)
+    push_definition!(face, :TwoSz, params.two_sz)
+
+    # Add lattice parameters to face definition for SimulationConfig
+    # For spin chain models, we need to set W and L based on nsite
+    # println("DEBUG: load_vmc_configuration: About to add lattice parameters to face. nsite=$nsite")
+    if nsite > 0
+        # For 1D chain, assume L = nsite and W = 1
+        push_definition!(face, :L, nsite)
+        push_definition!(face, :W, 1)
+        push_definition!(face, :Lsub, 1)
+        push_definition!(face, :Wsub, 1)
+        push_definition!(face, :Height, 1)
+        push_definition!(face, :Hsub, 1)
+
+        # Debug output
+        # println("DEBUG: load_vmc_configuration: Added lattice parameters to face: L=$nsite, W=1")
+        # println("DEBUG: load_vmc_configuration: face[:L] = $(face[:L])")
+        # println("DEBUG: load_vmc_configuration: face[:W] = $(face[:W])")
+    end
+
+    # Create SimulationConfig with the updated face
+    config = SimulationConfig(face; root = dirname(namelist_path))
+
+    # println("DEBUG: Final config.nsr_opt_itr_step = $(config.nsr_opt_itr_step)")
+
+    return def_files, params, face, config
 end
