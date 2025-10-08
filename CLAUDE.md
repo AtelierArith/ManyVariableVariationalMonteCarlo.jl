@@ -17,14 +17,14 @@ C 実装 mVMC を Julia に移植したいです．その際，mVMC が持って
 | **LanczosExtensions.jl** | Lanczos法連携 | `lanczos*.jl`, `physcal_lanczos.c` |
 | **StdFaceInterface.jl** | StdFace入力解析とexpert mode変換 | `stdface_parser.jl`, `stdface_expert_mode.jl`, `StdFace/` (137KB+69KB) |
 | **MVMCFileIO.jl** | 入出力とファイルフォーマット | `io.jl`, `io_advanced.jl`, `mvmc_output_format.jl`, `initfile.c`, `readdef.c` |
-| **MVMCRuntime.jl** | 実行管理とワークフロー | `vmcmain.jl`, `vmccal*.c`, `config.jl`, `parameters.jl` |
+| **mVMCRuntime.jl** | 実行管理とワークフロー | `vmcmain.jl`, `vmccal*.c`, `config.jl`, `parameters.jl` |
 | **MVMCParallel.jl** | 並列化とMPI管理 | `parallel.jl`, `mpi_wrapper.jl`, `safempi*.c` |
 | **MVMCMemory.jl** | メモリ管理 | `memory.jl`, `setmemory.c`, `workspace.c` |
 
 ## パッケージの依存関係構造
 
 ```
-MVMCRuntime.jl (最上位統合パッケージ)
+mVMCRuntime.jl (最上位統合パッケージ)
 ├── StdFaceInterface.jl
 │   └── QuantumLatticeHamiltonians.jl
 ├── MVMCFileIO.jl
@@ -263,7 +263,7 @@ StdFace入力ファイル解析とexpert mode変換
 - `readdef.c`: .defファイル読み込み（94KB）
 - mVMC出力ルーチン群
 
-### 12. MVMCRuntime.jl
+### 12. mVMCRuntime.jl
 全体の実行管理とワークフロー制御
 
 **機能:**
@@ -346,7 +346,7 @@ StdFace入力ファイル解析とexpert mode変換
 13. **MVMCFileIO.jl** - ファイル入出力
 
 ### フェーズ5: 統合・実行環境
-14. **MVMCRuntime.jl** - 実行管理と全体統合
+14. **mVMCRuntime.jl** - 実行管理と全体統合
 
 ## パッケージ間の主要な連携
 
@@ -369,13 +369,13 @@ StdFaceInterface.jl
 MVMCFileIO.jl
     └─ Expert mode .defファイル群を読み込み
     ↓
-MVMCRuntime.jl
+mVMCRuntime.jl
     └─ VMC計算を実行
 ```
 
 ### VMC計算の実行フロー
 ```
-MVMCRuntime.jl (メイン制御)
+mVMCRuntime.jl (メイン制御)
     ↓
 1. 初期化フェーズ
    ├─ MVMCMemory.jl: メモリ確保
