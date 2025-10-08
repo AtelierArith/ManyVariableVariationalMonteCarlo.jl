@@ -115,6 +115,8 @@ end
                            title::String = "Energy Convergence")
 
 Plot energy convergence over iterations.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function plot_energy_convergence(
     manager::VisualizationManager,

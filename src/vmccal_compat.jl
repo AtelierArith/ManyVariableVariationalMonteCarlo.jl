@@ -42,6 +42,8 @@ const MAX_ITER = 100
 
 Main VMC calculation function.
 Matches C function VMCMainCal.
+
+C実装参考: vmccal.c 82行目から326行目まで
 """
 function VMCMainCal(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)
@@ -64,6 +66,8 @@ end
 
 Fixed Sz sector version of main VMC calculation.
 Matches C function VMCMainCal_fsz.
+
+C実装参考: vmccal_fsz.c 82行目から326行目まで
 """
 function VMCMainCal_fsz(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)
@@ -86,6 +90,8 @@ end
 
 Backflow version of main VMC calculation.
 Matches C function VMC_BF_MainCal.
+
+C実装参考: vmccal.c 327行目から570行目まで
 """
 function VMC_BF_MainCal(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)
@@ -108,6 +114,8 @@ end
 
 Clear physical quantities.
 Matches C function clearPhysQuantity.
+
+C実装参考: vmccal.c 571行目から638行目まで
 """
 function clear_phys_quantity()
     # Clear energy quantities

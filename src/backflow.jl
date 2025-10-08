@@ -36,6 +36,8 @@ end
                                  eta_flag=true, smp_eta_flag=false, use_real=false)
 
 Create backflow configuration with default parameters.
+
+C実装参考: slater.c 1行目から1506行目まで
 """
 function create_backflow_configuration(
     n_orbitals::Int,

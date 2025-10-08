@@ -38,6 +38,8 @@ const MAX_ITER = 100
 
 Main Lanczos method calculation.
 Matches C function LanczosMethod.
+
+C実装参考: physcal_lanczos.c 1行目から358行目まで
 """
 function lanczos_method(e::ComplexF64, ip::ComplexF64, ele_idx::Vector{Int},
                        ele_cfg::Vector{Int}, ele_num::Vector{Int},

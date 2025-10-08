@@ -13,6 +13,13 @@ Base.iterate(table::GreenFunctionTable, state) = iterate(table.entries, state)
 Base.length(table::GreenFunctionTable) = length(table.entries)
 Base.getindex(table::GreenFunctionTable, idx::Int) = table.entries[idx]
 
+"""
+    read_initial_green(path::AbstractString)
+
+Read initial Green function data from file.
+
+C実装参考: initfile.c 1行目から243行目まで
+"""
 function read_initial_green(path::AbstractString)
     entries = GreenFunctionEntry[]
     expected = 0

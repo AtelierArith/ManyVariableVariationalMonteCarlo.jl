@@ -48,6 +48,8 @@ end
 
 Read mVMC output file (zqp_opt.dat format).
 Returns array of float values (first two columns: real and imaginary parts).
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function read_mvmc_output(filename::String)
     values = Float64[]

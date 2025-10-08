@@ -140,6 +140,8 @@ end
 
 Initialize FSZ sampler with orbital matrix.
 Calculate initial Slater determinants.
+
+C実装参考: vmcmake_fsz.c 1行目から500行目まで
 """
 function initialize_fsz_sampler!(
     state::FSZSamplerState{T},

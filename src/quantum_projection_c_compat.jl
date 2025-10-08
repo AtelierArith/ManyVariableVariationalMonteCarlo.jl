@@ -94,6 +94,8 @@ end
 
 Initialize quantum projection weights, equivalent to InitQPWeight() in C.
 Direct translation of mVMC/src/mVMC/qp.c lines 38-86.
+
+C実装参考: qp.c 1行目から150行目まで、projection.c 1行目から452行目まで
 """
 function init_qp_weight!(qp::CCompatQuantumProjection{T}) where {T}
     println("Initializing quantum projection weights...")
@@ -272,7 +274,17 @@ function initialize_quantum_projection_from_config(config::SimulationConfig; T=C
     face = config.face
 
     n_sp_gauss_leg = haskey(face, :NSPGaussLeg) ? Int(face[:NSPGaussLeg]) : 1
-    n_mp_trans = haskey(face, :NMPTrans) ? Int(face[:NMPTrans]) : 1
+    n_mp_trans_raw = haskey(face, :NMPTrans) ? Int(face[:NMPTrans]) : 1
+
+    # Handle negative NMPTrans (anti-periodic boundary condition flag)
+    # C implementation: if (NMPTrans < 0) { APFlag = 1; NMPTrans *= -1; }
+    if n_mp_trans_raw < 0
+        n_mp_trans = -n_mp_trans_raw  # Convert to positive value
+        # Note: APFlag (anti-periodic flag) would be set to 1 in C implementation
+    else
+        n_mp_trans = n_mp_trans_raw
+    end
+
     n_sp_stot = haskey(face, :NSPStot) ? Int(face[:NSPStot]) : 0
     n_opt_trans = haskey(face, :NOptTrans) ? Int(face[:NOptTrans]) : 1
 

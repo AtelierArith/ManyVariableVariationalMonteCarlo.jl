@@ -31,6 +31,8 @@ end
     create_fsz_configuration(spin_config::Vector{Int}; use_real=false, optimize_fsz=true)
 
 Create FSZ configuration from a given spin configuration.
+
+C実装参考: vmcmake_fsz.c 1行目から855行目まで
 """
 function create_fsz_configuration(
     spin_config::Vector{Int};

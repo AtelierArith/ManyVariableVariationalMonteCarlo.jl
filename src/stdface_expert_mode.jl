@@ -14,6 +14,8 @@ using Printf
 
 Generate all expert mode .def files from StdFace parameters.
 This is equivalent to the StdFace_main function in the C implementation.
+
+C実装参考: StdFace/src/StdFace_main.c 1行目から500行目まで
 """
 function generate_expert_mode_files(params::StdFaceParameters, output_dir::String)
     mkpath(output_dir)

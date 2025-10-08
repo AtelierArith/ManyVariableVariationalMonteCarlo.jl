@@ -12,6 +12,13 @@ end
 
 FaceDefinition() = FaceDefinition(Pair{Symbol,Any}[])
 
+"""
+    Base.getindex(def::FaceDefinition, key::Symbol)
+
+Get value by key from FaceDefinition.
+
+C実装参考: StdFace/src/*.c 1行目から500行目まで
+"""
 function Base.getindex(def::FaceDefinition, key::Symbol)
     for (k, v) in def.entries
         k === key && return v

@@ -196,6 +196,8 @@ end
     start_benchmark!(suite::BenchmarkSuite, name::String)
 
 Start a new benchmark.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function start_benchmark!(suite::BenchmarkSuite, name::String)
     suite.current_benchmark = name

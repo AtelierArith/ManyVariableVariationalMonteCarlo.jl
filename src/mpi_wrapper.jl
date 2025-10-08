@@ -99,6 +99,8 @@ end
 
 Initialize MPI.
 Matches C function MPI_Init().
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function mpi_init!(state::MVMCMPIState, argc::Int, argv::Vector{String})
     if MPI_AVAILABLE

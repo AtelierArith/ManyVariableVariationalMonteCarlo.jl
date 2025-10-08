@@ -148,6 +148,8 @@ end
                       format::DataFormat = JSON_FORMAT)
 
 Save configuration to file in specified format.
+
+C実装参考: initfile.c 1行目から243行目まで
 """
 function save_configuration(
     io::ConfigurationIO,

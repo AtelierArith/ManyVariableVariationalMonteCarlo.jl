@@ -50,6 +50,8 @@ end
 
 Initialize Slater matrix elements.
 Corresponds to C's UpdateSlaterElm_fcmp() function.
+
+C実装参考: slater.c 1行目から1506行目まで
 """
 function initialize_slater_elements!(slater_data::SlaterMatrixData{T}, sim) where {T}
     n_qp = size(slater_data.slater_elements, 1)

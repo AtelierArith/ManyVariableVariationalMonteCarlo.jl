@@ -100,6 +100,8 @@ EnhancedVMCSimulation(config::SimulationConfig, layout::ParameterLayout; T=Compl
 
 Complete mVMC simulation starting from StdFace.def file.
 This follows the C implementation Standard mode flow exactly.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function run_mvmc_from_stdface(stdface_file::String; T=ComplexF64, output_dir::String="output")
     # Parse StdFace.def
@@ -135,9 +137,7 @@ function run_mvmc_from_stdface(stdface_file::String; T=ComplexF64, output_dir::S
 
     println("Start: Initialize variables for quantum projection.")
     # Initialize quantum projection with C-compatible implementation
-    # Temporarily skip quantum projection initialization to test optimization loop
-    # sim.quantum_projection = initialize_quantum_projection_from_config(config; T=T)
-    sim.quantum_projection = nothing
+    sim.quantum_projection = initialize_quantum_projection_from_config(config; T=T)
     # Print summary after integration functions are loaded
     try
         print_quantum_projection_summary(sim)
@@ -642,15 +642,12 @@ function initialize_enhanced_wavefunction!(sim::EnhancedVMCSimulation{T}) where 
 
     # For spin models, ensure we have some wavefunction components for optimization
     if sim.config.model == :Spin
-        # Initialize a simple RBM for spin model optimization
-        if length(sim.parameters.rbm) == 0
-            # Add some RBM parameters for optimization
+        # Only initialize RBM if parameters are already allocated
+        # Don't dynamically add RBM parameters - respect the original layout
+        if length(sim.parameters.rbm) > 0
+            # Initialize RBM network with existing parameters
             n_visible = 2 * n_sites  # spin up and down
-            n_hidden = max(4, n_sites)  # reasonable number of hidden units
-            n_rbm_params = n_visible * n_hidden + n_hidden  # weights + biases
-            sim.parameters.rbm = zeros(T, n_rbm_params)
-
-            # Initialize RBM network
+            n_hidden = max(1, div(length(sim.parameters.rbm), n_visible + 1))
             sim.wavefunction.rbm = EnhancedRBMNetwork{T}(n_visible, n_hidden, n_sites)
             rng_seed = haskey(sim.config.face, :RndSeed) ? Int(sim.config.face[:RndSeed]) : 11272
             rng = Random.MersenneTwister(rng_seed)
@@ -658,13 +655,9 @@ function initialize_enhanced_wavefunction!(sim::EnhancedVMCSimulation{T}) where 
             set_rbm_parameters!(sim.wavefunction.rbm, sim.parameters.rbm)
         end
 
-        # Initialize Jastrow factor for spin model
-        if length(sim.parameters.proj) == 0
-            # Add some Jastrow parameters for optimization
-            n_proj_params = n_sites  # one parameter per site
-            sim.parameters.proj = zeros(T, n_proj_params)
-
-            # Initialize Jastrow factor
+        # Initialize Jastrow factor for spin model if parameters exist
+        if length(sim.parameters.proj) > 0
+            # Initialize Jastrow factor with existing parameters
             sim.wavefunction.jastrow = EnhancedJastrowFactor{T}(n_sites, n_elec)
             geometry = get_lattice_geometry(sim)
             initialize_neighbor_lists!(sim.wavefunction.jastrow, geometry)
@@ -1956,9 +1949,16 @@ function enhanced_metropolis_step!(sim::EnhancedVMCSimulation{T}, rng) where {T}
 
         if abs(wf_current) > 1e-16
             total_ratio = wf_proposed / wf_current
+            # Ensure ratio is real for VMC
+            total_ratio = real(total_ratio)
         else
             total_ratio = one(T)
         end
+
+        # Debug output for first few iterations
+        # if sim.vmc_state.n_updates < 10
+        #     println("DEBUG: Spin flip at site $old_pos, wf_current=$wf_current, wf_proposed=$wf_proposed, ratio=$total_ratio")
+        # end
 
     else
         # ===== Heavy path for fermion models =====
@@ -3693,6 +3693,9 @@ function calculate_heisenberg_local_energy(sim::EnhancedVMCSimulation{T}) where 
     if isa(sim.vmc_state.hamiltonian, HeisenbergHamiltonian)
         ham = sim.vmc_state.hamiltonian::HeisenbergHamiltonian
 
+        # Get current wavefunction amplitude
+        wf_current = compute_wavefunction_amplitude(sim)
+
         # Heisenberg model: H = J Σ_<i,j> (S_i · S_j)
         for (i, j) in ham.bonds
             # Compute spin-spin interaction
@@ -3707,6 +3710,20 @@ function calculate_heisenberg_local_energy(sim::EnhancedVMCSimulation{T}) where 
             # This contributes 0.5*J when spins are opposite
             if spins[i] != spins[j]
                 local_energy += 0.5 * ham.J
+
+                # Add wavefunction ratio contribution for off-diagonal terms
+                if abs(wf_current) > 1e-16
+                    # Create flipped configuration
+                    flipped_spins = copy(spins)
+                    flipped_spins[i] = -flipped_spins[i]
+                    flipped_spins[j] = -flipped_spins[j]
+
+                    # Calculate wavefunction amplitude for flipped configuration
+                    wf_flipped = compute_wavefunction_amplitude_for_spins(sim, flipped_spins)
+
+                    # Add off-diagonal contribution: J/2 * Ψ(flipped)/Ψ(current)
+                    local_energy += 0.5 * ham.J * real(wf_flipped / wf_current)
+                end
             end
         end
     elseif isa(sim.vmc_state.hamiltonian, Hamiltonian)
@@ -3751,7 +3768,7 @@ function calculate_heisenberg_local_energy(sim::EnhancedVMCSimulation{T}) where 
 
                 # Add off-diagonal contribution: J/2 * Ψ(flipped)/Ψ(current)
                 if abs(wf_current) > 1e-16
-                    local_energy += 0.5 * J_ij * (wf_flipped / wf_current)
+                    local_energy += 0.5 * J_ij * real(wf_flipped / wf_current)
                 end
             end
         end

@@ -18,6 +18,8 @@ using LinearAlgebra
 
 Flush IO if `FlushFile` is enabled in SimulationConfig. Intended for large runs
 where frequent flushing is preferred.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 @inline function maybe_flush(io::IO, sim)
     if sim.config.flush_file
@@ -29,6 +31,8 @@ end
     maybe_flush_interval(io, sim, i::Int)
 
 Flush IO every `NFileFlushInterval` lines when enabled.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 @inline function maybe_flush_interval(io::IO, sim, i::Int)
     N = sim.config.flush_interval
@@ -111,6 +115,8 @@ VMCSimulation(config::SimulationConfig, layout::ParameterLayout; T = ComplexF64)
     initialize_simulation!(sim::VMCSimulation{T}) where {T}
 
 Initialize all components of the VMC simulation.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function initialize_simulation!(sim::VMCSimulation{T}) where {T}
     @info "Initializing VMC simulation..."
@@ -263,6 +269,8 @@ end
     run_simulation!(sim::VMCSimulation{T}) where {T}
 
 Run the complete VMC simulation workflow, equivalent to main() in vmcmain.c.
+
+C実装参考: vmcmain.c 46行目から803行目まで
 """
 function run_simulation!(sim::VMCSimulation{T}) where {T}
     start_time = time()

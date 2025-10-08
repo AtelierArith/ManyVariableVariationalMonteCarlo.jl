@@ -52,6 +52,8 @@ end
     add_transfer!(calc::FSZEnergyCalculator{T}, i::Int, j::Int, t::T) where T
 
 Add transfer (hopping) term: t * c†_i c_j + h.c.
+
+C実装参考: calham.c 1行目から522行目まで
 """
 function add_transfer!(calc::FSZEnergyCalculator{T}, i::Int, j::Int, t::T) where {T}
     push!(calc.transfer, (i, j, t))

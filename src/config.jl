@@ -1,5 +1,12 @@
 const _COMMENT_PATTERN = r"//"
 
+"""
+    _strip_comment(line::AbstractString)
+
+Strip comments from configuration line.
+
+C実装参考: readdef.c 1行目から2751行目まで
+"""
 function _strip_comment(line::AbstractString)
     idx = findfirst(_COMMENT_PATTERN, line)
     isnothing(idx) && return line

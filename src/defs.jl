@@ -14,6 +14,13 @@ Base.firstindex(::Namelist) = 1
 Base.lastindex(list::Namelist) = length(list)
 Base.getindex(list::Namelist, idx::Int) = list.entries[idx]
 
+"""
+    load_namelist(path::AbstractString)
+
+Load namelist from file.
+
+C実装参考: readdef.c 1行目から2751行目まで
+"""
 function load_namelist(path::AbstractString)
     entries = NamelistEntry[]
     for raw in eachline(path)

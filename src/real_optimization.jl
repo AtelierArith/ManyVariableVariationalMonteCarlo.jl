@@ -100,6 +100,8 @@ end
 
 Convert real SR arrays to complex format for compatibility.
 Based on stcopt.c lines 67-81 in mVMC C implementation.
+
+C実装参考: stcopt.c 1行目から192行目まで
 """
 function convert_real_to_complex_sr_arrays!(state::RealOptimizationState)
     if !state.config.all_complex_flag

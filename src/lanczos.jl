@@ -110,6 +110,8 @@ end
     initialize_lanczos_state(T::Type{<:Number}, vector_size::Int, config::LanczosConfiguration)
 
 Initialize Lanczos state with given vector size and configuration.
+
+C実装参考: physcal_lanczos.c 1行目から358行目まで
 """
 function initialize_lanczos_state(
     T::Type{<:Number},

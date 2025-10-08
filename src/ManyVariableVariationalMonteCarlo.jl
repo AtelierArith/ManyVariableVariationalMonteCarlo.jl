@@ -1,3 +1,11 @@
+"""
+ManyVariableVariationalMonteCarlo.jl
+
+Julia implementation of mVMC (many-variable Variational Monte Carlo) method.
+Based on the C reference implementation in mVMC.
+
+C実装参考: vmcmain.c 1行目から803行目まで
+"""
 module ManyVariableVariationalMonteCarlo
 
 # Core modules

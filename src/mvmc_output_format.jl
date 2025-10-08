@@ -30,6 +30,8 @@ end
     open_output_files!(manager::MVMCOutputManager, mode::String="optimization")
 
 Open all necessary output files based on calculation mode.
+
+C実装参考: initfile.c 1行目から243行目まで
 """
 function open_output_files!(manager::MVMCOutputManager, mode::String="optimization")
     close_all_files!(manager)

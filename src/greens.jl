@@ -129,6 +129,8 @@ end
 
 Calculate 1-body Green function <CisAjs>.
 Returns the Green function value.
+
+C実装参考: locgrn.c 1行目から476行目まで
 """
 function green_function_1body!(
     gf::LocalGreenFunction{T},

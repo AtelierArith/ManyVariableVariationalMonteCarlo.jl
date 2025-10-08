@@ -99,6 +99,8 @@ end
 
 Initialize Slater determinant system.
 Matches C function initialize_slater().
+
+C実装参考: slater.c 1行目から1506行目まで
 """
 function initialize_slater!(slater::MVMCSlaterDeterminant, state::MVMCGlobalState)
     # Set system parameters

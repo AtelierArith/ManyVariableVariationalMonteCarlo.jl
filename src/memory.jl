@@ -49,6 +49,8 @@ const GLOBAL_WORKSPACE = WorkspaceManager()
 
 Allocate workspace memory of specified size, expanding if necessary.
 Returns a view into the workspace data.
+
+C実装参考: setmemory.c 1行目から503行目まで
 """
 function allocate_workspace!(ws::Workspace{T}, size::Int) where {T}
     if ws.position + size > ws.size

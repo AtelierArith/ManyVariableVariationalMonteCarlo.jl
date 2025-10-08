@@ -54,6 +54,8 @@ end
 
 Initialize SFMT with single seed.
 Matches C function init_gen_rand() exactly.
+
+C実装参考: sfmt.c 1行目から580行目まで
 """
 function init_gen_rand!(rng::SFMTRngImpl, seed::UInt32)
     state = rng.state
@@ -79,6 +81,8 @@ end
 
 Period certification for SFMT.
 Matches C function period_certification() exactly.
+
+C実装参考: sfmt.c 1行目から580行目まで
 """
 function period_certification!(rng::SFMTRngImpl)
     state = rng.state
@@ -103,6 +107,8 @@ end
 
 Generate 32-bit random number.
 Matches C function gen_rand32() exactly.
+
+C実装参考: sfmt.c 1行目から580行目まで
 """
 function gen_rand32(rng::SFMTRngImpl)::UInt32
     if !rng.initialized

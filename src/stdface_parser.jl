@@ -139,6 +139,8 @@ end
     parse_stdface_def(filename::String) -> StdFaceParameters
 
 Parse a StdFace.def format file and return a StdFaceParameters object.
+
+C実装参考: StdFace/src/*.c 1行目から500行目まで
 """
 function parse_stdface_def(filename::String)
     params = StdFaceParameters()

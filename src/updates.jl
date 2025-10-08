@@ -79,6 +79,15 @@ mutable struct PairCreationAnnihilationUpdate{T<:Union{Float64,ComplexF64}}
     end
 end
 
+"""
+    propose_pair_creation_annihilation(update::PairCreationAnnihilationUpdate{T},
+                                      ele_idx::Vector{Int}, ele_cfg::Vector{Int},
+                                      rng::AbstractRNG) where T
+
+Propose a pair creation/annihilation update.
+
+C実装参考: pfupdate.c 1行目から608行目まで
+"""
 function propose_pair_creation_annihilation(
     update::PairCreationAnnihilationUpdate{T},
     ele_idx::Vector{Int},

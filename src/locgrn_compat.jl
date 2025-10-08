@@ -117,6 +117,8 @@ end
 
 Initialize local Green function system.
 Matches C function initialize_local_green_function().
+
+C実装参考: locgrn.c 1行目から476行目まで
 """
 function initialize_local_green_function!(locgrn::MVMCLocalGreenFunction, state::MVMCGlobalState)
     # Set system parameters

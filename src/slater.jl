@@ -110,6 +110,8 @@ end
     initialize_slater!(slater::SlaterDeterminant{T}, orbital_matrix::Matrix{T})
 
 Initialize Slater determinant from orbital matrix.
+
+C実装参考: slater.c 1行目から1506行目まで
 """
 function initialize_slater!(
     slater::SlaterDeterminant{T},

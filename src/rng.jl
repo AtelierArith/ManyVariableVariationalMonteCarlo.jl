@@ -49,6 +49,8 @@ end
 
 Generate deterministic sequence of seeds for parallel streams.
 Ensures different streams are statistically independent.
+
+C実装参考: sfmt.c 1行目から580行目まで
 """
 function generate_stream_seeds(master_seed::UInt32, n_streams::Int)
     master_rng = StableRNG(master_seed)

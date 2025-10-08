@@ -43,6 +43,8 @@ where u and v are the row/column changes.
 
 # Returns
 - `ratio`: det(M_new) / det(M_old)
+
+C実装参考: pfupdate.c 1行目から608行目まで
 """
 function calculate_ratio_sherman_morrison(
     inv_m::Matrix{T},

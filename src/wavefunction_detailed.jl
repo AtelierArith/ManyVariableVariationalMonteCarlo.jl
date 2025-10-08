@@ -50,6 +50,8 @@ GutzwillerProjector(n_sites::Int, n_electrons::Int; T=ComplexF64) =
     set_gutzwiller_parameters!(proj::GutzwillerProjector{T}, params::Vector{T}) where {T}
 
 Set Gutzwiller parameters for all sites.
+
+C実装参考: projection.c 1行目から452行目まで
 """
 function set_gutzwiller_parameters!(proj::GutzwillerProjector{T}, params::Vector{T}) where {T}
     n_params = min(length(params), proj.n_sites)
@@ -295,7 +297,7 @@ function compute_jastrow_factor!(jastrow::EnhancedJastrowFactor{T}, state::VMCSt
         double_occ = n_up[i] * n_down[i]
 
         # Gutzwiller-type onsite correlation
-        jastrow.current_value += jastrow.onsite_params[i] * double_occ
+        jastrow.current_value += real(jastrow.onsite_params[i]) * double_occ
 
         # Density-dependent terms
         if n_total > 0
@@ -311,12 +313,12 @@ function compute_jastrow_factor!(jastrow::EnhancedJastrowFactor{T}, state::VMCSt
                 n_j = n_up[j] + n_down[j]
 
                 # Density-density correlation
-                jastrow.current_value += jastrow.nn_params[min(i, jastrow.n_sites)] * n_i * n_j
+                jastrow.current_value += real(jastrow.nn_params[min(i, jastrow.n_sites)]) * n_i * n_j
 
                 # Spin-spin correlation
                 sz_i = (n_up[i] - n_down[i]) / 2
                 sz_j = (n_up[j] - n_down[j]) / 2
-                jastrow.current_value += jastrow.spin_params[min(i, jastrow.n_sites)] * sz_i * sz_j
+                jastrow.current_value += real(jastrow.spin_params[min(i, jastrow.n_sites)]) * sz_i * sz_j
             end
         end
     end
@@ -333,7 +335,7 @@ function compute_jastrow_factor!(jastrow::EnhancedJastrowFactor{T}, state::VMCSt
 
                     # Power-law correlation
                     distance = jastrow.distance_matrix[i,j]
-                    correlation = jastrow.longrange_params[lr_idx] * n_i * n_j / (distance^2 + 1)
+                    correlation = real(jastrow.longrange_params[lr_idx]) * n_i * n_j / (distance^2 + 1)
                     jastrow.current_value += correlation
                 end
             end
@@ -511,22 +513,12 @@ function compute_rbm_amplitude!(rbm::EnhancedRBMNetwork{T}, state::VMCState{T}) 
 
     # Hidden layer contribution (log-sum-exp for stability)
     for j in 1:rbm.n_hidden
-        if T <: Complex
-            # For complex case, use log(1 + exp(z))
-            z = rbm.hidden_activations[j]
-            if real(z) > 10  # Prevent overflow
-                rbm.current_amplitude += z
-            else
-                rbm.current_amplitude += log(one(T) + exp(z))
-            end
+        z = rbm.hidden_activations[j]
+        if real(z) > 10  # Prevent overflow
+            rbm.current_amplitude += real(z)  # Use real part only
         else
-            # For real case
-            z = rbm.hidden_activations[j]
-            if z > 10  # Prevent overflow
-                rbm.current_amplitude += z
-            else
-                rbm.current_amplitude += log(one(T) + exp(z))
-            end
+            # Use real part only for stability
+            rbm.current_amplitude += log(1.0 + exp(real(z)))
         end
     end
 

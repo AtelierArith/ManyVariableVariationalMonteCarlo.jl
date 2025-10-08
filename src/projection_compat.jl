@@ -75,6 +75,8 @@ end
 
 Gauss-Legendre quadrature weights and abscissas.
 Matches C function gauleg() from gauleg.c.
+
+C実装参考: gauleg.c 1行目から62行目まで
 """
 function gauleg!(x::Vector{Float64}, w::Vector{Float64}, n::Int)
     if n <= 0

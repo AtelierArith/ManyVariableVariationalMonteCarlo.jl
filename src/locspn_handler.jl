@@ -37,6 +37,8 @@ end
 
 Create LocSpn configuration for spin systems.
 For spin systems, all sites are typically local spins.
+
+C実装参考: readdef.c 1行目から2751行目まで
 """
 function create_loc_spn_config_for_spin_system(n_sites::Int)
     # For spin systems (e.g., Heisenberg), all sites have local spins

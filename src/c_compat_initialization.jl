@@ -41,6 +41,8 @@ Initialize electron configuration exactly like C implementation.
 Based on vmcmake_real.c lines 358-365.
 
 Returns: (ele_idx, ele_spn, ele_cfg, ele_num)
+
+C実装参考: vmcmake.c 1行目から971行目まで
 """
 function initialize_c_compat_electron_config!(init::CCompatInitialization)
     n_sites = init.n_sites

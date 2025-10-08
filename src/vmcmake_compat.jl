@@ -45,6 +45,8 @@ end
 
 Main VMC sampling function.
 Matches C function VMCMakeSample.
+
+C実装参考: vmcmake.c 1行目から971行目まで
 """
 function VMCMakeSample(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)
@@ -99,6 +101,8 @@ end
 
 Make initial sample configuration.
 Matches C function makeInitialSample.
+
+C実装参考: vmcmake.c 1行目から971行目まで
 """
 function make_initial_sample(ele_idx::Vector{Int}, ele_cfg::Vector{Int}, ele_num::Vector{Int},
                              ele_proj_cnt::Vector{Int}, qp_start::Int, qp_end::Int, comm::MPI_Comm)

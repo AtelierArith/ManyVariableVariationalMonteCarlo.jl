@@ -119,6 +119,8 @@ PreciseStochasticReconfiguration(n_parameters::Int, n_samples::Int; T=ComplexF64
 
 Configure the stochastic reconfiguration optimizer with optimization settings.
 Optionally override C-compatible stabilization parameters.
+
+C実装参考: stcopt.c 1行目から192行目まで
 """
 function configure_optimization!(sr::PreciseStochasticReconfiguration{T}, config::OptimizationConfig;
                                 dsr_opt_red_cut=nothing, dsr_opt_sta_del=nothing) where {T}

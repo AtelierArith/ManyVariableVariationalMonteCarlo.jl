@@ -41,6 +41,8 @@ Uses optimized LAPACK-based implementation when available.
 # Throws
 - `ArgumentError` if matrix is not square or not antisymmetric
 - `PfaffianLimitError` if Pfaffian value is below numerical threshold
+
+C実装参考: matrix.c 1行目から500行目まで
 """
 function pfaffian(
     A::Matrix{T};

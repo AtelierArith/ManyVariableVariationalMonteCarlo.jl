@@ -14,6 +14,17 @@ function _check_layout_mask(layout::ParameterLayout, mask::ParameterMask)
 end
 
 
+"""
+    initialize_parameters!(params::ParameterSet, layout::ParameterLayout,
+                          mask::ParameterMask, flags::ParameterFlags;
+                          rng::AbstractRNG = Random.GLOBAL_RNG,
+                          para_qp_opttrans::AbstractVector{<:Number} = ComplexF64[],
+                          rbm_scale::Real = 1.0)
+
+Initialize parameters for VMC simulation.
+
+C実装参考: parameter.c 1行目から310行目まで
+"""
 function initialize_parameters!(
     params::ParameterSet,
     layout::ParameterLayout,

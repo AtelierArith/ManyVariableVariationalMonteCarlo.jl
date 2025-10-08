@@ -64,6 +64,8 @@ end
     initialize_rbm!(rbm::RBMNetwork{T}; scale::Float64 = 0.01, rng::AbstractRNG = Random.GLOBAL_RNG)
 
 Initialize RBM weights and biases with small random values.
+
+C実装参考: rbm.c 1行目から580行目まで
 """
 function initialize_rbm!(
     rbm::RBMNetwork{T};

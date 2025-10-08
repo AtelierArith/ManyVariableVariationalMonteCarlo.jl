@@ -32,6 +32,8 @@ const MAX_ITER = 100
 
 Calculate RBM weight.
 Matches C function WeightRBM.
+
+C実装参考: rbm.c 1行目から580行目まで
 """
 function weight_rbm(rbm_cnt::Vector{ComplexF64})
     z = ComplexF64(0.0)
@@ -54,6 +56,8 @@ end
 
 Calculate logarithm of RBM weight.
 Matches C function LogWeightRBM.
+
+C実装参考: rbm.c 1行目から580行目まで
 """
 function log_weight_rbm(rbm_cnt::Vector{ComplexF64})
     z = ComplexF64(0.0)
@@ -76,6 +80,8 @@ end
 
 Calculate RBM ratio.
 Matches C function RBMRatio.
+
+C実装参考: rbm.c 1行目から580行目まで
 """
 function rbm_ratio(rbm_cnt_new::Vector{ComplexF64}, rbm_cnt_old::Vector{ComplexF64})
     return weight_rbm(rbm_cnt_new) / weight_rbm(rbm_cnt_old)

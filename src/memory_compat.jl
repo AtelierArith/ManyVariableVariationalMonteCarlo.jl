@@ -46,6 +46,8 @@ end
 
 Allocate memory based on definition file counts.
 Matches C function SetMemoryDef().
+
+C実装参考: setmemory.c 1行目から503行目まで
 """
 function set_memory_def!(manager::MVMCMemoryManager, state::MVMCGlobalState)
     # Clear existing allocations

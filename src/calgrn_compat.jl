@@ -42,6 +42,8 @@ const MAX_ITER = 100
 
 Calculate Green functions.
 Matches C function CalculateGreenFunc.
+
+C実装参考: calgrn.c 1行目から213行目まで
 """
 function calculate_green_func(w::Float64, ip::ComplexF64, ele_idx::Vector{Int},
                              ele_cfg::Vector{Int}, ele_num::Vector{Int},

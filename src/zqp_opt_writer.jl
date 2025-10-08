@@ -20,6 +20,8 @@ Write optimized parameters to zqp_opt.dat file in mVMC-compatible format.
 Each parameter is written as:
     real_part imaginary_part 0.0
 All with "% .18e" precision (18 decimal places in scientific notation)
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function write_zqp_opt_file(filename::String, parameters::Vector{T}) where {T}
     open(filename, "w") do f

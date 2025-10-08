@@ -37,6 +37,8 @@ const MAX_ITER = 100
 
 Main stochastic reconfiguration optimization.
 Matches C function StochasticOpt.
+
+C実装参考: stcopt.c 1行目から192行目まで
 """
 function StochasticOpt(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)

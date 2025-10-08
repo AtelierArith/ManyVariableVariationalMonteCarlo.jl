@@ -154,6 +154,8 @@ end
     initialize_vmc_state!(state::VMCState{T}, initial_positions::Vector{Int})
 
 Initialize VMC state with given electron positions.
+
+C実装参考: vmccal.c 1行目から1006行目まで
 """
 function initialize_vmc_state!(state::VMCState{T}, initial_positions::Vector{Int}) where {T}
     if length(initial_positions) != state.n_electrons

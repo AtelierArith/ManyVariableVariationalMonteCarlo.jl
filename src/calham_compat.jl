@@ -31,6 +31,8 @@ const MAX_ITER = 100
 
 Calculate total Hamiltonian energy.
 Matches C function CalculateHamiltonian.
+
+C実装参考: calham.c 32行目から522行目まで
 """
 function calculate_hamiltonian(ip::ComplexF64, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
                               ele_num::Vector{Int}, ele_proj_cnt::Vector{Int}, rbm_cnt::Vector{ComplexF64})
@@ -48,6 +50,8 @@ end
 
 Calculate number operator terms (CoulombIntra, CoulombInter, Hund).
 Matches C function CalculateHamiltonian0.
+
+C実装参考: calham.c 37行目から78行目まで
 """
 function calculate_hamiltonian0(ele_num::Vector{Int})
     n0 = ele_num[1:Nsite]  # Up electrons
@@ -83,6 +87,8 @@ end
 
 Calculate Green function terms.
 Matches C function CalculateHamiltonian1.
+
+C実装参考: calham.c 79行目から522行目まで
 """
 function calculate_hamiltonian1(ip::ComplexF64, ele_idx::Vector{Int}, ele_cfg::Vector{Int},
                                ele_num::Vector{Int}, ele_proj_cnt::Vector{Int})

@@ -94,6 +94,8 @@ end
     add_measurement!(accumulator::ObservableAccumulator{T}, measurement::ObservableMeasurement{T}) where T
 
 Add a measurement to the accumulator.
+
+C実装参考: calham.c 1行目から522行目まで、average.c 1行目から334行目まで
 """
 function add_measurement!(
     accumulator::ObservableAccumulator{T},

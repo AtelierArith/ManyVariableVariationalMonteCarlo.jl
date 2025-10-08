@@ -43,6 +43,8 @@ const MAX_ITER = 100
 
 Main function matching C main.
 Matches C function main.
+
+C実装参考: vmcmain.c 46行目から803行目まで
 """
 function main(argc::Int, argv::Vector{String})
     # Parse command line arguments
@@ -292,6 +294,8 @@ end
 
 VMC parameter optimization workflow.
 Matches C function VMCParaOpt.
+
+C実装参考: vmcmain.c 331行目から530行目まで
 """
 function vmc_para_opt(comm_parent::MPI_Comm, comm_child1::MPI_Comm, comm_child2::MPI_Comm)
     rank, size = MPI_Comm_rank(comm_parent), MPI_Comm_size(comm_parent)
@@ -370,6 +374,8 @@ end
 
 VMC physical calculation workflow.
 Matches C function VMCPhysCal.
+
+C実装参考: vmcmain.c 531行目から639行目まで
 """
 function vmc_phys_cal(comm_parent::MPI_Comm, comm_child1::MPI_Comm, comm_child2::MPI_Comm)
     rank, size = MPI_Comm_rank(comm_parent), MPI_Comm_size(comm_parent)

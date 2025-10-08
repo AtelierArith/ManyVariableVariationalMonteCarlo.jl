@@ -107,6 +107,8 @@ end
     add_gutzwiller_parameter!(jf::JastrowFactor{T}, site::Int, value::T) where T
 
 Add a Gutzwiller parameter for a specific site.
+
+C実装参考: jastrow.c 1行目から580行目まで
 """
 function add_gutzwiller_parameter!(jf::JastrowFactor{T}, site::Int, value::T) where {T}
     if site < 1 || site > jf.n_site

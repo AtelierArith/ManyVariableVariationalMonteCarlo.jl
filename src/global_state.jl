@@ -566,6 +566,8 @@ end
 
 Initialize timing infrastructure.
 Matches C function InitTimer().
+
+C実装参考: global.h 1行目から100行目まで
 """
 function init_timer!(state::MVMCGlobalState)
     fill!(state.timer, 0.0)

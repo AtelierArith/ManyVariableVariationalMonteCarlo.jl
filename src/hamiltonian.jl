@@ -153,6 +153,8 @@ Hamiltonian(n_sites::Int, n_electrons::Int; T = ComplexF64) =
     add_transfer!(ham::Hamiltonian{T}, coeff::T, i::Int, si::Int, j::Int, sj::Int) where {T}
 
 Add a kinetic energy (transfer) term to the Hamiltonian.
+
+C実装参考: calham.c 1行目から522行目まで
 """
 function add_transfer!(
     ham::Hamiltonian{T},
@@ -245,6 +247,8 @@ end
 
 Calculate the Hamiltonian expectation value for a given electron configuration.
 Equivalent to CalculateHamiltonian in the C reference implementation.
+
+C実装参考: calham.c 32行目から522行目まで
 """
 function calculate_hamiltonian(
     ham::Hamiltonian{T},

@@ -76,6 +76,8 @@ end
 
 Read definition file counts.
 Matches C function ReadDefFileNInt().
+
+C実装参考: readdef.c 1行目から2751行目まで
 """
 function read_def_file_n_int!(reader::MVMCParameterReader, state::MVMCGlobalState, comm::Any)
     if !isfile(reader.c_file_name_list_file)

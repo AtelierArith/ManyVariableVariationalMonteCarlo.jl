@@ -87,6 +87,8 @@ end
 
 Calculate new Pfaffian for single electron hop.
 Matches C function CalculateNewPfM.
+
+C実装参考: pfupdate.c 1行目から608行目まで
 """
 function calculate_new_pf_m(ma::Int, s::Int, ele_idx::Vector{Int}, qp_start::Int, qp_end::Int)
     qp_num = qp_end - qp_start

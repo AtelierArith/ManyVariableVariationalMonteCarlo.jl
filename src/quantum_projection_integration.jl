@@ -11,6 +11,8 @@ implementation and the main VMC calculation workflow.
 
 Apply quantum projection to the current wavefunction configuration.
 This modifies the wavefunction amplitude according to quantum number constraints.
+
+C実装参考: projection.c 1行目から452行目まで
 """
 function apply_quantum_projection_to_wavefunction!(
     sim::EnhancedVMCSimulation{T},

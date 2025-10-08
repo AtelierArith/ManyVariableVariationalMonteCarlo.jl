@@ -76,6 +76,8 @@ end
 
 Initialize files for parameter optimization mode.
 Matches C function InitFile() from initfile.c.
+
+C実装参考: initfile.c 1行目から243行目まで
 """
 function init_file!(manager::MVMCFileManager, nvmc_cal_mode::Int, rank::Int)
     if rank != 0

@@ -30,6 +30,8 @@ const MAX_ITER = 100
 
 Calculate weighted average of Wc, Etot, Etot2, Sztot, Sztot2.
 Matches C function WeightAverageWE.
+
+C実装参考: average.c 1行目から334行目まで
 """
 function weight_average_we(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)
@@ -60,6 +62,8 @@ end
 
 Calculate weighted average of SROptOO and SROptHO.
 Matches C function WeightAverageSROpt.
+
+C実装参考: average.c 1行目から334行目まで
 """
 function weight_average_sr_opt(comm::MPI_Comm)
     rank, size = MPI_Comm_rank(comm), MPI_Comm_size(comm)
@@ -184,6 +188,8 @@ end
 
 Calculate average and variance.
 Matches C function CalcAveVar.
+
+C実装参考: avevar.c 1行目から262行目まで
 """
 function calc_ave_var(i::Int, n::Int, ave::Ref{ComplexF64}, var::Ref{Float64})
     # Calculate average

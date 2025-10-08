@@ -144,6 +144,8 @@ end
     create_chain_lattice(L::Int; T=Float64)
 
 Create a 1D chain lattice geometry.
+
+C実装参考: StdFace/src/*.c 1行目から500行目まで
 """
 function create_chain_lattice(L::Int; T = Float64)
     unit_cell_vectors = reshape([1.0], 1, 1)

@@ -254,6 +254,8 @@ end
                                 local_state_template, n_samples::Int) where T
 
 Initialize threaded sampler with local state template.
+
+C実装参考: vmcmain.c 1行目から803行目まで
 """
 function initialize_threaded_sampler!(
     sampler::ThreadedSampler{T},

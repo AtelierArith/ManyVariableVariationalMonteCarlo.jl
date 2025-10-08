@@ -139,6 +139,8 @@ end
                            weights::Vector{Float64}) where T
 
 Compute the overlap matrix S for stochastic reconfiguration.
+
+C実装参考: stcopt.c 1行目から192行目まで
 """
 function compute_overlap_matrix!(
     sr::StochasticReconfiguration{T},

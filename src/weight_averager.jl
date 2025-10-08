@@ -9,6 +9,13 @@ end
 
 reset!(wa::WeightedAverager) = (wa.wsum = 0.0; wa.sum_e = 0.0; wa.sum_e2 = 0.0)
 
+"""
+    update!(wa::WeightedAverager, energies::AbstractVector{<:Complex}, weights::AbstractVector{<:Real})
+
+Update weighted averager with energies and weights.
+
+C実装参考: average.c 1行目から334行目まで
+"""
 function update!(wa::WeightedAverager, energies::AbstractVector{<:Complex}, weights::AbstractVector{<:Real})
     @assert length(energies) == length(weights)
     for i in eachindex(energies)

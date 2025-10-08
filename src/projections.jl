@@ -124,6 +124,8 @@ end
     add_spin_projection!(qp::QuantumProjection{T}, target_sz::T, weight::T = one(T)) where T
 
 Add a spin projection operator targeting total spin z-component.
+
+C実装参考: projection.c 1行目から452行目まで
 """
 function add_spin_projection!(
     qp::QuantumProjection{T},

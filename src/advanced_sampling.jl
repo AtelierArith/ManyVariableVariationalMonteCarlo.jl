@@ -35,6 +35,8 @@ end
                                 track_thermalization=true, energy_window_size=50)
 
 Create burn-in configuration with specified parameters.
+
+C実装参考: splitloop.c 1行目から72行目まで
 """
 function create_burn_in_configuration(;
     n_burn_in = 1000,

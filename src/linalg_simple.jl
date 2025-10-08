@@ -3,6 +3,8 @@ Simplified Linear Algebra backend for ManyVariableVariationalMonteCarlo.jl
 
 Provides basic linear algebra operations without workspace dependencies.
 This file contains only the is_antisymmetric function and references to the main linalg.jl.
+
+C実装参考: matrix.c 1行目から500行目まで
 """
 
 using LinearAlgebra

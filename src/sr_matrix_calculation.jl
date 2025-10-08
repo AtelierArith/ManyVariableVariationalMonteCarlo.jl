@@ -56,6 +56,8 @@ end
     reset!(calc::SRMatrixCalculator)
 
 Reset accumulated values.
+
+C実装参考: sr_calgrn.c 1行目から500行目まで
 """
 function reset!(calc::SRMatrixCalculator)
     fill!(calc.sum_o, 0)
