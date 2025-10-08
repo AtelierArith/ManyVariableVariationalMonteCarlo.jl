@@ -7,8 +7,7 @@
 ```bash
 git clone https://github.com/AtelierArith/ManyVariableVariationalMonteCarlo.jl.git
 cd ManyVariableVariationalMonteCarlo.jl
-git submodule init
-git submodule update
+git submodule update --init --recursive
 julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
