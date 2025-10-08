@@ -154,6 +154,7 @@ function compute_overlap_matrix!(
     fill!(sr.overlap_matrix, zero(T))
 
     # Compute S_ij = <O_i^* O_j> - <O_i^*><O_j>
+    # C実装参考: stcopt.c の S[i][i] = OO[pi+1][pi+1] - OO[0][pi+1] * OO[0][pi+1]
     for i = 1:n_params
         for j = 1:n_params
             # Compute <O_i^* O_j>
@@ -174,6 +175,7 @@ function compute_overlap_matrix!(
             end
 
             if sum_weights > 0
+                # C実装と同じ計算: S[i][j] = OO[i+1][j+1] - OO[i+1][0] * OO[0][j+1]
                 sr.overlap_matrix[i, j] =
                     (sum_oi_oj / sum_weights) -
                     (sum_oi / sum_weights) * (sum_oj / sum_weights)

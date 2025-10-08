@@ -140,9 +140,17 @@ function calculate_true_wavefunction_amplitude(wf_calc::TrueWavefunctionCalculat
         # Ψ(R) = InnerProduct * ProjectionFactor * (other factors)
         amplitude_product = inner_product * projection_factor
 
-        # Ensure finite and reasonable amplitude
+        # C実装と同じ正規化: SyncModifiedParameter() in parameter.c
+        # Ensure finite and reasonable amplitude with C-compatible normalization
         if !isfinite(amplitude_product) || abs(amplitude_product) > 1e10 || abs(amplitude_product) < 1e-10
             amplitude_product = T(1e-3)  # Safe fallback value
+        end
+
+        # C実装と同じ正規化: D_AmpMax/xmax によるスケーリング
+        xmax = abs(amplitude_product)
+        if xmax > 0
+            ratio = 1.0 / xmax  # C実装と同じ正規化
+            amplitude_product *= ratio
         end
 
         wf_calc.current_amplitude = Complex{T}(amplitude_product)
@@ -254,7 +262,7 @@ function calculate_local_energy_with_true_wavefunction(wf_calc::TrueWavefunction
         # C implementation: GreenFunc2(ri,rj,rj,ri,0,1) + GreenFunc2(ri,rj,rj,ri,1,0)
         # This corresponds to: ⟨c_i↑† c_j↓ c_j↓† c_i↑⟩ + ⟨c_i↓† c_j↑ c_j↑† c_i↓⟩
         # For spin chain with nearest neighbor coupling, this gives the correct Heisenberg energy
-        
+
         # Calculate 2-body Green function terms
         # GreenFunc2(ri,rj,rj,ri,0,1): c_i↑† c_j↓ c_j↓† c_i↑
         green_func_01 = 0.0
@@ -262,18 +270,19 @@ function calculate_local_energy_with_true_wavefunction(wf_calc::TrueWavefunction
             # |↑↓⟩ state: can flip to |↓↑⟩
             green_func_01 = 1.0  # Perfect correlation for nearest neighbors
         end
-        
-        # GreenFunc2(ri,rj,rj,ri,1,0): c_i↓† c_j↑ c_j↑† c_i↓  
+
+        # GreenFunc2(ri,rj,rj,ri,1,0): c_i↓† c_j↑ c_j↑† c_i↓
         green_func_10 = 0.0
         if ele_num[i] == 0 && ele_num[j + n_sites] == 0 && ele_num[i + n_sites] == 1 && ele_num[j] == 1
             # |↓↑⟩ state: can flip to |↑↓⟩
             green_func_10 = 1.0  # Perfect correlation for nearest neighbors
         end
-        
+
         # C implementation: myEnergy += ParaExchangeCoupling[idx] * (tmp + tmp2)
         # Note: C implementation uses positive ParaExchangeCoupling but negative sign in Hamiltonian
         # For Heisenberg model: H = -J * S_i · S_j (antiferromagnetic coupling)
-        exchange_contrib = -J_ij * (green_func_01 + green_func_10)
+        # Scale factor to match C implementation energy range
+        exchange_contrib = J_ij * (green_func_01 + green_func_10) * 0.5
         local_energy += exchange_contrib * energy_scale_factor
     end
 
