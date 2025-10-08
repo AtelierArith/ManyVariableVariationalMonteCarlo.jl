@@ -1,3 +1,4 @@
 doc
 output
 .DS_Store
+*.out
