@@ -2,6 +2,8 @@
 
 ## 🚀 Quick Start
 
+Install Julia 1.12.x
+
 ### Installation
 
 ```bash
